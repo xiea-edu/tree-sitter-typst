@@ -63,13 +63,32 @@ export const KIND_MAP = {
   Markup: ['source_file', 'markup'],
   Text: 'text',
 
-  // Phase 2 — remaining markup constructs:
-  // Linebreak, Escape, Shorthand, SmartQuote, Strong, Emph, Raw, RawLang, Link,
-  // Label, Ref, Heading, ListItem, EnumItem, TermItem,
+  Linebreak: 'linebreak',
+  Escape: 'escape',
+  Shorthand: 'shorthand',
+  SmartQuote: 'smart_quote',
+  Strong: 'strong',
+  Emph: 'emph',
+  Raw: 'raw',
+  Link: 'link',
+  Label: 'label',
+  Ref: 'ref',
+  Heading: 'heading',
+  ListItem: 'list_item',
+  EnumItem: 'enum_item',
+  TermItem: 'term_item',
+
+  // The language tag of a fenced raw block. The scanner currently consumes a raw block
+  // as one token, so there is no separate node yet; phase 4 needs one for injections,
+  // which is where embedded-language highlighting comes from.
+  // RawLang,
 
   // ---- math --------------------------------------------------------------
-  // Phase 3:
-  // Equation, Math, MathText, MathIdent, MathFieldAccess, MathShorthand,
+  Equation: 'equation',
+
+  // Phase 3 — math internals. `equation` is currently a single token, so nothing
+  // inside it is modelled yet:
+  // Math, MathText, MathIdent, MathFieldAccess, MathShorthand,
   // MathAlignPoint, MathCall, MathArgs, MathDelimited, MathAttach, MathPrimes,
   // MathFrac, MathRoot,
 

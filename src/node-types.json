@@ -1726,6 +1726,36 @@
     }
   },
   {
+    "type": "emph",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "markup",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "enum_item",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "markup",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "field_access",
     "named": true,
     "fields": {
@@ -2322,6 +2352,21 @@
     }
   },
   {
+    "type": "heading",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "markup",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "import_item_path",
     "named": true,
     "fields": {},
@@ -2684,6 +2729,21 @@
     }
   },
   {
+    "type": "list_item",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "markup",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "markup",
     "named": true,
     "fields": {},
@@ -2724,6 +2784,22 @@
           "named": true
         },
         {
+          "type": "emph",
+          "named": true
+        },
+        {
+          "type": "enum_item",
+          "named": true
+        },
+        {
+          "type": "equation",
+          "named": true
+        },
+        {
+          "type": "escape",
+          "named": true
+        },
+        {
           "type": "field_access",
           "named": true
         },
@@ -2744,6 +2820,10 @@
           "named": true
         },
         {
+          "type": "heading",
+          "named": true
+        },
+        {
           "type": "ident",
           "named": true
         },
@@ -2752,7 +2832,23 @@
           "named": true
         },
         {
+          "type": "label",
+          "named": true
+        },
+        {
           "type": "let_binding",
+          "named": true
+        },
+        {
+          "type": "linebreak",
+          "named": true
+        },
+        {
+          "type": "link",
+          "named": true
+        },
+        {
+          "type": "list_item",
           "named": true
         },
         {
@@ -2761,6 +2857,10 @@
         },
         {
           "type": "loop_continue",
+          "named": true
+        },
+        {
+          "type": "markup",
           "named": true
         },
         {
@@ -2784,7 +2884,19 @@
           "named": true
         },
         {
+          "type": "raw",
+          "named": true
+        },
+        {
+          "type": "ref",
+          "named": true
+        },
+        {
           "type": "set_rule",
+          "named": true
+        },
+        {
+          "type": "shorthand",
           "named": true
         },
         {
@@ -2792,7 +2904,19 @@
           "named": true
         },
         {
+          "type": "smart_quote",
+          "named": true
+        },
+        {
           "type": "str",
+          "named": true
+        },
+        {
+          "type": "strong",
+          "named": true
+        },
+        {
+          "type": "term_item",
           "named": true
         },
         {
@@ -2821,11 +2945,23 @@
         ]
       },
       "items": {
-        "multiple": false,
+        "multiple": true,
         "required": false,
         "types": [
           {
+            "type": "(",
+            "named": false
+          },
+          {
+            "type": ")",
+            "named": false
+          },
+          {
             "type": "*",
+            "named": false
+          },
+          {
+            "type": ",",
             "named": false
           },
           {
@@ -3431,6 +3567,25 @@
     }
   },
   {
+    "type": "ref",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "content_block",
+          "named": true
+        },
+        {
+          "type": "ref_marker",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "renamed_import_item",
     "named": true,
     "fields": {
@@ -3895,6 +4050,11 @@
     }
   },
   {
+    "type": "smart_quote",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "source_file",
     "named": true,
     "root": true,
@@ -3936,6 +4096,22 @@
           "named": true
         },
         {
+          "type": "emph",
+          "named": true
+        },
+        {
+          "type": "enum_item",
+          "named": true
+        },
+        {
+          "type": "equation",
+          "named": true
+        },
+        {
+          "type": "escape",
+          "named": true
+        },
+        {
           "type": "field_access",
           "named": true
         },
@@ -3956,6 +4132,10 @@
           "named": true
         },
         {
+          "type": "heading",
+          "named": true
+        },
+        {
           "type": "ident",
           "named": true
         },
@@ -3964,7 +4144,23 @@
           "named": true
         },
         {
+          "type": "label",
+          "named": true
+        },
+        {
           "type": "let_binding",
+          "named": true
+        },
+        {
+          "type": "linebreak",
+          "named": true
+        },
+        {
+          "type": "link",
+          "named": true
+        },
+        {
+          "type": "list_item",
           "named": true
         },
         {
@@ -3973,6 +4169,10 @@
         },
         {
           "type": "loop_continue",
+          "named": true
+        },
+        {
+          "type": "markup",
           "named": true
         },
         {
@@ -3996,7 +4196,19 @@
           "named": true
         },
         {
+          "type": "raw",
+          "named": true
+        },
+        {
+          "type": "ref",
+          "named": true
+        },
+        {
           "type": "set_rule",
+          "named": true
+        },
+        {
+          "type": "shorthand",
           "named": true
         },
         {
@@ -4004,7 +4216,19 @@
           "named": true
         },
         {
+          "type": "smart_quote",
+          "named": true
+        },
+        {
           "type": "str",
+          "named": true
+        },
+        {
+          "type": "strong",
+          "named": true
+        },
+        {
+          "type": "term_item",
           "named": true
         },
         {
@@ -4155,6 +4379,47 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "strong",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "markup",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "term_item",
+    "named": true,
+    "fields": {
+      "description": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "markup",
+            "named": true
+          }
+        ]
+      },
+      "term": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "markup",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -4594,7 +4859,15 @@
     "named": false
   },
   {
+    "type": "\"",
+    "named": false
+  },
+  {
     "type": "#",
+    "named": false
+  },
+  {
+    "type": "'",
     "named": false
   },
   {
@@ -4719,6 +4992,14 @@
     "named": false
   },
   {
+    "type": "equation",
+    "named": true
+  },
+  {
+    "type": "escape",
+    "named": true
+  },
+  {
     "type": "false",
     "named": false
   },
@@ -4755,6 +5036,10 @@
     "named": true
   },
   {
+    "type": "label",
+    "named": true
+  },
+  {
     "type": "let",
     "named": false
   },
@@ -4762,6 +5047,14 @@
     "type": "line_comment",
     "named": true,
     "extra": true
+  },
+  {
+    "type": "linebreak",
+    "named": true
+  },
+  {
+    "type": "link",
+    "named": true
   },
   {
     "type": "loop_break",
@@ -4788,12 +5081,24 @@
     "named": false
   },
   {
+    "type": "raw",
+    "named": true
+  },
+  {
+    "type": "ref_marker",
+    "named": true
+  },
+  {
     "type": "return",
     "named": false
   },
   {
     "type": "set",
     "named": false
+  },
+  {
+    "type": "shorthand",
+    "named": true
   },
   {
     "type": "show",

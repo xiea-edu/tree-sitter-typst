@@ -47,6 +47,25 @@ module.exports = grammar({
     $.block_comment,
   ],
 
+  // Tokens the external scanner owns, because each needs either lookahead or knowledge
+  // of the preceding character — neither of which a tree-sitter regex can express.
+  // Order must match `enum TokenType` in src/scanner.c.
+  externals: $ => [
+    $.text,             // the stop table plus its continuation rules
+    $.shorthand,        // `~ ... --- -- -?`, and `-` before a digit
+    $._star,            // `*` only outside a word
+    $._underscore,      // `_` only outside a word
+    $._heading_marker,  // `=`+ at line start, followed by a space
+    $._list_marker,     // `-` at line start, followed by a space
+    $._enum_marker,     // `+` or `1.` at line start, followed by a space
+    $._term_marker,     // `/` at line start, followed by a space
+    $.raw,              // backtick fences, matched by count
+    $._atomic_end,      // an embedded value ends unless `.`, `(` or `[` follows
+    $._stmt_end,        // an embedded statement ends at the newline
+    $._line_end,        // a heading or list item ends at the newline
+    $._error_sentinel,  // never matched; signals error recovery to the scanner
+  ],
+
   // Lets keyword tokens win over `ident` without a separate lexical state. Because `-`
   // is an identifier-continue character in Typst, `not-x` correctly lexes as the single
   // identifier `not-x` rather than `not` applied to `-x`.
@@ -84,6 +103,17 @@ module.exports = grammar({
     // `#set foo • [` — a set rule whose arguments are a content block, or the
     // identifier `foo` followed by a separate content block?
     [$._postfixable, $.set_rule],
+
+    // `/ a: b` — a term item, or ordinary text that happens to contain a colon? The
+    // colon is plain text in markup, and only a term item gives it a second meaning.
+    [$._markup_expr, $.term_item],
+
+    // `**` and `__` — an empty strong/emph, or the opening of a nested one? And a run of
+    // markup can always be extended or closed. Typst resolves these while scanning for
+    // the matching delimiter; GLR keeps both readings alive instead.
+    [$.strong],
+    [$.emph],
+    [$.markup],
   ],
 
   rules: {
@@ -91,32 +121,107 @@ module.exports = grammar({
     // markup
     // -----------------------------------------------------------------------
     //
-    // Phase 1 keeps markup minimal: enough to reach code mode and to keep whole files
-    // parsing. Headings, lists, emphasis, raw blocks and math arrive in phase 2 along
-    // with the external scanner that indentation and mode tracking require.
+    // Most markup tokens come from the external scanner, which reproduces typst's
+    // `Lexer::markup` — see src/scanner.c for why they cannot be regexes. Math is still
+    // consumed as a single `equation` token; phase 3 gives it structure.
 
     source_file: $ => repeat($._markup_expr),
 
     _markup_expr: $ => choice(
       $.text,
+      $.escape,
+      $.linebreak,
+      $.shorthand,
+      $.smart_quote,
+      $.strong,
+      $.emph,
+      $.raw,
+      $.link,
+      $.label,
+      $.ref,
+      $.heading,
+      $.list_item,
+      $.enum_item,
+      $.term_item,
+      $.equation,
       $._hash_expr,
+      $._bracket_text,
+      // A bare colon is plain text; `term_item` claims it as a separator where one fits.
+      alias(':', $.text),
     ),
+
+    // Brackets are ordinary text in markup — `a [b] c` is five text nodes, not a content
+    // block. Typst's `markup_expr` tracks a nesting counter and converts both brackets to
+    // `Text`; modelling the balance in the grammar has the same effect, and leaves an
+    // *unbalanced* `]` free to close an enclosing content block.
+    _bracket_text: $ => seq(
+      alias('[', $.text),
+      optional($.markup),
+      alias(']', $.text),
+    ),
+
+    // `\u{1f600}` or `\` plus any single character. A `\` before whitespace or end of
+    // line is a linebreak instead, which falls out of longest-match: `escape` needs two
+    // characters, so a lone `\` can only be `linebreak`.
+    escape: _ => token(choice(/\\u\{[0-9a-fA-F]*\}/, /\\[^ \t\r\n]/)),
+    linebreak: _ => '\\',
+
+    // Typst does not decide opening versus closing here; that is a rendering concern.
+    smart_quote: _ => choice('\'', '"'),
+
+    strong: $ => seq($._star, optional($.markup), $._star),
+    emph: $ => seq($._underscore, optional($.markup), $._underscore),
+
+    // `<name>` — identifier characters plus `:` and `.`.
+    label: _ => token(seq('<', /[_\-:.\p{XID_Continue}]+/u, '>')),
+
+    // `@name` or `@name[supplement]`. The marker excludes a trailing `.` or `:` so that
+    // `see @thm.` ends the reference before the sentence's full stop.
+    ref: $ => seq(
+      $.ref_marker,
+      optional(alias($._content_block_immediate, $.content_block)),
+    ),
+    ref_marker: _ => token(seq(
+      '@',
+      /[_\-\p{XID_Continue}]/u,
+      optional(/[_\-:.\p{XID_Continue}]*[_\-\p{XID_Continue}]/u),
+    )),
+
+    link: _ => token(seq(/https?:\/\//, /[^\s]*/)),
+
+    // Each of these ends at the end of its line; `_line_end` is a zero-width token the
+    // scanner emits when the body is over.
+    heading: $ => seq($._heading_marker, optional($.markup), $._line_end),
+    list_item: $ => seq($._list_marker, optional($.markup), $._line_end),
+    enum_item: $ => seq($._enum_marker, optional($.markup), $._line_end),
+    term_item: $ => seq(
+      $._term_marker,
+      field('term', optional($.markup)),
+      ':',
+      field('description', optional($.markup)),
+      $._line_end,
+    ),
+
+    // Placeholder for phase 3. Consuming an equation as a single token keeps whole
+    // documents parsing without pretending to model math structure; the coverage ledger
+    // still reports every math kind as outstanding.
+    equation: _ => token(seq('$', repeat(choice(/[^$\\]/, /\\./)), '$')),
 
     // A `#` in markup escapes into code mode for exactly one expression. Typst emits the
     // `Hash` as a sibling of the expression rather than a parent, so the expression node
     // must span only the expression itself — hence a hidden rule with an anonymous `#`.
-    _hash_expr: $ => seq('#', $._atomic_expr),
+    // Typst treats the two kinds of embedded expression differently, so they get
+    // different terminators — see the comment in src/scanner.c. Both terminators are
+    // required, which is what keeps markup from resuming in the middle of a code
+    // expression.
+    _hash_expr: $ => choice(
+      seq('#', $._postfixable, $._atomic_end),
+      seq('#', $._hash_statement, choice(';', $._stmt_end)),
+    ),
 
-    // Typst parses a `#`-embedded expression *atomically* (`code_expr_prec(p, true, 0)`),
-    // which excludes binary operators, unary operators and closures. So `#a + b` is the
-    // variable `a` followed by the literal text `+ b`, and `#x => y` is `x` followed by
-    // `=> y`. Postfix `.field` and calls still bind, which is why `#a.b.c` and `#f(1)`
-    // work. To get an operator you parenthesize: `#(a + b)`.
-    //
-    // Statement forms are reachable here because typst's `code_primary` handles the
-    // keywords regardless of atomicity; only their *bodies* are full expressions.
-    _atomic_expr: $ => choice(
-      $._postfixable,
+    // Statement forms reachable directly after `#`. Their bodies are full expressions,
+    // unlike the atomic value case, so only a line break ends them.
+    _hash_statement: $ => choice(
       $.let_binding,
       $.set_rule,
       $.show_rule,
@@ -131,10 +236,6 @@ module.exports = grammar({
       $.func_return,
     ),
 
-    // Runs of ordinary characters. Split at whitespace because Typst emits one `Text`
-    // node per run between trivia. The excluded set grows in phase 2 as markup constructs
-    // claim their sigils.
-    text: _ => token(prec(-1, /[^#\[\]\\\s/]+/)),
 
     // -----------------------------------------------------------------------
     // code
@@ -457,7 +558,13 @@ module.exports = grammar({
       'import',
       field('source', $._expr),
       optional(seq('as', field('alias', $.ident))),
-      optional(seq(':', field('items', choice('*', $.import_items)))),
+      optional(seq(':', field('items', choice(
+        '*',
+        $.import_items,
+        // Parenthesized lists let an import span several lines. The parentheses are
+        // siblings of `import_items` rather than wrapping it, matching typst.
+        seq('(', optional($.import_items), optional(','), ')'),
+      )))),
     )),
 
     import_items: $ => sepBy1(',', choice(

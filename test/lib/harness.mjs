@@ -149,7 +149,19 @@ export function tsBatchSummary(files) {
     fs.rmSync(listFile, { force: true });
   }
 
-  const json = JSON.parse(stdout.slice(stdout.indexOf('{')));
+  // A scanner that fails to compile makes the CLI emit nothing on stdout; without this
+  // the harness would die on an opaque "Unexpected end of JSON input".
+  const brace = stdout.indexOf('{');
+  if (brace === -1) {
+    console.error('tree-sitter produced no output. The parser probably failed to build:\n');
+    try {
+      treeSitter(['parse', files[0]]);
+    } catch (e) {
+      console.error((e.stderr ?? e.stdout ?? String(e)).trim().split('\n').slice(0, 20).join('\n'));
+    }
+    process.exit(1);
+  }
+  const json = JSON.parse(stdout.slice(brace));
   const map = new Map();
   for (const s of json.parse_summaries ?? []) {
     map.set(path.resolve(s.file), { ok: s.successful, bytes: s.bytes });
