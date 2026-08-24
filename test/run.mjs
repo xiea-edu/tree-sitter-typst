@@ -162,17 +162,26 @@ function tierDiff() {
  * Kinds typst produces that we deliberately do not model are listed in UNMAPPED_OK.
  */
 function compareSpans(theirs, mine) {
-  const want = new Set();
+  const have = new Set(mine.map((n) => `${n.start}:${n.end}:${n.kind}`));
+  const out = [];
+
   for (const [start, end, kind] of theirs) {
     const mapped = KIND_MAP[kind];
-    if (mapped === null || UNMAPPED_OK.has(kind)) continue;
-    if (mapped === undefined) continue; // not yet mapped; not a failure
-    for (const name of [].concat(mapped)) want.add(`${start}:${end}:${name}`);
-  }
-  const have = new Set(mine.map((n) => `${n.start}:${n.end}:${n.kind}`));
+    if (mapped === null || mapped === undefined || UNMAPPED_OK.has(kind)) continue;
 
-  const out = [];
-  for (const w of want) if (!have.has(w)) out.push(`missing  ${w}`);
+    // Typst's CST is lossless and marks empty positions with zero-width nodes (an empty
+    // content block still contains a `Markup` node of length 0). tree-sitter does not
+    // produce zero-width named nodes, and their absence is not a structural difference.
+    if (start === end) continue;
+
+    // An array of names means "any one of these is acceptable at this span" — used where
+    // one typst kind legitimately corresponds to more than one of our nodes, e.g.
+    // `Markup` is our `source_file` at the root and our `markup` when nested.
+    const names = [].concat(mapped);
+    if (!names.some((name) => have.has(`${start}:${end}:${name}`))) {
+      out.push(`${kind} at ${start}..${end} -> expected ${names.join('|')}`);
+    }
+  }
   return out;
 }
 

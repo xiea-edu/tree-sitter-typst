@@ -41,7 +41,7 @@ export const UNMAPPED_OK = new Set([
   'PlusEq', 'HyphEq', 'StarEq', 'SlashEq', 'Dots', 'Arrow', 'Root', 'Bang',
 
   // Keywords — anonymous tokens.
-  'Not', 'And', 'Or', 'None', 'Auto', 'Let', 'Set', 'Show', 'Context',
+  'Not', 'And', 'Or', 'Let', 'Set', 'Show', 'Context',
   'If', 'Else', 'For', 'In', 'While', 'Break', 'Continue', 'Return',
   'Import', 'Include', 'As',
 
@@ -56,23 +56,74 @@ export const UNMAPPED_OK = new Set([
  */
 export const KIND_MAP = {
   // ---- markup ------------------------------------------------------------
-  // Phase 2. `Markup` is typst's wrapper around a run of markup content; whether we
-  // emit a matching node is decided when that phase lands.
-  // Markup, Text, Linebreak, Escape, Shorthand, SmartQuote, Strong, Emph,
-  // Raw, RawLang, Link, Label, Ref, Heading, ListItem, EnumItem, TermItem,
+
+  // Typst wraps every run of markup content in `Markup`: at the root, and again inside
+  // each content block, heading, list item and so on. Ours is `source_file` at the root
+  // and `markup` when nested.
+  Markup: ['source_file', 'markup'],
+  Text: 'text',
+
+  // Phase 2 — remaining markup constructs:
+  // Linebreak, Escape, Shorthand, SmartQuote, Strong, Emph, Raw, RawLang, Link,
+  // Label, Ref, Heading, ListItem, EnumItem, TermItem,
 
   // ---- math --------------------------------------------------------------
-  // Phase 3.
+  // Phase 3:
   // Equation, Math, MathText, MathIdent, MathFieldAccess, MathShorthand,
   // MathAlignPoint, MathCall, MathArgs, MathDelimited, MathAttach, MathPrimes,
   // MathFrac, MathRoot,
 
   // ---- code --------------------------------------------------------------
-  // Phase 1.
-  // Code, Ident, Bool, Int, Float, Numeric, Str, CodeBlock, ContentBlock,
-  // Parenthesized, Array, Dict, Named, Keyed, Unary, Binary, FieldAccess,
-  // FuncCall, Args, Spread, Closure, Params, LetBinding, SetRule, ShowRule,
-  // Contextual, Conditional, WhileLoop, ForLoop, ModuleImport, ImportItems,
-  // ImportItemPath, RenamedImportItem, ModuleInclude, LoopBreak, LoopContinue,
-  // FuncReturn, Destructuring, DestructAssignment,
+
+  Code: 'code',
+  CodeBlock: 'code_block',
+  ContentBlock: 'content_block',
+
+  // Literals. `None` and `Auto` are keyword-spelled but behave as value literals, and
+  // typst emits them as leaf nodes just like `Int`, so they belong here and not in the
+  // keyword list.
+  None: 'none',
+  Auto: 'auto',
+  Bool: 'bool',
+  Int: 'int',
+  Float: 'float',
+  Numeric: 'numeric',
+  Str: 'str',
+  Ident: 'ident',
+
+  Parenthesized: 'parenthesized',
+  Array: 'array',
+  Dict: 'dict',
+  Named: 'named',
+  Keyed: 'keyed',
+  Spread: 'spread',
+
+  Unary: 'unary',
+  Binary: 'binary',
+  FieldAccess: 'field_access',
+  FuncCall: 'func_call',
+  Args: 'args',
+
+  Closure: 'closure',
+  Params: 'params',
+  Destructuring: 'destructuring',
+  DestructAssignment: 'destruct_assignment',
+
+  LetBinding: 'let_binding',
+  SetRule: 'set_rule',
+  ShowRule: 'show_rule',
+  Contextual: 'contextual',
+
+  Conditional: 'conditional',
+  WhileLoop: 'while_loop',
+  ForLoop: 'for_loop',
+  LoopBreak: 'loop_break',
+  LoopContinue: 'loop_continue',
+  FuncReturn: 'func_return',
+
+  ModuleImport: 'module_import',
+  ImportItems: 'import_items',
+  ImportItemPath: 'import_item_path',
+  RenamedImportItem: 'renamed_import_item',
+  ModuleInclude: 'module_include',
 };
