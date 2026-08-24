@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # The oracle is the slowest part of a cold build, and it only changes when the
+      # pinned typst-syntax version does.
+      - name: Cache oracle build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            tools/oracle/target
+          key: oracle-${{ matrix.os }}-${{ hashFiles('tools/oracle/Cargo.toml') }}
+
+      # The corpus is fetched, never committed. Cache it so CI isn't at the mercy of
+      # the Typst Universe CDN on every run.
+      - name: Cache corpus
+        uses: actions/cache@v4
+        with:
+          path: corpus
+          key: corpus-v1-${{ hashFiles('scripts/fetch-corpus.mjs') }}
+
+      - run: npm ci
+
+      - name: Build oracle
+        run: npm run oracle:build
+
+      - name: Fetch corpus
+        run: node scripts/fetch-corpus.mjs --packages=200
+
+      # Fails if the committed src/parser.c is stale relative to grammar.js. Consumers
+      # build from the committed C, so a drift here ships a parser nobody can reproduce.
+      - name: Check generated parser is current
+        shell: bash
+        run: |
+          npx tree-sitter generate
+          if ! git diff --quiet -- src/; then
+            echo "::error::src/ is out of date — run 'npx tree-sitter generate' and commit the result"
+            git diff --stat -- src/
+            exit 1
+          fi
+
+      - name: Test
+        run: npm test

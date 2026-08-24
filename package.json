@@ -1,0 +1,44 @@
+{
+  "name": "tree-sitter-typst",
+  "version": "0.1.0",
+  "description": "Tree-sitter grammar for the Typst markup language",
+  "license": "MIT",
+  "keywords": ["parser", "lexer", "tree-sitter", "typst"],
+  "main": "bindings/node",
+  "types": "bindings/node",
+  "files": [
+    "grammar.js",
+    "tree-sitter.json",
+    "binding.gyp",
+    "queries/**",
+    "src/**",
+    "bindings/node/**"
+  ],
+  "scripts": {
+    "generate": "tree-sitter generate",
+    "build": "tree-sitter generate && tree-sitter build",
+    "test": "node test/run.mjs all",
+    "test:corpus": "tree-sitter test",
+    "test:valid": "node test/run.mjs valid",
+    "test:diff": "node test/run.mjs diff",
+    "test:fuzz": "node test/run.mjs fuzz",
+    "test:incremental": "node test/run.mjs incremental",
+    "coverage": "node test/run.mjs coverage",
+    "oracle:build": "cargo build --release --manifest-path tools/oracle/Cargo.toml",
+    "corpus:fetch": "node scripts/fetch-corpus.mjs",
+    "parse": "tree-sitter parse"
+  },
+  "dependencies": {
+    "node-addon-api": "^8.3.0",
+    "node-gyp-build": "^4.8.4"
+  },
+  "devDependencies": {
+    "tree-sitter-cli": "^0.26.13"
+  },
+  "peerDependencies": {
+    "tree-sitter": "^0.25.0"
+  },
+  "peerDependenciesMeta": {
+    "tree-sitter": { "optional": true }
+  }
+}
