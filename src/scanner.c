@@ -31,7 +31,9 @@ enum TokenType {
   LIST_MARKER,
   ENUM_MARKER,
   TERM_MARKER,
-  RAW,
+  RAW_DELIM,
+  RAW_LANG,
+  RAW_CONTENT,
   ATOMIC_END,
   STMT_END,
   LINE_END,
@@ -39,15 +41,23 @@ enum TokenType {
 };
 
 /*
- * The scanner is stateless.
+ * The scanner keeps exactly one piece of state: how many backticks opened the raw block
+ * we are inside, or 0 when we are not inside one.
  *
- * It began with a remembered previous character for the `in_word` test, but that state
- * could not be kept honest: tree-sitter only persists scanner state after a successful
- * external token, and an incremental reparse restores it from an arbitrary earlier
- * point. Deciding `in_word` inside the text run instead — where the preceding character
- * is simply the one just consumed — removes the state and with it a whole class of
- * incremental-parse bugs.
+ * It is deliberately no more than that. An earlier version also remembered the previous
+ * character for the `in_word` test, and that could not be kept honest — tree-sitter only
+ * persists scanner state after a *successful* external token, so the remembered
+ * character survived across every token the built-in lexer produced in between. That
+ * decision now happens inside the text run, where the preceding character is simply the
+ * one just consumed.
+ *
+ * The backtick count is safe where the character was not, because it is written and read
+ * only at real token boundaries inside a raw block, and it round-trips through
+ * serialize/deserialize. The incremental-equivalence tier checks that it actually does.
  */
+typedef struct {
+  uint8_t raw_backticks;
+} Scanner;
 
 // ---------------------------------------------------------------------------
 // character classes
@@ -103,6 +113,22 @@ static bool eat_str(TSLexer *lexer, const char *s) {
     advance(lexer);
   }
   return true;
+}
+
+/**
+ * Whether only blanks separate us from the end of the line.
+ *
+ * Used by the zero-width terminators, which must be decided before any whitespace is
+ * skipped so that they land at the true end of a construct. Trailing blanks are consumed
+ * as skipped characters, which keeps them out of the token while still letting a line
+ * that ends in spaces terminate.
+ */
+static bool at_line_trailer(TSLexer *lexer) {
+  while (!lexer->eof(lexer) &&
+         (lexer->lookahead == ' ' || lexer->lookahead == '\t' || lexer->lookahead == '\r')) {
+    skip(lexer);
+  }
+  return lexer->eof(lexer) || lexer->lookahead == '\n';
 }
 
 /* Typst's `space_or_end`: end of file, whitespace, or the start of a comment. */
@@ -269,30 +295,88 @@ static bool emit_marker_or_text(TSLexer *lexer, unsigned marker,
  * Exactly two backticks are an empty raw block. An unterminated run is an error in
  * typst, and we decline the token so the parser can report it.
  */
-static bool scan_raw(TSLexer *lexer) {
+/*
+ * Raw blocks are emitted in pieces — delimiter, optional language tag, content,
+ * delimiter — rather than as one opaque token, because the language tag and the content
+ * span are what `queries/injections.scm` needs to highlight embedded code.
+ *
+ * The opening fence sets `raw_backticks`; the block ends at the next run of exactly that
+ * many backticks. Whitespace inside is content, so the caller must not skip it.
+ *
+ * We deliberately do NOT reproduce typst's inner segmentation, which splits content into
+ * one `Text` per line after computing a common dedent and emitting `RawTrimmed` nodes
+ * for what it removed. That is presentation — how the block will be laid out — not
+ * syntax an editor needs, and the span comparison excludes it explicitly.
+ */
+static bool scan_raw_open(TSLexer *lexer, Scanner *scanner) {
   unsigned backticks = 0;
-  while (lexer->lookahead == '`') {
+  while (lexer->lookahead == '`' && backticks < 255) {
     advance(lexer);
     backticks++;
+    // Mark after the first backtick so the two-backtick case below can settle on a
+    // one-character delimiter; a tree-sitter lexer cannot rewind, but `mark_end` may be
+    // moved forward again once the full count is known.
+    if (backticks == 1) lexer->mark_end(lexer);
   }
   if (backticks == 0) return false;
 
-  if (backticks == 2) {  // ``
+  if (backticks == 2) {
+    // ``` `` ``` is an empty raw block, which typst represents as two one-character
+    // delimiters. Open with one and let the second one close it; `mark_end` is already
+    // sitting after the first.
+    scanner->raw_backticks = 1;
+  } else {
+    scanner->raw_backticks = (uint8_t)backticks;
     lexer->mark_end(lexer);
-    lexer->result_symbol = RAW;
-    return true;
   }
 
-  unsigned found = 0;
-  while (found < backticks) {
-    if (lexer->eof(lexer)) return false;  // unclosed
-    if (lexer->lookahead == '`') found++;
-    else found = 0;
+  lexer->result_symbol = RAW_DELIM;
+  return true;
+}
+
+/** The closing fence: exactly `n` backticks. */
+static bool scan_raw_close(TSLexer *lexer, Scanner *scanner) {
+  for (unsigned i = 0; i < scanner->raw_backticks; i++) {
+    if (lexer->lookahead != '`') return false;
     advance(lexer);
   }
-
+  scanner->raw_backticks = 0;
   lexer->mark_end(lexer);
-  lexer->result_symbol = RAW;
+  lexer->result_symbol = RAW_DELIM;
+  return true;
+}
+
+/** Everything up to (but not including) the closing fence. */
+static bool scan_raw_content(TSLexer *lexer, Scanner *scanner) {
+  unsigned run = 0;  // consecutive backticks seen so far
+  bool any = false;
+
+  for (;;) {
+    if (lexer->eof(lexer)) {
+      // Unterminated. Give back what we have so the parser can report a missing
+      // delimiter rather than the scanner silently swallowing the rest of the file.
+      lexer->mark_end(lexer);
+      break;
+    }
+    if (lexer->lookahead == '`') {
+      run++;
+      // A run long enough to close the block: stop before it.
+      if (run >= scanner->raw_backticks) break;
+      advance(lexer);
+      any = true;
+      continue;
+    }
+    if (run > 0) {
+      // Backticks too few to close; they are ordinary content.
+      run = 0;
+    }
+    advance(lexer);
+    any = true;
+    lexer->mark_end(lexer);
+  }
+
+  if (!any) return false;
+  lexer->result_symbol = RAW_CONTENT;
   return true;
 }
 
@@ -300,15 +384,14 @@ static bool scan_raw(TSLexer *lexer) {
 // entry point
 // ---------------------------------------------------------------------------
 
-static bool scan_impl(TSLexer *lexer, const bool *valid_symbols);
+static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols);
 
 bool tree_sitter_typst_external_scanner_scan(void *payload, TSLexer *lexer,
                                              const bool *valid_symbols) {
-  (void)payload;
-  return scan_impl(lexer, valid_symbols);
+  return scan_impl((Scanner *)payload, lexer, valid_symbols);
 }
 
-static bool scan_impl(TSLexer *lexer, const bool *valid_symbols) {
+static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
 
   // In an error-recovery state tree-sitter marks every token valid; producing our
   // whitespace-sensitive tokens there does more harm than letting the built-in lexer
@@ -316,21 +399,88 @@ static bool scan_impl(TSLexer *lexer, const bool *valid_symbols) {
   if (valid_symbols[ERROR_SENTINEL]) return false;
 
   /*
-   * A heading, list item or term item ends at the end of its line. Check for that
-   * *before* skipping the newline, so the zero-width terminator lands on the newline
-   * rather than after it — otherwise every such node's span would swallow the line
-   * break and disagree with typst.
+   * Inside a raw block nothing is trivia — every space and newline is content — so this
+   * runs before the whitespace skipping below.
+   *
+   * Content is tried before the closing fence because `scan_raw_content` stops *at* the
+   * fence and reports failure when there is nothing before it, which is exactly the
+   * signal that the block is ready to close.
    */
-  if (valid_symbols[LINE_END]) {
-    while (!lexer->eof(lexer) &&
-           (lexer->lookahead == ' ' || lexer->lookahead == '\t' || lexer->lookahead == '\r')) {
-      skip(lexer);
+  if (scanner->raw_backticks > 0) {
+    if (valid_symbols[RAW_LANG] && scanner->raw_backticks >= 3 &&
+        (iswalpha((wint_t)lexer->lookahead) || lexer->lookahead == '_')) {
+      while (is_id_continue(lexer->lookahead)) advance(lexer);
+      lexer->mark_end(lexer);
+      lexer->result_symbol = RAW_LANG;
+      return true;
     }
-    if (lexer->eof(lexer) || lexer->lookahead == '\n' || lexer->lookahead == ']') {
+    if (valid_symbols[RAW_CONTENT] && scan_raw_content(lexer, scanner)) return true;
+    if (valid_symbols[RAW_DELIM]) return scan_raw_close(lexer, scanner);
+    return false;
+  }
+
+  /*
+   * All three zero-width terminators are decided HERE, before any whitespace is skipped.
+   *
+   * A zero-width token still has a position, and that position becomes the end of every
+   * node it closes. Deciding these after skipping would put them past the newline and
+   * indentation, so a content block's `markup` would run to the closing bracket and a
+   * heading's would swallow its line break — every enclosing span too long by exactly
+   * the trivia in between.
+   */
+
+  // A heading, list item or term item ends at the end of its line.
+  if (valid_symbols[LINE_END]) {
+    if (lexer->eof(lexer) || lexer->lookahead == '\n' || lexer->lookahead == ']' ||
+        at_line_trailer(lexer)) {
       lexer->mark_end(lexer);
       lexer->result_symbol = LINE_END;
       return true;
     }
+  }
+
+  /*
+   * Terminating a `#` expression. There are two of these because Typst treats the two
+   * kinds of embedded expression differently, and collapsing them into one cannot be
+   * made correct:
+   *
+   *   `#f(1) *bold*`   a value: atomic, so nothing but `.`/`(`/`[` may follow, and
+   *                    `*bold*` is markup
+   *   `#let x = 1 * 2` a statement: its body is a full expression, so `*` is
+   *                    multiplication and only the newline ends it
+   *
+   * Both are REQUIRED in the grammar, not optional, and that is load-bearing. Markup can
+   * only resume once the terminator has been consumed, so at a position like the `(` in
+   * `#let f(a, b)` the parser does not offer `text` at all — which stops the greedy text
+   * scanner from swallowing the parameter list.
+   */
+  if (valid_symbols[ATOMIC_END]) {
+    lexer->mark_end(lexer);
+    int32_t next = lexer->lookahead;
+
+    // Postfix only binds when directly adjacent: `#f(x)` is a call, `#f (x)` is not.
+    if (!lexer->eof(lexer) && !is_space(next)) {
+      if (next == '(' || next == '[') return false;
+      if (next == '.') {
+        // Only a field access continues the expression. A sentence-ending period does
+        // not: in `#it.prefix().]` the final `.` is markup text, and typst likewise
+        // requires an identifier after the dot before treating it as an access.
+        advance(lexer);
+        if (iswalpha((wint_t)lexer->lookahead) || lexer->lookahead == '_') return false;
+      }
+    }
+
+    lexer->result_symbol = ATOMIC_END;
+    return true;
+  }
+
+  if (valid_symbols[STMT_END]) {
+    if (lexer->eof(lexer) || lexer->lookahead == ']' || at_line_trailer(lexer)) {
+      lexer->mark_end(lexer);
+      lexer->result_symbol = STMT_END;
+      return true;
+    }
+    return false;  // same line: the statement's body may still continue
   }
 
   // Skip whitespace ourselves, tracking whether a line ended. Doing this here rather
@@ -348,61 +498,9 @@ static bool scan_impl(TSLexer *lexer, const bool *valid_symbols) {
   bool at_line_start = saw_newline || column == 0;
 
 
-  /*
-   * A `#` expression in markup runs under `AtNewline::Stop`: it ends at the newline.
-   *
-   * The terminator is *optional* in the grammar, and that is what makes this work. On
-   * the same line the scanner simply declines, the built-in lexer supplies the next
-   * token and the expression carries on. At a newline the scanner returns CODE_END, and
-   * because a scanner that returns a token is the only source of one at that position,
-   * the parser has no way to continue the expression across the line break.
-   */
-  /*
-   * Terminating a `#` expression. There are two of these because Typst treats the two
-   * kinds of embedded expression differently, and collapsing them into one token cannot
-   * be made correct:
-   *
-   *   `#f(1) *bold*`   a value: atomic, so nothing but `.`/`(`/`[` may follow, and
-   *                    `*bold*` is markup
-   *   `#let x = 1 * 2` a statement: its body is a full expression, so `*` is
-   *                    multiplication and only the newline ends it
-   *
-   * Both are REQUIRED in the grammar, not optional, and that is load-bearing. Markup can
-   * only resume once the terminator has been consumed, so at a position like the `(` in
-   * `#let f(a, b)` the parser does not offer `text` at all — which stops the greedy text
-   * scanner from swallowing the parameter list.
-   */
-  if (valid_symbols[ATOMIC_END]) {
-    // Mark the zero-width position up front so the lookahead below cannot extend it.
-    lexer->mark_end(lexer);
-
-    if (!saw_space) {
-      if (c == '(' || c == '[') return false;  // a call, or a content argument
-      if (c == '.') {
-        // Only a field access continues the expression. A sentence-ending period does
-        // not: in `#it.prefix().]` the final `.` is markup text, and typst likewise
-        // requires an identifier after the dot before treating it as an access.
-        advance(lexer);
-        if (iswalpha((wint_t)lexer->lookahead) || lexer->lookahead == '_') return false;
-      }
-    }
-
-    lexer->result_symbol = ATOMIC_END;
-    return true;
-  }
-
-  if (valid_symbols[STMT_END]) {
-    if (saw_newline || lexer->eof(lexer) || c == ']') {
-      lexer->mark_end(lexer);
-      lexer->result_symbol = STMT_END;
-      return true;
-    }
-    return false;  // same line: the statement's body may still continue
-  }
-
   if (lexer->eof(lexer)) return false;
 
-  if (valid_symbols[RAW] && c == '`') return scan_raw(lexer);
+  if (valid_symbols[RAW_DELIM] && c == '`') return scan_raw_open(lexer, scanner);
 
   /*
    * From here the order follows `Lexer::markup` exactly, and the order matters: typst
@@ -574,8 +672,7 @@ static bool scan_impl(TSLexer *lexer, const bool *valid_symbols) {
 // ---------------------------------------------------------------------------
 
 void *tree_sitter_typst_external_scanner_create(void) {
-  // Stateless, but tree-sitter still wants a non-NULL payload.
-  return calloc(1, 1);
+  return calloc(1, sizeof(Scanner));
 }
 
 void tree_sitter_typst_external_scanner_destroy(void *payload) { free(payload); }
@@ -589,14 +686,12 @@ void tree_sitter_typst_external_scanner_destroy(void *payload) { free(payload); 
  * `in_word` is decided inside the text run rather than remembered between calls.
  */
 unsigned tree_sitter_typst_external_scanner_serialize(void *payload, char *buffer) {
-  (void)payload;
-  (void)buffer;
-  return 0;
+  buffer[0] = (char)((Scanner *)payload)->raw_backticks;
+  return 1;
 }
 
 void tree_sitter_typst_external_scanner_deserialize(void *payload, const char *buffer,
                                                     unsigned length) {
-  (void)payload;
-  (void)buffer;
-  (void)length;
+  Scanner *scanner = (Scanner *)payload;
+  scanner->raw_backticks = length >= 1 ? (uint8_t)buffer[0] : 0;
 }

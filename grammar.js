@@ -59,7 +59,9 @@ module.exports = grammar({
     $._list_marker,     // `-` at line start, followed by a space
     $._enum_marker,     // `+` or `1.` at line start, followed by a space
     $._term_marker,     // `/` at line start, followed by a space
-    $.raw,              // backtick fences, matched by count
+    $.raw_delim,        // a backtick fence; the closer must match the opener's count
+    $.raw_lang,         // the language tag of a fenced block, for injections
+    $.raw_content,      // everything between the fences, whitespace included
     $._atomic_end,      // an embedded value ends unless `.`, `(` or `[` follows
     $._stmt_end,        // an embedded statement ends at the newline
     $._line_end,        // a heading or list item ends at the newline
@@ -167,6 +169,16 @@ module.exports = grammar({
 
     // Typst does not decide opening versus closing here; that is a rendering concern.
     smart_quote: _ => choice('\'', '"'),
+
+    // `` `code` `` or a fenced block with a language tag. The pieces are separate nodes
+    // so `queries/injections.scm` can point `raw_lang` at `raw_content` and get the
+    // embedded language highlighted.
+    raw: $ => seq(
+      $.raw_delim,
+      optional($.raw_lang),
+      optional($.raw_content),
+      $.raw_delim,
+    ),
 
     strong: $ => seq($._star, optional($.markup), $._star),
     emph: $ => seq($._underscore, optional($.markup), $._underscore),

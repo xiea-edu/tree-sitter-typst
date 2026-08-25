@@ -3747,6 +3747,29 @@
     }
   },
   {
+    "type": "raw",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "raw_content",
+          "named": true
+        },
+        {
+          "type": "raw_delim",
+          "named": true
+        },
+        {
+          "type": "raw_lang",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "ref",
     "named": true,
     "fields": {},
@@ -5317,7 +5340,15 @@
     "named": false
   },
   {
-    "type": "raw",
+    "type": "raw_content",
+    "named": true
+  },
+  {
+    "type": "raw_delim",
+    "named": true
+  },
+  {
+    "type": "raw_lang",
     "named": true
   },
   {

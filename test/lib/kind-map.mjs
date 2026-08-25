@@ -47,7 +47,11 @@ export const UNMAPPED_OK = new Set([
 
   // Structural markers that we fold into their parent node rather than name separately.
   'HeadingMarker', 'ListMarker', 'EnumMarker', 'TermMarker', 'RefMarker',
-  'RawDelim', 'RawTrimmed',
+
+  // Whitespace typst strips from a raw block when computing its dedent. That is a
+  // presentation decision — how the block will be laid out — not syntax, and it is the
+  // reason the inner contents of a raw block are excluded from the span comparison.
+  'RawTrimmed',
 ]);
 
 /**
@@ -70,6 +74,8 @@ export const KIND_MAP = {
   Strong: 'strong',
   Emph: 'emph',
   Raw: 'raw',
+  RawDelim: 'raw_delim',
+  RawLang: 'raw_lang',
   Link: 'link',
   Label: 'label',
   Ref: 'ref',
@@ -77,11 +83,6 @@ export const KIND_MAP = {
   ListItem: 'list_item',
   EnumItem: 'enum_item',
   TermItem: 'term_item',
-
-  // The language tag of a fenced raw block. The scanner currently consumes a raw block
-  // as one token, so there is no separate node yet; phase 4 needs one for injections,
-  // which is where embedded-language highlighting comes from.
-  // RawLang,
 
   // ---- math --------------------------------------------------------------
   Equation: 'equation',

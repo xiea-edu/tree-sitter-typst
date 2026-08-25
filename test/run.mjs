@@ -197,12 +197,35 @@ function compareSpans(theirs, mine, buf) {
   const holdsOnlyTrivia = (start, end) =>
     !theirs.some(([s, e]) => s >= start && e <= end && !(s === start && e === end));
 
-  const isWs = (b) => b === 0x20 || b === 0x09 || b === 0x0a || b === 0x0d;
-  const trim = (start, end) => {
-    let s = start, e = end;
-    while (s < e && isWs(buf[s])) s++;
-    while (e > s && isWs(buf[e - 1])) e--;
-    return [s, e];
+  /*
+   * Typst splits a raw block's contents into one `Text` per line, after working out a
+   * common dedent and emitting `RawTrimmed` nodes for the whitespace it removed. That is
+   * a presentation decision about how the block will be laid out, not syntax an editor
+   * needs, so we model the block as delimiters, an optional language tag and one content
+   * span — and exclude typst's inner segmentation here rather than chase it.
+   */
+  const rawRanges = theirs.filter(([, , k]) => k === 'Raw').map(([s, e]) => [s, e]);
+  const insideRaw = (start, end) =>
+    rawRanges.some(([s, e]) => start >= s && end <= e && !(start === s && end === e));
+
+  /**
+   * The extent of a container's actual content, taken from typst's own children.
+   *
+   * Trimming whitespace off the reported span is not enough, because a content block may
+   * open with comments: in `[\n  // note\n  #f()\n]` typst's `Markup` starts at the
+   * newline while ours starts at `#f()`. The oracle has already dropped trivia — spaces
+   * and comments alike — so the span covered by the remaining children is precisely what
+   * our node should cover.
+   */
+  const innerExtent = (start, end) => {
+    let s = Infinity, e = -Infinity;
+    for (const [a, b] of theirs) {
+      if (a >= start && b <= end && !(a === start && b === end)) {
+        if (a < s) s = a;
+        if (b > e) e = b;
+      }
+    }
+    return s <= e ? [s, e] : null;
   };
 
   for (const [start, end, kind] of theirs) {
@@ -215,19 +238,23 @@ function compareSpans(theirs, mine, buf) {
     // is correct rather than a structural difference.
     if (start === end) continue;
     if (kind === 'Markup' && holdsOnlyTrivia(start, end)) continue;
+    if (insideRaw(start, end)) continue;
 
     // An array of names means "any one of these is acceptable at this span" — used where
     // one typst kind legitimately corresponds to more than one of our nodes, e.g.
     // `Markup` is our `source_file` at the root and our `markup` when nested.
     const names = [].concat(mapped);
-    const spans = [[start, end]];
-    if (TRIVIA_OWNING.has(kind)) spans.push(trim(start, end));
+    const hit = (s, e) => names.some((name) => have.has(`${s}:${e}:${name}`));
 
-    const matched = names.some((name) =>
-      spans.some(([s, e]) => have.has(`${s}:${e}:${name}`)));
-    if (!matched) {
-      out.push(`${kind} at ${start}..${end} -> expected ${names.join('|')}`);
+    if (hit(start, end)) continue;
+
+    // Only if the literal span misses is the trivia-adjusted one worth computing.
+    if (TRIVIA_OWNING.has(kind)) {
+      const inner = innerExtent(start, end);
+      if (inner && hit(inner[0], inner[1])) continue;
     }
+
+    out.push(`${kind} at ${start}..${end} -> expected ${names.join('|')}`);
   }
   return out;
 }
