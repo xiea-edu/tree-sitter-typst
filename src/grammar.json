@@ -1330,6 +1330,18 @@
         {
           "type": "SYMBOL",
           "name": "func_call"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "label"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "raw"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "equation"
         }
       ]
     },

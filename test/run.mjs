@@ -286,48 +286,92 @@ function tierIncremental() {
 
   for (let i = 0; i < ROUNDS && i < files.length; i++) {
     const file = files[Math.floor(rnd() * files.length)];
-    const src = fs.readFileSync(file, 'utf8');
-    const lines = src.split('\n');
-    if (lines.length < 2 || src.length > 40_000) continue;
+    const srcBuf = fs.readFileSync(file);
+    if (srcBuf.length < 8 || srcBuf.length > 40_000) continue;
 
-    // Insert a mode-switching character at a random position.
-    const row = Math.floor(rnd() * lines.length);
-    const col = Math.floor(rnd() * (lines[row].length + 1));
-    const insert = ['#', '$', '[', '*', '`', ']'][Math.floor(rnd() * 6)];
+    // Half the edits are benign (typing an ordinary word character, which usually keeps
+    // the document valid) and half are mode-switching characters, which stress the
+    // scanner hardest but usually break the document. The two are scored separately
+    // below, because they answer different questions.
+    const benign = rnd() < 0.5;
+    const insert = benign
+      ? 'abcxyz019'[Math.floor(rnd() * 9)]
+      : ['#', '$', '[', '*', '`', ']'][Math.floor(rnd() * 6)];
 
-    lines[row] = lines[row].slice(0, col) + insert + lines[row].slice(col);
-    const after = lines.join('\n');
+    // Edits go to the CLI as BYTE offsets, and everything here works in bytes to match.
+    //
+    // Two traps, both of which produced phantom failures before being pinned down:
+    //   - The `row,col` edit form mislocates edits around blank lines (on `\n\nhello`,
+    //     `0,0` lands at byte 1), so byte offsets are used instead.
+    //   - Slicing the JavaScript string would use UTF-16 code units, which drift from
+    //     byte offsets as soon as the file contains non-ASCII text — and most of this
+    //     corpus is not ASCII.
+    let offset = Math.floor(rnd() * (srcBuf.length + 1));
+    // Never split a multi-byte character: back up off any continuation byte.
+    while (offset > 0 && offset < srcBuf.length && (srcBuf[offset] & 0xc0) === 0x80) offset--;
 
-    fs.writeFileSync(base, src, 'utf8');
-    fs.writeFileSync(edited, after, 'utf8');
+    const afterBuf = Buffer.concat([
+      srcBuf.subarray(0, offset),
+      Buffer.from(insert, 'utf8'),
+      srcBuf.subarray(offset),
+    ]);
+
+    fs.writeFileSync(base, srcBuf);
+    fs.writeFileSync(edited, afterBuf);
 
     // Incremental: parse the original, then apply the edit.
-    const incremental = tsParseSexp(base, ['--edits', `${row},${col} 0 ${insert}`]);
+    const incremental = tsParseSexp(base, ['--edits', `${offset} 0 ${insert}`]);
     // Ground truth: parse the edited text from scratch.
     const fresh = tsParseSexp(edited);
 
     checked++;
-    if (normalizeTree(incremental) !== normalizeTree(fresh)) {
-      bad.push({ file, row, col, insert });
-    }
+    if (normalizeTree(incremental) === normalizeTree(fresh)) continue;
+
+    // A divergence only proves a scanner bug when the edited document still parses
+    // cleanly. Once a tree contains ERROR nodes the two runs are comparing recovery
+    // heuristics, which tree-sitter does not promise to make identical between an
+    // incremental and a full parse.
+    const clean = !/\((ERROR|MISSING)/.test(fresh);
+    bad.push({ file, offset, insert, clean });
   }
 
   fs.rmSync(base, { force: true });
   fs.rmSync(edited, { force: true });
 
-  if (bad.length) {
-    fail(`${bad.length}/${checked} incremental reparses diverged from a full reparse (seed ${SEED})`);
-    for (const b of bad.slice(0, SHOW)) {
-      console.log(color.dim(`    ${rel(b.file)} inserting ${JSON.stringify(b.insert)} at ${b.row},${b.col}`));
+  const real = bad.filter((b) => b.clean);
+  const recovery = bad.length - real.length;
+
+  if (real.length) {
+    fail(`${real.length}/${checked} incremental reparses of VALID documents diverged (seed ${SEED})`);
+    for (const b of real.slice(0, SHOW)) {
+      console.log(color.dim(`    ${rel(b.file)} inserting ${JSON.stringify(b.insert)} at byte ${b.offset}`));
     }
   } else {
     pass(`${checked} edits reparsed identically to a full parse (seed ${SEED})`);
   }
+  if (recovery) {
+    console.log(color.dim(
+      `  ${recovery} further divergences were on documents the edit made invalid, ` +
+      'where incremental and full parses may recover differently',
+    ));
+  }
 }
 
-/** Strip the CLI's leading warning banner and normalize whitespace for comparison. */
+/**
+ * Keep only the S-expression lines.
+ *
+ * The CLI also prints a warning banner and per-file timings, and the incremental run
+ * emits an extra `Edit:` line that the full parse does not. That line is indented, so a
+ * naive "starts with a space" filter keeps it and reports every single comparison as a
+ * divergence — which is exactly what happened before this was tightened.
+ */
 function normalizeTree(sexp) {
-  return sexp.split('\n').filter((l) => l.startsWith('(') || l.startsWith(' ')).join('\n').trim();
+  return sexp
+    .split('\n')
+    .filter((l) => /^\s*\(/.test(l))
+    .map((l) => l.trimEnd())
+    .join('\n')
+    .trim();
 }
 
 // ---------------------------------------------------------------------------

@@ -38,18 +38,16 @@ enum TokenType {
   ERROR_SENTINEL,
 };
 
-typedef struct {
-  /*
-   * The character immediately before the current position, or 0 if the previous
-   * character was whitespace or there was none.
-   *
-   * Needed for `in_word`: `*` and `_` are literal text when they sit between two
-   * alphanumerics. tree-sitter gives a scanner no way to look backwards, so we remember
-   * it ourselves. This is why the scanner skips whitespace itself rather than leaving it
-   * to `extras` — doing so keeps this field truthful.
-   */
-  int32_t prev_char;
-} Scanner;
+/*
+ * The scanner is stateless.
+ *
+ * It began with a remembered previous character for the `in_word` test, but that state
+ * could not be kept honest: tree-sitter only persists scanner state after a successful
+ * external token, and an incremental reparse restores it from an arbitrary earlier
+ * point. Deciding `in_word` inside the text run instead — where the preceding character
+ * is simply the one just consumed — removes the state and with it a whole class of
+ * incremental-parse bugs.
+ */
 
 // ---------------------------------------------------------------------------
 // character classes
@@ -125,11 +123,16 @@ static bool at_space_or_end(TSLexer *lexer) {
  * `mark_end` is called after every committed character so that lookahead performed to
  * make a continuation decision is not accidentally included in the token.
  */
-static bool scan_text(TSLexer *lexer, Scanner *scanner, bool started) {
+static bool scan_text(TSLexer *lexer, bool started) {
   bool any = started;
+
+  // The last character taken into the run. Knowing it locally is what lets `in_word` be
+  // decided here rather than from saved state — see the `*`/`_` case below.
+  int32_t last = 0;
 
   for (;;) {
     while (!lexer->eof(lexer) && !is_text_stop(lexer->lookahead)) {
+      last = lexer->lookahead;
       advance(lexer);
       any = true;
     }
@@ -137,11 +140,32 @@ static bool scan_text(TSLexer *lexer, Scanner *scanner, bool started) {
     if (lexer->eof(lexer)) break;
 
     int32_t c = lexer->lookahead;
+
+    /*
+     * `*` and `_` are delimiters between non-word characters and literal text inside a
+     * word, so `a*b` is text while `*b*` is bold. Typst decides this by looking at the
+     * characters on both sides; here the left one is simply the character we just
+     * consumed, so no state has to survive between calls.
+     *
+     * When the run has not consumed anything yet, `last` is 0 and we stop — the
+     * dispatcher checks STAR/UNDERSCORE before TEXT, so a run only ever *starts* at one
+     * of these when it is genuinely a delimiter.
+     */
+    if (c == '*' || c == '_') {
+      if (!is_alnum(last)) break;
+      advance(lexer);
+      if (!is_alnum(lexer->lookahead)) break;
+      lexer->mark_end(lexer);
+      last = c;
+      any = true;
+      continue;
+    }
     if (c == ' ') {
       // A single space stays inside the run only when a word follows it.
       advance(lexer);
       if (!is_alnum(lexer->lookahead)) break;
       lexer->mark_end(lexer);
+      last = c;
       any = true;
       continue;
     }
@@ -149,6 +173,7 @@ static bool scan_text(TSLexer *lexer, Scanner *scanner, bool started) {
       advance(lexer);
       if (lexer->lookahead == '/' || lexer->lookahead == '*') break;  // a comment
       lexer->mark_end(lexer);
+      last = c;
       any = true;
       continue;
     }
@@ -157,6 +182,7 @@ static bool scan_text(TSLexer *lexer, Scanner *scanner, bool started) {
       // `--`, `---` and `-?` are shorthands; a lone `-` is ordinary text.
       if (lexer->lookahead == '-' || lexer->lookahead == '?') break;
       lexer->mark_end(lexer);
+      last = c;
       any = true;
       continue;
     }
@@ -164,6 +190,7 @@ static bool scan_text(TSLexer *lexer, Scanner *scanner, bool started) {
       advance(lexer);
       if (lexer->lookahead == '.') break;  // `...` is a shorthand
       lexer->mark_end(lexer);
+      last = c;
       any = true;
       continue;
     }
@@ -172,9 +199,9 @@ static bool scan_text(TSLexer *lexer, Scanner *scanner, bool started) {
       // Only `http://` and `https://` break the run; any other `h` is just a letter.
       if (lexer->lookahead == 't') {
         advance(lexer);
-        if (lexer->lookahead == 't') {
+          if (lexer->lookahead == 't') {
           advance(lexer);
-          if (lexer->lookahead == 'p') break;  // close enough to commit to a link
+              if (lexer->lookahead == 'p') break;  // close enough to commit to a link
         }
       }
       lexer->mark_end(lexer);
@@ -185,6 +212,7 @@ static bool scan_text(TSLexer *lexer, Scanner *scanner, bool started) {
       advance(lexer);
       if (is_label_char(lexer->lookahead)) break;  // a reference
       lexer->mark_end(lexer);
+      last = c;
       any = true;
       continue;
     }
@@ -192,6 +220,7 @@ static bool scan_text(TSLexer *lexer, Scanner *scanner, bool started) {
       advance(lexer);
       if (is_id_continue(lexer->lookahead)) break;  // a label
       lexer->mark_end(lexer);
+      last = c;
       any = true;
       continue;
     }
@@ -218,11 +247,9 @@ static bool scan_text(TSLexer *lexer, Scanner *scanner, bool started) {
  * same token to `Text`, which leaves it as a standalone one-character node rather than
  * part of the following run.
  */
-static bool emit_marker_or_text(TSLexer *lexer, Scanner *scanner, unsigned marker,
-                                const bool *valid_symbols, bool at_line_start,
-                                int32_t prev) {
+static bool emit_marker_or_text(TSLexer *lexer, unsigned marker,
+                                const bool *valid_symbols, bool at_line_start) {
   lexer->mark_end(lexer);
-  scanner->prev_char = prev;
 
   if (at_line_start && valid_symbols[marker]) {
     lexer->result_symbol = marker;
@@ -273,9 +300,15 @@ static bool scan_raw(TSLexer *lexer) {
 // entry point
 // ---------------------------------------------------------------------------
 
+static bool scan_impl(TSLexer *lexer, const bool *valid_symbols);
+
 bool tree_sitter_typst_external_scanner_scan(void *payload, TSLexer *lexer,
                                              const bool *valid_symbols) {
-  Scanner *scanner = (Scanner *)payload;
+  (void)payload;
+  return scan_impl(lexer, valid_symbols);
+}
+
+static bool scan_impl(TSLexer *lexer, const bool *valid_symbols) {
 
   // In an error-recovery state tree-sitter marks every token valid; producing our
   // whitespace-sensitive tokens there does more harm than letting the built-in lexer
@@ -292,7 +325,6 @@ bool tree_sitter_typst_external_scanner_scan(void *payload, TSLexer *lexer,
     while (!lexer->eof(lexer) &&
            (lexer->lookahead == ' ' || lexer->lookahead == '\t' || lexer->lookahead == '\r')) {
       skip(lexer);
-      scanner->prev_char = 0;
     }
     if (lexer->eof(lexer) || lexer->lookahead == '\n' || lexer->lookahead == ']') {
       lexer->mark_end(lexer);
@@ -310,10 +342,11 @@ bool tree_sitter_typst_external_scanner_scan(void *payload, TSLexer *lexer,
     saw_space = true;
     skip(lexer);
   }
-  if (saw_space) scanner->prev_char = 0;
 
   int32_t c = lexer->lookahead;
-  bool at_line_start = saw_newline || lexer->get_column(lexer) == 0;
+  uint32_t column = lexer->get_column(lexer);
+  bool at_line_start = saw_newline || column == 0;
+
 
   /*
    * A `#` expression in markup runs under `AtNewline::Stop`: it ends at the newline.
@@ -382,7 +415,6 @@ bool tree_sitter_typst_external_scanner_scan(void *payload, TSLexer *lexer,
     advance(lexer);
     lexer->mark_end(lexer);
     lexer->result_symbol = SHORTHAND;
-    scanner->prev_char = '~';
     return true;
   }
 
@@ -396,12 +428,11 @@ bool tree_sitter_typst_external_scanner_scan(void *payload, TSLexer *lexer,
         if (!valid_symbols[SHORTHAND]) return false;
         lexer->mark_end(lexer);
         lexer->result_symbol = SHORTHAND;
-        scanner->prev_char = '.';
         return true;
       }
     }
     if (!valid_symbols[TEXT]) return false;
-    return scan_text(lexer, scanner, true);
+    return scan_text(lexer, true);
   }
 
   /*
@@ -417,7 +448,6 @@ bool tree_sitter_typst_external_scanner_scan(void *payload, TSLexer *lexer,
       if (!valid_symbols[SHORTHAND]) return false;
       lexer->mark_end(lexer);
       lexer->result_symbol = SHORTHAND;
-      scanner->prev_char = '-';
       return true;
     }
     if (lexer->lookahead == '?') {
@@ -425,7 +455,6 @@ bool tree_sitter_typst_external_scanner_scan(void *payload, TSLexer *lexer,
       if (!valid_symbols[SHORTHAND]) return false;
       lexer->mark_end(lexer);
       lexer->result_symbol = SHORTHAND;
-      scanner->prev_char = '-';
       return true;
     }
     if (lexer->lookahead >= '0' && lexer->lookahead <= '9') {
@@ -433,12 +462,10 @@ bool tree_sitter_typst_external_scanner_scan(void *payload, TSLexer *lexer,
       if (!valid_symbols[SHORTHAND]) return false;
       lexer->mark_end(lexer);
       lexer->result_symbol = SHORTHAND;
-      scanner->prev_char = '-';
       return true;
     }
     if (at_space_or_end(lexer)) {
       lexer->mark_end(lexer);
-      scanner->prev_char = '-';
       if (at_line_start && valid_symbols[LIST_MARKER]) {
         lexer->result_symbol = LIST_MARKER;
         return true;
@@ -452,26 +479,20 @@ bool tree_sitter_typst_external_scanner_scan(void *payload, TSLexer *lexer,
       return true;
     }
     if (!valid_symbols[TEXT]) return false;
-    return scan_text(lexer, scanner, true);
+    return scan_text(lexer, true);
   }
 
   /*
    * `*` and `_` delimit strong and emphasis, but only outside a word: typst's `in_word`
    * checks the characters on both sides. `a*b` is literal text, `*b*` is bold.
    */
+  // A text run absorbs an in-word `*`/`_` itself (see scan_text), so reaching here means
+  // this one really is a delimiter.
   if ((valid_symbols[STAR] && c == '*') || (valid_symbols[UNDERSCORE_TOK] && c == '_')) {
-    bool prev_wordy = is_alnum(scanner->prev_char);
     advance(lexer);
-    bool in_word = prev_wordy && is_alnum(lexer->lookahead);
-    if (!in_word) {
-      lexer->mark_end(lexer);
-      lexer->result_symbol = (c == '*') ? STAR : UNDERSCORE_TOK;
-      scanner->prev_char = c;
-      return true;
-    }
-    if (!valid_symbols[TEXT]) return false;
     lexer->mark_end(lexer);
-    return scan_text(lexer, scanner, true);
+    lexer->result_symbol = (c == '*') ? STAR : UNDERSCORE_TOK;
+    return true;
   }
 
   /*
@@ -484,21 +505,21 @@ bool tree_sitter_typst_external_scanner_scan(void *payload, TSLexer *lexer,
   if (c == '=') {
     while (lexer->lookahead == '=') advance(lexer);
     if (at_space_or_end(lexer)) {
-      return emit_marker_or_text(lexer, scanner, HEADING_MARKER, valid_symbols,
-                                 at_line_start, '=');
+      return emit_marker_or_text(lexer, HEADING_MARKER, valid_symbols,
+                                 at_line_start);
     }
     if (!valid_symbols[TEXT]) return false;
-    return scan_text(lexer, scanner, true);
+    return scan_text(lexer, true);
   }
 
   if (c == '+') {
     advance(lexer);
     if (at_space_or_end(lexer)) {
-      return emit_marker_or_text(lexer, scanner, ENUM_MARKER, valid_symbols,
-                                 at_line_start, '+');
+      return emit_marker_or_text(lexer, ENUM_MARKER, valid_symbols,
+                                 at_line_start);
     }
     if (!valid_symbols[TEXT]) return false;
-    return scan_text(lexer, scanner, true);
+    return scan_text(lexer, true);
   }
 
   // `1.`, `24.` — `Lexer::numbering`: digits, a dot, then a space.
@@ -507,12 +528,12 @@ bool tree_sitter_typst_external_scanner_scan(void *payload, TSLexer *lexer,
     if (lexer->lookahead == '.') {
       advance(lexer);
       if (at_space_or_end(lexer)) {
-        return emit_marker_or_text(lexer, scanner, ENUM_MARKER, valid_symbols,
-                                   at_line_start, '.');
+        return emit_marker_or_text(lexer, ENUM_MARKER, valid_symbols,
+                                 at_line_start);
       }
     }
     if (!valid_symbols[TEXT]) return false;
-    return scan_text(lexer, scanner, true);
+    return scan_text(lexer, true);
   }
 
   if (c == '/') {
@@ -521,11 +542,11 @@ bool tree_sitter_typst_external_scanner_scan(void *payload, TSLexer *lexer,
     // built-in lexer match the comment; returning false discards what we consumed.
     if (lexer->lookahead == '/' || lexer->lookahead == '*') return false;
     if (at_space_or_end(lexer)) {
-      return emit_marker_or_text(lexer, scanner, TERM_MARKER, valid_symbols,
-                                 at_line_start, '/');
+      return emit_marker_or_text(lexer, TERM_MARKER, valid_symbols,
+                                 at_line_start);
     }
     if (!valid_symbols[TEXT]) return false;
-    return scan_text(lexer, scanner, true);
+    return scan_text(lexer, true);
   }
 
   if (valid_symbols[TEXT]) {
@@ -542,9 +563,7 @@ bool tree_sitter_typst_external_scanner_scan(void *payload, TSLexer *lexer,
     // typst's Colon-to-Text conversion while letting the parser weigh both readings.
     if (c == ':') return false;
 
-    bool ok = scan_text(lexer, scanner, false);
-    if (ok) scanner->prev_char = 'a';  // a text run always ends on a word-ish character
-    return ok;
+    return scan_text(lexer, false);
   }
 
   return false;
@@ -555,27 +574,29 @@ bool tree_sitter_typst_external_scanner_scan(void *payload, TSLexer *lexer,
 // ---------------------------------------------------------------------------
 
 void *tree_sitter_typst_external_scanner_create(void) {
-  Scanner *scanner = (Scanner *)malloc(sizeof(Scanner));
-  scanner->prev_char = 0;
-  return scanner;
+  // Stateless, but tree-sitter still wants a non-NULL payload.
+  return calloc(1, 1);
 }
 
 void tree_sitter_typst_external_scanner_destroy(void *payload) { free(payload); }
 
 /*
- * Serialization must round-trip exactly: an editor reparses incrementally from a saved
- * state, so anything lost here shows up as a tree that differs from a full parse. The
- * incremental-equivalence test in the suite exists to catch precisely that.
+ * Nothing to serialize.
+ *
+ * Serialized state has to round-trip exactly, because an editor reparses incrementally
+ * from a saved snapshot and anything inconsistent shows up as a tree that differs from a
+ * full parse. Having no state at all is the strongest possible guarantee, and it is why
+ * `in_word` is decided inside the text run rather than remembered between calls.
  */
 unsigned tree_sitter_typst_external_scanner_serialize(void *payload, char *buffer) {
-  Scanner *scanner = (Scanner *)payload;
-  memcpy(buffer, &scanner->prev_char, sizeof(int32_t));
-  return sizeof(int32_t);
+  (void)payload;
+  (void)buffer;
+  return 0;
 }
 
 void tree_sitter_typst_external_scanner_deserialize(void *payload, const char *buffer,
                                                     unsigned length) {
-  Scanner *scanner = (Scanner *)payload;
-  scanner->prev_char = 0;
-  if (length >= sizeof(int32_t)) memcpy(&scanner->prev_char, buffer, sizeof(int32_t));
+  (void)payload;
+  (void)buffer;
+  (void)length;
 }

@@ -392,6 +392,11 @@ module.exports = grammar({
       $.dict,
       $.field_access,
       $.func_call,
+      // Content literals are ordinary values in code mode: `query(<intro>)`,
+      // `t(auto, `auto`)` and `f($x$)` are all valid.
+      $.label,
+      $.raw,
+      $.equation,
     ),
 
     field_access: $ => prec.left(PREC_ACCESS, seq(
