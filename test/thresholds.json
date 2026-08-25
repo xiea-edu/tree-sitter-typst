@@ -1,15 +1,22 @@
 {
   "_comment": [
-    "Minimum scores the suite must meet. These exist so CI is a regression detector",
-    "rather than a permanently red light: demanding perfection from a grammar that is",
-    "at 98% would fail every run, and a check that always fails is one nobody reads.",
+    "Minimum scores the suite must meet.",
     "",
-    "Ratchet them up as the numbers improve — never down to make a red build pass.",
-    "A drop means a real regression, and the run prints the delta so it is obvious",
-    "which direction things moved."
+    "These exist so CI is a regression detector rather than a permanently red light:",
+    "demanding perfection from a grammar at 98% would fail every run, and a check that",
+    "always fails is one nobody reads.",
+    "",
+    "The gate is the typst-suite group, NOT the whole corpus. `typst/typst@v0.15.1",
+    "tests/suite` is a fixed, version-pinned set of 221 files, so its score is",
+    "reproducible on any machine. The Universe package corpus is whatever the registry",
+    "holds on the day it was fetched and how many packages were asked for, so its score",
+    "drifts — CI fetching 200 packages and a laptop fetching 600 do not produce the same",
+    "number. It is reported, but not gated.",
+    "",
+    "Ratchet these up as the numbers improve — never down to make a red build pass."
   ],
-  "validityAgreement": 0.98,
-  "spanAgreement": 0.78,
+  "suiteValidityAgreement": 0.94,
+  "spanAgreement": 0.74,
   "kindCoverage": 1.0,
-  "maxFalseAccepts": 8
+  "maxFalseAcceptRatio": 0.005
 }

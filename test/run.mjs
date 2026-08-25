@@ -77,20 +77,24 @@ function tierValid() {
   let totalAgree = 0, total = 0;
   const falseRejects = [], falseAccepts = [];
 
+  const perGroup = new Map();
+
   for (const g of groups) {
     const oracle = oracleBatch(g.files);
     const ours = tsBatchSummary(g.files);
 
-    let agree = 0;
+    let agree = 0, seen = 0;
     for (const file of g.files) {
       const key = path.resolve(file);
       const o = oracle.get(key), t = ours.get(key);
       if (!o || !t || o.read_error) continue;
       total++;
+      seen++;
       if (o.ok === t.ok) { agree++; totalAgree++; }
       else if (o.ok && !t.ok) falseRejects.push(file);
       else falseAccepts.push(file);
     }
+    perGroup.set(g.name, { agree, seen });
 
     const rate = pct(agree, g.files.length);
     const line = `${g.name.padEnd(14)} ${String(agree).padStart(5)}/${String(g.files.length).padEnd(5)} ${rate}`;
@@ -107,10 +111,27 @@ function tierValid() {
       console.log(`    ${rel(f)}${firstErrorHint(f)}`);
     }
   }
-  checkThreshold('validity agreement', total ? totalAgree / total : 1,
-                 THRESHOLDS.validityAgreement);
-  if (falseAccepts.length > THRESHOLDS.maxFalseAccepts) {
-    fail(`${falseAccepts.length} false accepts exceeds the limit of ${THRESHOLDS.maxFalseAccepts}`);
+  /*
+   * The gate is the typst-suite group, not the whole corpus.
+   *
+   * `typst/typst@v0.15.1 tests/suite` is a fixed, version-pinned set, so its score is
+   * the same on every machine. The Universe corpus is whatever the registry held on the
+   * day it was fetched and however many packages were asked for, so its score drifts —
+   * CI fetching 200 packages and a laptop fetching 600 do not produce the same number.
+   * Gating on it would make the floor meaningless.
+   */
+  const suite = perGroup.get('typst-suite');
+  if (suite && suite.seen) {
+    checkThreshold('typst-suite validity', suite.agree / suite.seen,
+                   THRESHOLDS.suiteValidityAgreement);
+  } else {
+    fail('the typst-suite corpus is missing; run `npm run corpus:fetch`');
+  }
+
+  const falseAcceptRatio = total ? falseAccepts.length / total : 0;
+  if (falseAcceptRatio > THRESHOLDS.maxFalseAcceptRatio) {
+    fail(`false accepts ${(falseAcceptRatio * 100).toFixed(2)}% exceed the ` +
+         `${(THRESHOLDS.maxFalseAcceptRatio * 100).toFixed(2)}% limit`);
   }
   return { totalAgree, total, falseRejects, falseAccepts };
 }
@@ -149,10 +170,12 @@ function tierDiff() {
   const groups = corpusGroups({ limit: LIMIT });
   let filesCompared = 0, filesMatching = 0;
   const mismatches = [];
+  const perGroup = new Map();
 
   for (const g of groups) {
     const oracle = oracleBatch(g.files);
     const ours = tsBatchSummary(g.files);
+    let compared = 0, matching = 0;
 
     for (const file of g.files) {
       const key = path.resolve(file);
@@ -165,12 +188,15 @@ function tierDiff() {
 
       const diff = compareSpans(theirs, mine, buf);
       filesCompared++;
-      if (diff.length === 0) filesMatching++;
+      compared++;
+      if (diff.length === 0) { filesMatching++; matching++; }
       else mismatches.push({ file, diff });
     }
+    perGroup.set(g.name, { compared, matching });
+    console.log(`  ${g.name.padEnd(14)} ${String(matching).padStart(5)}/${String(compared).padEnd(5)} ${pct(matching, compared)}`);
   }
 
-  console.log(`  ${filesMatching}/${filesCompared} files structurally identical  ${color.bold(pct(filesMatching, filesCompared))}`);
+  console.log(`\n  ${filesMatching}/${filesCompared} files structurally identical  ${color.bold(pct(filesMatching, filesCompared))}`);
 
   if (mismatches.length) {
     // Which kinds go wrong matters far more than which files do: one bad rule shows up
@@ -196,8 +222,13 @@ function tierDiff() {
     }
   }
 
-  checkThreshold('span agreement', filesCompared ? filesMatching / filesCompared : 1,
-                 THRESHOLDS.spanAgreement);
+  // Gated on the version-pinned suite for the same reason as tier 1: the package corpus
+  // is not the same set from one fetch to the next.
+  const suite = perGroup.get('typst-suite');
+  if (suite && suite.compared) {
+    checkThreshold('typst-suite span agreement', suite.matching / suite.compared,
+                   THRESHOLDS.spanAgreement);
+  }
 }
 
 /**

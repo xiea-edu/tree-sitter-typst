@@ -126,6 +126,12 @@ a regression detector rather than a permanently red light: demanding perfection 
 grammar at 98% would fail every run, and a check that always fails is one nobody reads.
 Every run prints the delta in both directions, so it is obvious which way things moved.
 
+The floors are checked against the **typst-suite** group only. That set is pinned to
+`typst/typst@v0.15.1`, so its score is the same on every machine. The Universe corpus is
+whatever the registry held on the day it was fetched and however many packages were
+asked for — CI fetching 200 and a laptop fetching 600 do not produce the same number, so
+gating on it would make the floor meaningless. It is still reported.
+
 Ratchet them up as the numbers improve — never down to make a red build pass.
 
 ### Debugging a single file
