@@ -13,10 +13,13 @@
     "drifts — CI fetching 200 packages and a laptop fetching 600 do not produce the same",
     "number. It is reported, but not gated.",
     "",
+    "False accepts are counted absolutely within the suite for the same reason: a ratio",
+    "across the whole corpus would move with the number of packages fetched.",
+    "",
     "Ratchet these up as the numbers improve — never down to make a red build pass."
   ],
   "suiteValidityAgreement": 0.94,
   "spanAgreement": 0.74,
   "kindCoverage": 1.0,
-  "maxFalseAcceptRatio": 0.005
+  "maxSuiteFalseAccepts": 6
 }

@@ -83,7 +83,7 @@ function tierValid() {
     const oracle = oracleBatch(g.files);
     const ours = tsBatchSummary(g.files);
 
-    let agree = 0, seen = 0;
+    let agree = 0, seen = 0, groupFalseAccepts = 0;
     for (const file of g.files) {
       const key = path.resolve(file);
       const o = oracle.get(key), t = ours.get(key);
@@ -92,9 +92,9 @@ function tierValid() {
       seen++;
       if (o.ok === t.ok) { agree++; totalAgree++; }
       else if (o.ok && !t.ok) falseRejects.push(file);
-      else falseAccepts.push(file);
+      else { falseAccepts.push(file); groupFalseAccepts++; }
     }
-    perGroup.set(g.name, { agree, seen });
+    perGroup.set(g.name, { agree, seen, falseAccepts: groupFalseAccepts });
 
     const rate = pct(agree, g.files.length);
     const line = `${g.name.padEnd(14)} ${String(agree).padStart(5)}/${String(g.files.length).padEnd(5)} ${rate}`;
@@ -128,10 +128,13 @@ function tierValid() {
     fail('the typst-suite corpus is missing; run `npm run corpus:fetch`');
   }
 
-  const falseAcceptRatio = total ? falseAccepts.length / total : 0;
-  if (falseAcceptRatio > THRESHOLDS.maxFalseAcceptRatio) {
-    fail(`false accepts ${(falseAcceptRatio * 100).toFixed(2)}% exceed the ` +
-         `${(THRESHOLDS.maxFalseAcceptRatio * 100).toFixed(2)}% limit`);
+  // An absolute count, again over the pinned suite. A ratio across the whole corpus
+  // would move with however many packages happened to be fetched — the same trap the
+  // agreement floors had. The suite is where false accepts concentrate anyway, since it
+  // is full of deliberately-invalid files.
+  if (suite && suite.falseAccepts > THRESHOLDS.maxSuiteFalseAccepts) {
+    fail(`${suite.falseAccepts} false accepts in the typst suite exceeds the limit of ` +
+         `${THRESHOLDS.maxSuiteFalseAccepts}`);
   }
   return { totalAgree, total, falseRejects, falseAccepts };
 }
