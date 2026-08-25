@@ -152,7 +152,6 @@ module.exports = grammar({
     [$._math_expr, $._math_operand],
     [$._math_expr, $._math_operand, $._math_args],
     [$._math_expr, $._math_operand, $.math_delimited],
-    [$._math_operand, $._math_args],
   ],
 
   rules: {
