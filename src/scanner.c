@@ -36,6 +36,7 @@ enum TokenType {
   RAW_CONTENT,
   ATOMIC_END,
   STMT_END,
+  HEADING_END,
   LINE_END,
   ERROR_SENTINEL,
 };
@@ -429,7 +430,25 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
    * the trivia in between.
    */
 
-  // A heading, list item or term item ends at the end of its line.
+  /*
+   * A heading also ends at a label: in `= Real <real>` typst leaves the label a sibling
+   * of the heading rather than a child, which it spells as the stop set
+   * `syntax_set!(Label, RightBracket, End)`. List items do not stop there — `- item <l>`
+   * keeps the label inside — so this needs its own token rather than an extra case on
+   * LINE_END.
+   */
+  if (valid_symbols[HEADING_END]) {
+    // Mark first: `at_line_trailer` consumes any blanks, and the terminator must sit at
+    // the true end of the heading rather than after the space before a label.
+    lexer->mark_end(lexer);
+    bool eol = at_line_trailer(lexer);
+    if (eol || lexer->lookahead == ']' || lexer->lookahead == '<') {
+      lexer->result_symbol = HEADING_END;
+      return true;
+    }
+  }
+
+  // A list item or term item ends at the end of its line.
   if (valid_symbols[LINE_END]) {
     if (lexer->eof(lexer) || lexer->lookahead == '\n' || lexer->lookahead == ']' ||
         at_line_trailer(lexer)) {
@@ -475,8 +494,8 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
   }
 
   if (valid_symbols[STMT_END]) {
+    lexer->mark_end(lexer);
     if (lexer->eof(lexer) || lexer->lookahead == ']' || at_line_trailer(lexer)) {
-      lexer->mark_end(lexer);
       lexer->result_symbol = STMT_END;
       return true;
     }

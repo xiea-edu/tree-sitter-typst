@@ -64,6 +64,7 @@ module.exports = grammar({
     $.raw_content,      // everything between the fences, whitespace included
     $._atomic_end,      // an embedded value ends unless `.`, `(` or `[` follows
     $._stmt_end,        // an embedded statement ends at the newline
+    $._heading_end,     // a heading ends at the newline, or at a label
     $._line_end,        // a heading or list item ends at the newline
     $._error_sentinel,  // never matched; signals error recovery to the scanner
   ],
@@ -128,28 +129,13 @@ module.exports = grammar({
 
     source_file: $ => repeat($._markup_expr),
 
-    _markup_expr: $ => choice(
-      $.text,
-      $.escape,
-      $.linebreak,
-      $.shorthand,
-      $.smart_quote,
-      $.strong,
-      $.emph,
-      $.raw,
-      $.link,
-      $.label,
-      $.ref,
-      $.heading,
-      $.list_item,
-      $.enum_item,
-      $.term_item,
-      $.equation,
-      $._hash_expr,
-      $._bracket_text,
-      // A bare colon is plain text; `term_item` claims it as a separator where one fits.
-      alias(':', $.text),
-    ),
+    _markup_expr: $ => markupExpr($, { label: true }),
+
+    // A heading's body stops at a label, so in `= Real <real>` the label is a sibling of
+    // the heading rather than part of it. Typst spells this as a stop set on the
+    // heading's markup: `syntax_set!(Label, RightBracket, End)`.
+    _markup_expr_unlabelled: $ => markupExpr($, { label: false }),
+    _markup_unlabelled: $ => repeat1($._markup_expr_unlabelled),
 
     // Brackets are ordinary text in markup — `a [b] c` is five text nodes, not a content
     // block. Typst's `markup_expr` tracks a nesting counter and converts both brackets to
@@ -202,7 +188,11 @@ module.exports = grammar({
 
     // Each of these ends at the end of its line; `_line_end` is a zero-width token the
     // scanner emits when the body is over.
-    heading: $ => seq($._heading_marker, optional($.markup), $._line_end),
+    heading: $ => seq(
+      $._heading_marker,
+      optional(alias($._markup_unlabelled, $.markup)),
+      $._heading_end,
+    ),
     list_item: $ => seq($._list_marker, optional($.markup), $._line_end),
     enum_item: $ => seq($._enum_marker, optional($.markup), $._line_end),
     term_item: $ => seq(
@@ -255,18 +245,32 @@ module.exports = grammar({
     // Split in two so the postfixable subset is named exactly once. Listing the same
     // alternatives in both `_expr` and `_postfixable` would make every `ident` ambiguous
     // between the two wrappers.
-    _expr: $ => choice(
+    _expr: $ => choice($._value, $._statement_expr),
+
+    /**
+     * Expressions that may be an operand.
+     *
+     * Statement forms are excluded, and that matters: with `let_binding` available as an
+     * operand, `let f(x) = { ... }` parsed as `(let f(x)) = { ... }` — a binary
+     * assignment whose left side was the binding — instead of attaching the block as the
+     * function's body. Conditionals and loops stay, because they really do produce
+     * values: `let x = if c { 1 } else { 2 }` is ordinary Typst.
+     */
+    _value: $ => choice(
       $._postfixable,
       $.unary,
       $.binary,
       $.closure,
-      $.let_binding,
-      $.set_rule,
-      $.show_rule,
       $.contextual,
       $.conditional,
       $.while_loop,
       $.for_loop,
+    ),
+
+    _statement_expr: $ => choice(
+      $.let_binding,
+      $.set_rule,
+      $.show_rule,
       $.module_import,
       $.module_include,
       $.loop_break,
@@ -364,8 +368,8 @@ module.exports = grammar({
     // ---- operators --------------------------------------------------------
 
     unary: $ => choice(
-      prec.left(PREC.unary, seq(field('operator', choice('+', '-')), field('operand', $._expr))),
-      prec.left(PREC.not, seq(field('operator', 'not'), field('operand', $._expr))),
+      prec.left(PREC.unary, seq(field('operator', choice('+', '-')), field('operand', $._value))),
+      prec.left(PREC.not, seq(field('operator', 'not'), field('operand', $._value))),
     ),
 
     binary: $ => {
@@ -381,10 +385,10 @@ module.exports = grammar({
       ];
       return choice(
         ...left.map(([p, op]) => prec.left(p, seq(
-          field('lhs', $._expr), field('operator', op), field('rhs', $._expr),
+          field('lhs', $._value), field('operator', op), field('rhs', $._value),
         ))),
         ...right.map(([p, op]) => prec.right(p, seq(
-          field('lhs', $._expr), field('operator', op), field('rhs', $._expr),
+          field('lhs', $._value), field('operator', op), field('rhs', $._value),
         ))),
       );
     },
@@ -633,4 +637,36 @@ function sepBy1(sep, rule) {
 /** Zero or more `rule`, separated by `sep`. */
 function sepBy(sep, rule) {
   return optional(sepBy1(sep, rule));
+}
+
+/**
+ * The markup alternatives, with the pieces that some contexts exclude made optional.
+ *
+ * Typst expresses these exclusions as a "stop set" passed to its `markup` parser — a
+ * heading's body stops at a `Label`, for instance. Generating the choice lets us say the
+ * same thing once instead of maintaining two nearly identical lists.
+ */
+function markupExpr($, { label }) {
+  return choice(
+    $.text,
+    $.escape,
+    $.linebreak,
+    $.shorthand,
+    $.smart_quote,
+    $.strong,
+    $.emph,
+    $.raw,
+    $.link,
+    ...(label ? [$.label] : []),
+    $.ref,
+    $.heading,
+    $.list_item,
+    $.enum_item,
+    $.term_item,
+    $.equation,
+    $._hash_expr,
+    $._bracket_text,
+    // A bare colon is plain text; `term_item` claims it as a separator where one fits.
+    alias(':', $.text),
+  );
 }

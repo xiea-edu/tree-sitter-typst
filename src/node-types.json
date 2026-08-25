@@ -350,10 +350,6 @@
             "named": true
           },
           {
-            "type": "destruct_assignment",
-            "named": true
-          },
-          {
             "type": "dict",
             "named": true
           },
@@ -378,10 +374,6 @@
             "named": true
           },
           {
-            "type": "func_return",
-            "named": true
-          },
-          {
             "type": "ident",
             "named": true
           },
@@ -391,26 +383,6 @@
           },
           {
             "type": "label",
-            "named": true
-          },
-          {
-            "type": "let_binding",
-            "named": true
-          },
-          {
-            "type": "loop_break",
-            "named": true
-          },
-          {
-            "type": "loop_continue",
-            "named": true
-          },
-          {
-            "type": "module_import",
-            "named": true
-          },
-          {
-            "type": "module_include",
             "named": true
           },
           {
@@ -427,14 +399,6 @@
           },
           {
             "type": "raw",
-            "named": true
-          },
-          {
-            "type": "set_rule",
-            "named": true
-          },
-          {
-            "type": "show_rule",
             "named": true
           },
           {
@@ -574,10 +538,6 @@
             "named": true
           },
           {
-            "type": "destruct_assignment",
-            "named": true
-          },
-          {
             "type": "dict",
             "named": true
           },
@@ -602,10 +562,6 @@
             "named": true
           },
           {
-            "type": "func_return",
-            "named": true
-          },
-          {
             "type": "ident",
             "named": true
           },
@@ -615,26 +571,6 @@
           },
           {
             "type": "label",
-            "named": true
-          },
-          {
-            "type": "let_binding",
-            "named": true
-          },
-          {
-            "type": "loop_break",
-            "named": true
-          },
-          {
-            "type": "loop_continue",
-            "named": true
-          },
-          {
-            "type": "module_import",
-            "named": true
-          },
-          {
-            "type": "module_include",
             "named": true
           },
           {
@@ -651,14 +587,6 @@
           },
           {
             "type": "raw",
-            "named": true
-          },
-          {
-            "type": "set_rule",
-            "named": true
-          },
-          {
-            "type": "show_rule",
             "named": true
           },
           {
@@ -856,7 +784,7 @@
     "fields": {},
     "children": {
       "multiple": true,
-      "required": true,
+      "required": false,
       "types": [
         {
           "type": "array",
@@ -4702,10 +4630,6 @@
             "named": true
           },
           {
-            "type": "destruct_assignment",
-            "named": true
-          },
-          {
             "type": "dict",
             "named": true
           },
@@ -4730,10 +4654,6 @@
             "named": true
           },
           {
-            "type": "func_return",
-            "named": true
-          },
-          {
             "type": "ident",
             "named": true
           },
@@ -4743,26 +4663,6 @@
           },
           {
             "type": "label",
-            "named": true
-          },
-          {
-            "type": "let_binding",
-            "named": true
-          },
-          {
-            "type": "loop_break",
-            "named": true
-          },
-          {
-            "type": "loop_continue",
-            "named": true
-          },
-          {
-            "type": "module_import",
-            "named": true
-          },
-          {
-            "type": "module_include",
             "named": true
           },
           {
@@ -4779,14 +4679,6 @@
           },
           {
             "type": "raw",
-            "named": true
-          },
-          {
-            "type": "set_rule",
-            "named": true
-          },
-          {
-            "type": "show_rule",
             "named": true
           },
           {
