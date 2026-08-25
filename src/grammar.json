@@ -696,21 +696,105 @@
               },
               {
                 "type": "STRING",
-                "value": "|"
-              },
-              {
-                "type": "STRING",
                 "value": ":"
-              },
-              {
-                "type": "STRING",
-                "value": "}"
-              },
-              {
-                "type": "STRING",
-                "value": "]"
               }
             ]
+          },
+          "named": true,
+          "value": "math_text"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "PREC_DYNAMIC",
+            "value": -1,
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "STRING",
+                      "value": "("
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "["
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "{"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⟨"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⌊"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⌈"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "|"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "‖"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "[|"
+                    }
+                  ]
+                },
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "STRING",
+                      "value": ")"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "]"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "}"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⟩"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⌋"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⌉"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "|"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "‖"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "|]"
+                    }
+                  ]
+                }
+              ]
+            }
           },
           "named": true,
           "value": "math_text"
@@ -811,21 +895,105 @@
               },
               {
                 "type": "STRING",
-                "value": "|"
-              },
-              {
-                "type": "STRING",
                 "value": ":"
-              },
-              {
-                "type": "STRING",
-                "value": "}"
-              },
-              {
-                "type": "STRING",
-                "value": "]"
               }
             ]
+          },
+          "named": true,
+          "value": "math_text"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "PREC_DYNAMIC",
+            "value": -1,
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "STRING",
+                      "value": "("
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "["
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "{"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⟨"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⌊"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⌈"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "|"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "‖"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "[|"
+                    }
+                  ]
+                },
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "STRING",
+                      "value": ")"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "]"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "}"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⟩"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⌋"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⌉"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "|"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "‖"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "|]"
+                    }
+                  ]
+                }
+              ]
+            }
           },
           "named": true,
           "value": "math_text"
@@ -4070,9 +4238,6 @@
       "math_delimited"
     ],
     [
-      "math_delimited"
-    ],
-    [
       "math"
     ],
     [
@@ -4102,6 +4267,10 @@
       "_math_expr",
       "_math_operand",
       "math_delimited"
+    ],
+    [
+      "_math_operand",
+      "_math_args"
     ]
   ],
   "precedences": [],

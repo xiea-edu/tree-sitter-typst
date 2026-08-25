@@ -140,7 +140,6 @@ module.exports = grammar({
     // of math is finished or still open is likewise undecidable until the closer appears.
     [$._math_expr, $.math_delimited],
     [$._math_operand, $.math_delimited],
-    [$.math_delimited],
     [$.math],
 
     // `f(size: 2)` — is `size` the start of a math expression, or the name of an
@@ -156,6 +155,7 @@ module.exports = grammar({
     [$._math_expr, $._math_operand, $._math_args],
     [$._math_expr, $._math_operand, $.math_delimited],
 
+    [$._math_operand, $._math_args],
 
   ],
 
@@ -900,6 +900,16 @@ function mathExpr($, { operators }) {
     // shorthands, and longest-match already prefers those.
     // A closing delimiter with no opener is a symbol, not a syntax error: `lr(}, ..)`
     // passes a brace as an argument. Typst converts these back to math text too.
-    alias(choice('.', ',', ';', '!', '=', '+', '<', '>', '|', ':', '}', ']'), $.math_text),
+    alias(choice('.', ',', ';', '!', '=', '+', '<', '>', ':'), $.math_text),
+
+    // An unmatched delimiter is a symbol, not an error: `$<($` and `$=)$` are both valid
+    // Typst, because `math_delimited` falls back to a plain sequence when it finds no
+    // closer and a lone closer is converted to math text.
+    //
+    // The precedence has to be DYNAMIC rather than static. Both readings are complete
+    // parses of the same tokens, so the choice happens at runtime; a static `prec(-1)`
+    // resolves conflicts at generation time instead and cost validity both times it was
+    // tried here.
+    alias(prec.dynamic(-1, choice(MATH_OPEN, MATH_CLOSE)), $.math_text),
   );
 }
