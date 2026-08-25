@@ -53,15 +53,26 @@ Measured over the same 3,740 files:
 | [uben0](https://github.com/uben0/tree-sitter-typst) | **98.42%** | **95.48%** | **52** | 7 |
 | [SeniorMars](https://github.com/SeniorMars/tree-sitter-typst) | 97.22% | 92.76% | 99 | 5 |
 
-uben0 is ahead on validity. It is not a subset relationship, though — it accepts 63 files
-this grammar rejects, and rejects 48 that this one accepts, so the two fail on different
-things. That difference list is the most useful backlog available: each entry is a
-construct with a known-good counterexample.
+uben0 is ahead on validity, and the version gap makes that *more* impressive rather than
+less. Its README lists `Update 0.13` as an unchecked TODO ("Identify changes" also
+unchecked) and its last commit is from February 2025, so it targets pre-0.13 while the
+corpus and oracle are 0.15.1. Three minor versions of newer syntax it has never seen can
+only produce extra false rejects, so the handicap runs against it.
 
-The comparison is rough. Other grammars may target a different Typst version than the
-pinned 0.15.1 oracle, and may have different goals — a grammar aiming only at
-highlighting can reasonably accept more than the language does. Nothing here compares
-tree *structure*, which would need a hand-written kind map per grammar.
+It is not a subset relationship either: it accepts 63 files this grammar rejects, and
+rejects 48 that this one accepts, so the two fail on different things. That difference
+list is the most useful backlog available — each entry is a construct with a known-good
+counterexample.
+
+Read the false-accept column with its denominator in mind: only **37 of the 3,740 files
+are invalid Typst**, so that is the entire population a false accept can come from. This
+grammar correctly rejects 32 of 37, uben0 30 of 37. It is a small sample and the two are
+close; the honest summary is that uben0 is modestly more permissive and modestly better
+on valid input.
+
+Nothing here compares tree *structure*, which would need a hand-written kind map per
+grammar, and other grammars may have different goals — one aiming only at highlighting
+can reasonably accept more than the language does.
 
 One trap worth knowing if you run this yourself: tree-sitter caches compiled parsers by
 *language name*, and every Typst grammar is called `typst`. Without clearing that cache
