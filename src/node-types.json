@@ -3245,11 +3245,19 @@
     "named": true,
     "fields": {},
     "children": {
-      "multiple": false,
+      "multiple": true,
       "required": false,
       "types": [
         {
           "type": "math",
+          "named": true
+        },
+        {
+          "type": "named",
+          "named": true
+        },
+        {
+          "type": "spread",
           "named": true
         }
       ]
@@ -4821,7 +4829,7 @@
       },
       "value": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "array",
@@ -4961,6 +4969,16 @@
           }
         ]
       }
+    },
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "math",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -5962,6 +5980,10 @@
         },
         {
           "type": "loop_continue",
+          "named": true
+        },
+        {
+          "type": "math",
           "named": true
         },
         {

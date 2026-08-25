@@ -156,6 +156,10 @@ and would bloat the repo.
 - Typst splits a raw block's contents into one `Text` per line after computing a common
   dedent. We model the block as delimiters, an optional language tag and one content span
   — enough for injections, and the dedent is a presentation decision rather than syntax.
+- Typst wraps an implicit function call — a variable directly followed by a delimited
+  group, as in `(x)/2$` — in an extra `Math` node with the same bounds as its parent.
+  We leave the pair as siblings. The grouping is identical either way, and a node with
+  the same extent as its parent buys an editor nothing.
 - A trailing `1.` with no digits after the dot (`#{1.}`) is a float in typst. Telling it
   apart from the method call `1.method()` needs lexer lookahead that tree-sitter does not
   have, and method calls are far more common.

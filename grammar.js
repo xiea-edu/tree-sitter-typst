@@ -44,6 +44,11 @@ const PREC_MATH = {
   root: 2,
 };
 
+// Delimiter pairs in math. Typst also accepts any Unicode character whose math class is
+// Opening or Closing; these are the ones that occur in practice.
+const MATH_OPEN = choice('(', '[', '{', '⟨', '⌊', '⌈', '|', '‖', '[|');
+const MATH_CLOSE = choice(')', ']', '}', '⟩', '⌋', '⌉', '|', '‖', '|]');
+
 /** Number suffixes Typst accepts. `%` is included; anything else is an error. */
 const UNIT = /pt|mm|cm|in|deg|rad|em|fr|%/;
 
@@ -134,6 +139,14 @@ module.exports = grammar({
     [$._math_operand, $.math_delimited],
     [$.math_delimited],
     [$.math],
+
+    // `f(size: 2)` — is `size` the start of a math expression, or the name of an
+    // argument? Only the colon says, and it comes later.
+    [$._math_expr, $._math_args],
+    [$._math_expr, $._math_named_arg],
+    [$._math_named_arg],
+    [$._math_spread_arg],
+
   ],
 
   rules: {
@@ -266,19 +279,41 @@ module.exports = grammar({
       field('item', choice($.math_ident, $.math_field_access)),
       field('args', alias($._math_args, $.math_args)),
     )),
+    // Math arguments are comma- or semicolon-separated, and each one may be named
+    // (`lr(}, size: #h)`) or spread. Each argument's contents are wrapped in `math`,
+    // which is what typst's `math_exprs` does per argument.
     _math_args: $ => seq(
       token.immediate('('),
-      optional($.math),
+      sepBy(choice(',', ';'), optional($._math_arg)),
       ')',
     ),
+
+    _math_arg: $ => choice(
+      alias($._math_named_arg, $.named),
+      alias($._math_spread_arg, $.spread),
+      $.math,
+    ),
+
+    // The name is a code identifier rather than a math one — typst lexes it with
+    // `maybe_math_named_arg`, which is why `size` here is not a math symbol.
+    // The name is aliased rather than parsed as a code `ident`: in math the lexer has
+    // already produced a math token for `size`, and a second token cannot be chosen for
+    // the same characters. Typst reports the node as `Ident`, so that is what we call it.
+    _math_named_arg: $ => prec.dynamic(2, seq(
+      field('name', alias(choice($.math_ident, $.math_text), $.ident)),
+      ':',
+      optional($.math),
+    )),
+    _math_spread_arg: $ => seq('..', optional($.math)),
 
     // `(x + y)`, `[|v|]` and the Unicode bracket pairs. Typst re-labels the delimiters as
     // math text, since they render as symbols rather than acting as grouping syntax.
     math_delimited: $ => seq(
-      alias(choice('(', '[', '{', '⟨', '⌊', '⌈', '|', '‖', '[|'), $.math_text),
+      alias(MATH_OPEN, $.math_text),
       optional($.math),
-      alias(choice(')', ']', '}', '⟩', '⌋', '⌉', '|', '‖', '|]'), $.math_text),
+      alias(MATH_CLOSE, $.math_text),
     ),
+
 
     // `x^2`, `x_i`, `x_i^2`. Right-associative, and `^` and `_` chain into a single
     // attachment so `x_i^2` is one node with both a subscript and a superscript.
