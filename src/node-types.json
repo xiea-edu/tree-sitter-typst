@@ -2502,6 +2502,10 @@
         "required": true,
         "types": [
           {
+            "type": "parenthesized",
+            "named": true
+          },
+          {
             "type": "str",
             "named": true
           }

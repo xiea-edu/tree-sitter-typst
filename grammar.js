@@ -51,7 +51,8 @@ module.exports = grammar({
   name: 'typst',
 
   extras: $ => [
-    /[ \t\r\n]/,
+    // Unicode whitespace, not just ASCII: Typst treats U+3000 and friends as spaces.
+    /\s/,
     $.line_comment,
     $.block_comment,
   ],
@@ -554,7 +555,13 @@ module.exports = grammar({
     )),
 
     named: $ => seq(field('name', $.ident), ':', field('value', $._expr)),
-    keyed: $ => seq(field('key', $.str), ':', field('value', $._expr)),
+    // A dictionary key may be a string or a computed expression in parentheses:
+    // `((field-key): true)` builds the key at run time.
+    keyed: $ => seq(
+      field('key', choice($.str, $.parenthesized)),
+      ':',
+      field('value', $._expr),
+    ),
     spread: $ => seq('..', optional($._expr)),
 
     // ---- parenthesized forms ---------------------------------------------
@@ -596,7 +603,8 @@ module.exports = grammar({
       field('body', $._expr),
     )),
 
-    _bare_param: $ => $.ident,
+    // `_ => value` is a closure that ignores its argument.
+    _bare_param: $ => choice($.ident, $.underscore),
 
     params: $ => seq(
       '(',

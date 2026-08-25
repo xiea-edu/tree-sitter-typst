@@ -64,6 +64,15 @@ typedef struct {
 // character classes
 // ---------------------------------------------------------------------------
 
+/*
+ * ASCII whitespace only, deliberately.
+ *
+ * Typst stops a text run at *any* Unicode whitespace, but then emits that character as a
+ * one-character `Text` rather than discarding it — `発行日時　#x` is two text nodes, the
+ * second being just the ideographic space. So U+3000 and friends are content here, not
+ * trivia; `is_text_stop` ends the run at them and the dispatcher gives them their own
+ * token.
+ */
 static inline bool is_space(int32_t c) {
   return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == 0x0b || c == 0x0c;
 }
@@ -495,11 +504,25 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
 
   if (valid_symbols[STMT_END]) {
     lexer->mark_end(lexer);
-    if (lexer->eof(lexer) || lexer->lookahead == ']' || at_line_trailer(lexer)) {
+
+    /*
+     * A statement's body is a full expression, so on the same line it may well continue —
+     * `#let x = 1 * 2` is multiplication, not markup. But some characters cannot continue
+     * a code expression under any reading, and markup genuinely resumes at them:
+     * `#if c { } \` ends the conditional and starts a linebreak. Ambiguous ones (`*`,
+     * `<`, letters) are deliberately absent, since each has a valid code meaning.
+     */
+    // Skip blanks first, so `} \` is judged on the backslash rather than the space.
+    bool eol = at_line_trailer(lexer);
+    int32_t next = lexer->lookahead;
+    bool markup_resumes = next == '\\' || next == '`' || next == '$' ||
+                          next == '~' || next == '#' || next == '@';
+
+    if (eol || next == ']' || markup_resumes) {
       lexer->result_symbol = STMT_END;
       return true;
     }
-    return false;  // same line: the statement's body may still continue
+    return false;
   }
 
   // Skip whitespace ourselves, tracking whether a line ended. Doing this here rather
@@ -672,6 +695,13 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     if (c == '[' || c == ']' || c == '#' || c == '$' || c == '`' ||
         c == '\\' || c == '\'' || c == '"') {
       return false;
+    }
+
+    // Non-ASCII whitespace ends a run but is itself content: typst falls through to
+    // `text()` with the character already consumed, giving it a node of its own.
+    if (c > 127 && iswspace((wint_t)c)) {
+      advance(lexer);
+      return scan_text(lexer, true);
     }
 
     // `:` is left to the grammar. It separates a term item from its description and is

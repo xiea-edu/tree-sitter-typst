@@ -2455,8 +2455,17 @@
           "type": "FIELD",
           "name": "key",
           "content": {
-            "type": "SYMBOL",
-            "name": "str"
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "str"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "parenthesized"
+              }
+            ]
           }
         },
         {
@@ -2815,8 +2824,17 @@
       }
     },
     "_bare_param": {
-      "type": "SYMBOL",
-      "name": "ident"
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "ident"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "underscore"
+        }
+      ]
     },
     "params": {
       "type": "SEQ",
@@ -3708,7 +3726,7 @@
   "extras": [
     {
       "type": "PATTERN",
-      "value": "[ \\t\\r\\n]"
+      "value": "\\s"
     },
     {
       "type": "SYMBOL",
