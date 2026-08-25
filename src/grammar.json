@@ -701,6 +701,14 @@
               {
                 "type": "STRING",
                 "value": ":"
+              },
+              {
+                "type": "STRING",
+                "value": "}"
+              },
+              {
+                "type": "STRING",
+                "value": "]"
               }
             ]
           },
@@ -808,6 +816,14 @@
               {
                 "type": "STRING",
                 "value": ":"
+              },
+              {
+                "type": "STRING",
+                "value": "}"
+              },
+              {
+                "type": "STRING",
+                "value": "]"
               }
             ]
           },
@@ -1390,6 +1406,23 @@
             },
             {
               "type": "SYMBOL",
+              "name": "_hash_value"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "_atomic_end"
+            }
+          ]
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "#"
+            },
+            {
+              "type": "SYMBOL",
               "name": "_hash_statement"
             },
             {
@@ -1426,6 +1459,23 @@
         },
         {
           "type": "SYMBOL",
+          "name": "module_import"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "module_include"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "func_return"
+        }
+      ]
+    },
+    "_hash_value": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
           "name": "contextual"
         },
         {
@@ -1442,23 +1492,11 @@
         },
         {
           "type": "SYMBOL",
-          "name": "module_import"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "module_include"
-        },
-        {
-          "type": "SYMBOL",
           "name": "loop_break"
         },
         {
           "type": "SYMBOL",
           "name": "loop_continue"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "func_return"
         }
       ]
     },
@@ -3802,18 +3840,18 @@
       "_let_closure"
     ],
     [
-      "_math_operand",
-      "math_delimited"
-    ],
-    [
       "_math_expr",
       "math_delimited"
     ],
     [
-      "math"
+      "_math_operand",
+      "math_delimited"
     ],
     [
       "math_delimited"
+    ],
+    [
+      "math"
     ]
   ],
   "precedences": [],

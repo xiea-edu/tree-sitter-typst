@@ -65,10 +65,10 @@ module.exports = grammar({
     $.shorthand,        // `~ ... --- -- -?`, and `-` before a digit
     $._star,            // `*` only outside a word
     $._underscore,      // `_` only outside a word
-    $.heading_marker,  // `=`+ at line start, followed by a space
-    $.list_marker,     // `-` at line start, followed by a space
-    $.enum_marker,     // `+` or `1.` at line start, followed by a space
-    $.term_marker,     // `/` at line start, followed by a space
+    $.heading_marker,   // `=`+ at line start, followed by a space
+    $.list_marker,      // `-` at line start, followed by a space
+    $.enum_marker,      // `+` or `1.` at line start, followed by a space
+    $.term_marker,      // `/` at line start, followed by a space
     $.raw_delim,        // a backtick fence; the closer must match the opener's count
     $.raw_lang,         // the language tag of a fenced block, for injections
     $.raw_content,      // everything between the fences, whitespace included
@@ -127,12 +127,13 @@ module.exports = grammar({
     [$._let_closure],
     [$._pattern, $._let_closure],
 
-    // AUTO-DISCOVERED CONFLICTS
-    [$._math_operand, $.math_delimited],
+    // Math delimiters double as symbols: `(` opens a group but also renders as a
+    // parenthesis, and a closing brace with no opener is simply a symbol. Whether a run
+    // of math is finished or still open is likewise undecidable until the closer appears.
     [$._math_expr, $.math_delimited],
-    [$.math],
+    [$._math_operand, $.math_delimited],
     [$.math_delimited],
-
+    [$.math],
   ],
 
   rules: {
@@ -327,24 +328,36 @@ module.exports = grammar({
     // expression.
     _hash_expr: $ => choice(
       seq('#', $._postfixable, $._atomic_end),
+      seq('#', $._hash_value, $._atomic_end),
       seq('#', $._hash_statement, choice(';', $._stmt_end)),
     ),
 
-    // Statement forms reachable directly after `#`. Their bodies are full expressions,
-    // unlike the atomic value case, so only a line break ends them.
+    /*
+     * Only these six are statements in Typst — `set::STMT` is exactly
+     * `{Let, Set, Show, Import, Include, Return}`. A statement must be followed by a
+     * semicolon or a line break, which is what `_stmt_end` enforces.
+     */
     _hash_statement: $ => choice(
       $.let_binding,
       $.set_rule,
       $.show_rule,
+      $.module_import,
+      $.module_include,
+      $.func_return,
+    ),
+
+    /*
+     * `context`, `if`, `while` and `for` are NOT statements, despite reading like them.
+     * They end as soon as their body does, and markup may resume immediately on the same
+     * line: `#context counter(page).display() of #context ...` is ordinary Typst.
+     */
+    _hash_value: $ => choice(
       $.contextual,
       $.conditional,
       $.while_loop,
       $.for_loop,
-      $.module_import,
-      $.module_include,
       $.loop_break,
       $.loop_continue,
-      $.func_return,
     ),
 
 
@@ -816,6 +829,8 @@ function mathExpr($, { operators }) {
     // through to math text when no shorthand matched. `=`, `+`, `<`, `>` and `|` are
     // ordinary symbols in math; only multi-character forms like `<=` or `|->` are
     // shorthands, and longest-match already prefers those.
-    alias(choice('.', ',', ';', '!', '=', '+', '<', '>', '|', ':'), $.math_text),
+    // A closing delimiter with no opener is a symbol, not a syntax error: `lr(}, ..)`
+    // passes a brace as an argument. Typst converts these back to math text too.
+    alias(choice('.', ',', ';', '!', '=', '+', '<', '>', '|', ':', '}', ']'), $.math_text),
   );
 }

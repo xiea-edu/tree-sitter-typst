@@ -496,6 +496,18 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
         advance(lexer);
         if (iswalpha((wint_t)lexer->lookahead) || lexer->lookahead == '_') return false;
       }
+    } else {
+      /*
+       * An `else` on the same line belongs to the conditional we are about to close.
+       * `#if c [x] else [y]` has to stay one expression, and since the scanner returning
+       * a token is the only source of one at this position, terminating here would kill
+       * the `else` branch outright.
+       */
+      while (!lexer->eof(lexer) &&
+             (lexer->lookahead == ' ' || lexer->lookahead == '\t' || lexer->lookahead == '\r')) {
+        skip(lexer);
+      }
+      if (eat_str(lexer, "else") && !is_id_continue(lexer->lookahead)) return false;
     }
 
     lexer->result_symbol = ATOMIC_END;
