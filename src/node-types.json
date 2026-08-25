@@ -48,10 +48,6 @@
           "named": true
         },
         {
-          "type": "destructuring",
-          "named": true
-        },
-        {
           "type": "dict",
           "named": true
         },
@@ -207,10 +203,6 @@
           "named": true
         },
         {
-          "type": "destructuring",
-          "named": true
-        },
-        {
           "type": "dict",
           "named": true
         },
@@ -359,10 +351,6 @@
           },
           {
             "type": "destruct_assignment",
-            "named": true
-          },
-          {
-            "type": "destructuring",
             "named": true
           },
           {
@@ -590,10 +578,6 @@
             "named": true
           },
           {
-            "type": "destructuring",
-            "named": true
-          },
-          {
             "type": "dict",
             "named": true
           },
@@ -704,7 +688,7 @@
     "fields": {
       "body": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "array",
@@ -744,10 +728,6 @@
           },
           {
             "type": "destruct_assignment",
-            "named": true
-          },
-          {
-            "type": "destructuring",
             "named": true
           },
           {
@@ -848,14 +828,20 @@
           }
         ]
       },
-      "params": {
+      "name": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "ident",
             "named": true
-          },
+          }
+        ]
+      },
+      "params": {
+        "multiple": false,
+        "required": true,
+        "types": [
           {
             "type": "params",
             "named": true
@@ -910,10 +896,6 @@
         },
         {
           "type": "destruct_assignment",
-          "named": true
-        },
-        {
-          "type": "destructuring",
           "named": true
         },
         {
@@ -1079,10 +1061,6 @@
             "named": true
           },
           {
-            "type": "destructuring",
-            "named": true
-          },
-          {
             "type": "dict",
             "named": true
           },
@@ -1225,10 +1203,6 @@
             "named": true
           },
           {
-            "type": "destructuring",
-            "named": true
-          },
-          {
             "type": "dict",
             "named": true
           },
@@ -1368,10 +1342,6 @@
           },
           {
             "type": "destruct_assignment",
-            "named": true
-          },
-          {
-            "type": "destructuring",
             "named": true
           },
           {
@@ -1538,10 +1508,6 @@
             "named": true
           },
           {
-            "type": "destructuring",
-            "named": true
-          },
-          {
             "type": "dict",
             "named": true
           },
@@ -1697,10 +1663,6 @@
           },
           {
             "type": "destruct_assignment",
-            "named": true
-          },
-          {
-            "type": "destructuring",
             "named": true
           },
           {
@@ -2030,10 +1992,6 @@
             "named": true
           },
           {
-            "type": "destructuring",
-            "named": true
-          },
-          {
             "type": "dict",
             "named": true
           },
@@ -2173,10 +2131,6 @@
           },
           {
             "type": "destruct_assignment",
-            "named": true
-          },
-          {
-            "type": "destructuring",
             "named": true
           },
           {
@@ -2440,10 +2394,6 @@
             "named": true
           },
           {
-            "type": "destructuring",
-            "named": true
-          },
-          {
             "type": "dict",
             "named": true
           },
@@ -2651,10 +2601,6 @@
             "named": true
           },
           {
-            "type": "destructuring",
-            "named": true
-          },
-          {
             "type": "dict",
             "named": true
           },
@@ -2758,26 +2704,6 @@
     "type": "let_binding",
     "named": true,
     "fields": {
-      "name": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "ident",
-            "named": true
-          }
-        ]
-      },
-      "params": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "params",
-            "named": true
-          }
-        ]
-      },
       "pattern": {
         "multiple": false,
         "required": false,
@@ -2838,10 +2764,6 @@
           },
           {
             "type": "destruct_assignment",
-            "named": true
-          },
-          {
-            "type": "destructuring",
             "named": true
           },
           {
@@ -2942,6 +2864,16 @@
           }
         ]
       }
+    },
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "closure",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -3231,10 +3163,6 @@
             "named": true
           },
           {
-            "type": "destructuring",
-            "named": true
-          },
-          {
             "type": "dict",
             "named": true
           },
@@ -3380,10 +3308,6 @@
           },
           {
             "type": "destruct_assignment",
-            "named": true
-          },
-          {
-            "type": "destructuring",
             "named": true
           },
           {
@@ -3542,10 +3466,6 @@
           },
           {
             "type": "destruct_assignment",
-            "named": true
-          },
-          {
-            "type": "destructuring",
             "named": true
           },
           {
@@ -3725,10 +3645,6 @@
         },
         {
           "type": "destruct_assignment",
-          "named": true
-        },
-        {
-          "type": "destructuring",
           "named": true
         },
         {
@@ -3934,10 +3850,6 @@
             "named": true
           },
           {
-            "type": "destructuring",
-            "named": true
-          },
-          {
             "type": "dict",
             "named": true
           },
@@ -4100,10 +4012,6 @@
             "named": true
           },
           {
-            "type": "destructuring",
-            "named": true
-          },
-          {
             "type": "dict",
             "named": true
           },
@@ -4243,10 +4151,6 @@
           },
           {
             "type": "destruct_assignment",
-            "named": true
-          },
-          {
-            "type": "destructuring",
             "named": true
           },
           {
@@ -4591,10 +4495,6 @@
           "named": true
         },
         {
-          "type": "destructuring",
-          "named": true
-        },
-        {
           "type": "dict",
           "named": true
         },
@@ -4783,10 +4683,6 @@
             "named": true
           },
           {
-            "type": "destructuring",
-            "named": true
-          },
-          {
             "type": "dict",
             "named": true
           },
@@ -4953,10 +4849,6 @@
             "named": true
           },
           {
-            "type": "destructuring",
-            "named": true
-          },
-          {
             "type": "dict",
             "named": true
           },
@@ -5096,10 +4988,6 @@
           },
           {
             "type": "destruct_assignment",
-            "named": true
-          },
-          {
-            "type": "destructuring",
             "named": true
           },
           {

@@ -86,12 +86,7 @@ module.exports = grammar({
     [$.dict, $.destructuring, $.params],
 
     // An identifier is a value in an expression and a binding site in a pattern.
-    [$._expr, $._pattern],
     [$._postfixable, $._pattern],
-
-    // `let f • (` — parameter list of a function binding, or a complete pattern `f`
-    // followed by something else?
-    [$._pattern, $.let_binding],
 
     // `()` — an empty array, or an empty destructuring pattern?
     [$.array, $.destructuring],
@@ -114,6 +109,10 @@ module.exports = grammar({
     [$.strong],
     [$.emph],
     [$.markup],
+
+    // `let f • (` again, now that the function form builds a closure.
+    [$._let_closure],
+    [$._pattern, $._let_closure],
   ],
 
   rules: {
@@ -261,7 +260,10 @@ module.exports = grammar({
       $.loop_break,
       $.loop_continue,
       $.func_return,
-      $.destructuring,
+      // `destructuring` is deliberately absent: typst only ever produces it as the
+      // left side of a destructuring assignment or as a `let` pattern, never as a
+      // standalone expression. Listing it here made every `(a: 1)` ambiguous with a
+      // dictionary, and the parser resolved it the wrong way.
       $.destruct_assignment,
     ),
 
@@ -461,11 +463,15 @@ module.exports = grammar({
 
     // ---- closures ---------------------------------------------------------
 
+    // A single unparenthesized parameter still gets a `params` node in typst: `x => y`
+    // produces `Closure(Params(Ident), Arrow, Ident)`, not a bare identifier.
     closure: $ => prec.right(seq(
-      field('params', choice($.params, $.ident)),
+      field('params', choice($.params, alias($._bare_param, $.params))),
       '=>',
       field('body', $._expr),
     )),
+
+    _bare_param: $ => $.ident,
 
     params: $ => seq(
       '(',
@@ -498,16 +504,22 @@ module.exports = grammar({
     let_binding: $ => prec.right(seq(
       'let',
       choice(
-        // `let f(x) = ...` declares a function. This branch outranks the plain-pattern
-        // one so that on `let f • (` the parser shifts the parameter list instead of
-        // reducing `f` to a complete pattern and ending the binding there.
-        prec.dynamic(1, seq(
-          field('name', $.ident),
-          field('params', $.params),
-          optional(seq('=', field('value', $._expr))),
-        )),
+        // `let f(x) = ...` declares a function, and typst models that as a *closure*
+        // named `f` sitting inside the binding — `LetBinding(Let, Closure(Ident, Params,
+        // Eq, body))` — rather than as fields of the binding itself.
+        //
+        // The branch also outranks the plain-pattern one, so that on `let f • (` the
+        // parser shifts the parameter list instead of reducing `f` to a complete pattern
+        // and ending the binding there.
+        alias($._let_closure, $.closure),
         seq(field('pattern', $._pattern), optional(seq('=', field('value', $._expr)))),
       ),
+    )),
+
+    _let_closure: $ => prec.dynamic(1, seq(
+      field('name', $.ident),
+      field('params', $.params),
+      optional(seq('=', field('body', $._expr))),
     )),
 
     // The target of `set` is a dotted path, never a general expression: typst's

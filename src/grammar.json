@@ -633,10 +633,6 @@
         },
         {
           "type": "SYMBOL",
-          "name": "destructuring"
-        },
-        {
-          "type": "SYMBOL",
           "name": "destruct_assignment"
         }
       ]
@@ -1876,8 +1872,13 @@
                   "name": "params"
                 },
                 {
-                  "type": "SYMBOL",
-                  "name": "ident"
+                  "type": "ALIAS",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "_bare_param"
+                  },
+                  "named": true,
+                  "value": "params"
                 }
               ]
             }
@@ -1896,6 +1897,10 @@
           }
         ]
       }
+    },
+    "_bare_param": {
+      "type": "SYMBOL",
+      "name": "ident"
     },
     "params": {
       "type": "SEQ",
@@ -2129,54 +2134,13 @@
             "type": "CHOICE",
             "members": [
               {
-                "type": "PREC_DYNAMIC",
-                "value": 1,
+                "type": "ALIAS",
                 "content": {
-                  "type": "SEQ",
-                  "members": [
-                    {
-                      "type": "FIELD",
-                      "name": "name",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "ident"
-                      }
-                    },
-                    {
-                      "type": "FIELD",
-                      "name": "params",
-                      "content": {
-                        "type": "SYMBOL",
-                        "name": "params"
-                      }
-                    },
-                    {
-                      "type": "CHOICE",
-                      "members": [
-                        {
-                          "type": "SEQ",
-                          "members": [
-                            {
-                              "type": "STRING",
-                              "value": "="
-                            },
-                            {
-                              "type": "FIELD",
-                              "name": "value",
-                              "content": {
-                                "type": "SYMBOL",
-                                "name": "_expr"
-                              }
-                            }
-                          ]
-                        },
-                        {
-                          "type": "BLANK"
-                        }
-                      ]
-                    }
-                  ]
-                }
+                  "type": "SYMBOL",
+                  "name": "_let_closure"
+                },
+                "named": true,
+                "value": "closure"
               },
               {
                 "type": "SEQ",
@@ -2215,6 +2179,56 @@
                     ]
                   }
                 ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "_let_closure": {
+      "type": "PREC_DYNAMIC",
+      "value": 1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "FIELD",
+            "name": "name",
+            "content": {
+              "type": "SYMBOL",
+              "name": "ident"
+            }
+          },
+          {
+            "type": "FIELD",
+            "name": "params",
+            "content": {
+              "type": "SYMBOL",
+              "name": "params"
+            }
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "STRING",
+                    "value": "="
+                  },
+                  {
+                    "type": "FIELD",
+                    "name": "body",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_expr"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "BLANK"
               }
             ]
           }
@@ -2815,16 +2829,8 @@
       "params"
     ],
     [
-      "_expr",
-      "_pattern"
-    ],
-    [
       "_postfixable",
       "_pattern"
-    ],
-    [
-      "_pattern",
-      "let_binding"
     ],
     [
       "array",
@@ -2853,6 +2859,13 @@
     ],
     [
       "markup"
+    ],
+    [
+      "_let_closure"
+    ],
+    [
+      "_pattern",
+      "_let_closure"
     ]
   ],
   "precedences": [],

@@ -139,7 +139,7 @@ function tierDiff() {
       const mine = tsParseNodes(file, buf);
       const theirs = o.nodes;
 
-      const diff = compareSpans(theirs, mine);
+      const diff = compareSpans(theirs, mine, buf);
       filesCompared++;
       if (diff.length === 0) filesMatching++;
       else mismatches.push({ file, diff });
@@ -147,11 +147,28 @@ function tierDiff() {
   }
 
   console.log(`  ${filesMatching}/${filesCompared} files structurally identical  ${color.bold(pct(filesMatching, filesCompared))}`);
+
   if (mismatches.length) {
-    console.log(color.dim('\n  first structural mismatches:'));
+    // Which kinds go wrong matters far more than which files do: one bad rule shows up
+    // as thousands of mismatches spread across the corpus, and the histogram names it.
+    const byKind = new Map();
+    for (const { diff } of mismatches) {
+      for (const d of diff) {
+        const kind = d.split(' ')[0];
+        byKind.set(kind, (byKind.get(kind) ?? 0) + 1);
+      }
+    }
+    const ranked = [...byKind.entries()].sort((a, b) => b[1] - a[1]);
+    console.log(color.dim('\n  mismatches by kind:'));
+    const cells = ranked.map(([k, n]) => `${k}(${n})`);
+    for (let i = 0; i < cells.length; i += 5) {
+      console.log(color.dim(`    ${cells.slice(i, i + 5).join('  ')}`));
+    }
+
+    console.log(color.dim('\n  examples:'));
     for (const { file, diff } of mismatches.slice(0, SHOW)) {
       console.log(`    ${rel(file)}`);
-      for (const d of diff.slice(0, 3)) console.log(color.dim(`      ${d}`));
+      for (const d of diff.slice(0, 2)) console.log(color.dim(`      ${d}`));
     }
     failed = true;
   }
@@ -161,24 +178,54 @@ function tierDiff() {
  * Compare two flat node lists. Returns human-readable difference descriptions.
  * Kinds typst produces that we deliberately do not model are listed in UNMAPPED_OK.
  */
-function compareSpans(theirs, mine) {
+/**
+ * Container kinds whose extent includes surrounding trivia in typst but not in ours.
+ *
+ * Typst's CST is lossless, so the `Markup` inside `[With ]` covers the trailing space
+ * and the one inside `[\n  body\n]` covers both newlines. tree-sitter derives a node's
+ * extent from its child tokens and leaves `extras` outside, so ours starts and ends at
+ * the content. The structure is identical; only trivia ownership differs, so these are
+ * compared against the whitespace-trimmed span as well as the literal one.
+ */
+const TRIVIA_OWNING = new Set(['Markup', 'Code']);
+
+function compareSpans(theirs, mine, buf) {
   const have = new Set(mine.map((n) => `${n.start}:${n.end}:${n.kind}`));
   const out = [];
+
+  /** True when no non-trivia node of typst's own lies inside this span. */
+  const holdsOnlyTrivia = (start, end) =>
+    !theirs.some(([s, e]) => s >= start && e <= end && !(s === start && e === end));
+
+  const isWs = (b) => b === 0x20 || b === 0x09 || b === 0x0a || b === 0x0d;
+  const trim = (start, end) => {
+    let s = start, e = end;
+    while (s < e && isWs(buf[s])) s++;
+    while (e > s && isWs(buf[e - 1])) e--;
+    return [s, e];
+  };
 
   for (const [start, end, kind] of theirs) {
     const mapped = KIND_MAP[kind];
     if (mapped === null || mapped === undefined || UNMAPPED_OK.has(kind)) continue;
 
-    // Typst's CST is lossless and marks empty positions with zero-width nodes (an empty
-    // content block still contains a `Markup` node of length 0). tree-sitter does not
-    // produce zero-width named nodes, and their absence is not a structural difference.
+    // Typst's CST is lossless, so it wraps positions that hold nothing but trivia: an
+    // empty content block still contains a zero-width `Markup`, and `[ ]` contains a
+    // `Markup` around just the space. tree-sitter models neither, and not modelling them
+    // is correct rather than a structural difference.
     if (start === end) continue;
+    if (kind === 'Markup' && holdsOnlyTrivia(start, end)) continue;
 
     // An array of names means "any one of these is acceptable at this span" — used where
     // one typst kind legitimately corresponds to more than one of our nodes, e.g.
     // `Markup` is our `source_file` at the root and our `markup` when nested.
     const names = [].concat(mapped);
-    if (!names.some((name) => have.has(`${start}:${end}:${name}`))) {
+    const spans = [[start, end]];
+    if (TRIVIA_OWNING.has(kind)) spans.push(trim(start, end));
+
+    const matched = names.some((name) =>
+      spans.some(([s, e]) => have.has(`${s}:${e}:${name}`)));
+    if (!matched) {
       out.push(`${kind} at ${start}..${end} -> expected ${names.join('|')}`);
     }
   }
