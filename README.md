@@ -179,9 +179,15 @@ and would bloat the repo.
   dedent. We model the block as delimiters, an optional language tag and one content span
   — enough for injections, and the dedent is a presentation decision rather than syntax.
 - Typst wraps an implicit function call — a variable directly followed by a delimited
-  group, as in `$f(x)/2$` — in an extra `Math` node with the same bounds as its parent.
-  We leave the pair as siblings. The grouping is identical either way, and a node with
-  the same extent as its parent buys an editor nothing.
+  group, as in `$f(x)/2$` — in an extra `Math` node. We leave the pair as siblings.
+
+  This was implemented and then reverted. Modelling it needs an adjacency assertion, since
+  `a(b)` groups but `a (b)` does not, and `token.immediate` cannot express that here: it
+  creates a second token for the same delimiter characters, and with both valid the lexer
+  picks whichever it likes. A zero-width external token from the scanner does work — it
+  already knows whether it skipped whitespace — but the resulting grammar cost 1.4 points
+  of validity agreement (breaking math primes, delimiters and roots) to gain 1.3 points of
+  span agreement. A false reject breaks highlighting for a whole file, so validity wins.
 - A trailing `1.` with no digits after the dot (`#{1.}`) is a float in typst. Telling it
   apart from the method call `1.method()` needs lexer lookahead that tree-sitter does not
   have, and method calls are far more common.
