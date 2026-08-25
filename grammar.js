@@ -83,6 +83,7 @@ module.exports = grammar({
     $._line_end,        // a heading or list item ends at the newline
     $._float_trailing_dot,  // `1.` is a float; `1.method()` is a field access
     $._adjacent_prime,  // zero-width: a `'` follows immediately, so it attaches
+    $.link,            // a bare URL, with `[]` and `()` balanced
     $._error_sentinel,  // never matched; signals error recovery to the scanner
   ],
 
@@ -218,7 +219,6 @@ module.exports = grammar({
       optional(/[_\-:.\p{XID_Continue}]*[_\-\p{XID_Continue}]/u),
     )),
 
-    link: _ => token(seq(/https?:\/\//, /[^\s]*/)),
 
     // Each of these ends at the end of its line; `_line_end` is a zero-width token the
     // scanner emits when the body is over.
@@ -914,6 +914,6 @@ function mathExpr($, { operators }) {
     // parses of the same tokens, so the choice happens at runtime; a static `prec(-1)`
     // resolves conflicts at generation time instead and cost validity both times it was
     // tried here.
-    alias(prec.dynamic(-1, choice(MATH_OPEN, MATH_CLOSE)), $.math_text),
+    alias(prec.dynamic(-20, choice(MATH_OPEN, MATH_CLOSE)), $.math_text),
   );
 }

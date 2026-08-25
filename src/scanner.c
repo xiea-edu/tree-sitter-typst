@@ -40,6 +40,7 @@ enum TokenType {
   LINE_END,
   FLOAT_TRAILING_DOT,
   ADJACENT_PRIME,
+  LINK,
   ERROR_SENTINEL,
 };
 
@@ -295,6 +296,70 @@ static bool emit_marker_or_text(TSLexer *lexer, unsigned marker,
   }
   if (!valid_symbols[TEXT]) return false;
   lexer->result_symbol = TEXT;
+  return true;
+}
+
+/**
+ * A bare URL, per typst's `link_prefix`.
+ *
+ * The character set is fixed, but `[]` and `()` must BALANCE — a closer with no matching
+ * opener ends the link. That is what makes `[https://typst.app/docs]` work: the `]`
+ * belongs to the enclosing content block, not the URL. A regex cannot balance, which is
+ * why this lives here; the previous regex version swallowed the bracket and left the
+ * content block unterminated.
+ *
+ * Trailing `! , . : ; ? '` are excluded so `see https://typst.app.` keeps its full stop
+ * as prose. Marking the end only after characters that may legally finish a link gets
+ * that for free.
+ */
+static bool scan_link_body(TSLexer *lexer) {
+  lexer->mark_end(lexer);
+
+  uint8_t stack[32];
+  unsigned depth = 0;
+
+  for (;;) {
+    int32_t c = lexer->lookahead;
+    bool ok;
+
+    if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+      ok = true;
+    } else {
+      switch (c) {
+        case '!': case '#': case '$': case '%': case '&': case '*': case '+':
+        case ',': case '-': case '.': case '/': case ':': case ';': case '=':
+        case '?': case '@': case '_': case '~': case '\'':
+          ok = true;
+          break;
+        case '[': case '(':
+          ok = depth < sizeof(stack);
+          if (ok) stack[depth++] = (uint8_t)c;
+          break;
+        case ']':
+          ok = depth > 0 && stack[depth - 1] == '[';
+          if (ok) depth--;
+          break;
+        case ')':
+          ok = depth > 0 && stack[depth - 1] == '(';
+          if (ok) depth--;
+          break;
+        default:
+          ok = false;
+      }
+    }
+    if (!ok) break;
+
+    advance(lexer);
+    if (!(c == '!' || c == ',' || c == '.' || c == ':' || c == ';' || c == '?' ||
+          c == '\'')) {
+      lexer->mark_end(lexer);
+    }
+  }
+
+  // Typst reports unbalanced brackets as an error; declining lets the parser do the same.
+  if (depth != 0) return false;
+
+  lexer->result_symbol = LINK;
   return true;
 }
 
@@ -593,6 +658,20 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
   if (lexer->eof(lexer)) return false;
 
   if (valid_symbols[RAW_DELIM] && c == '`') return scan_raw_open(lexer, scanner);
+
+  /*
+   * A word starting with `h` might be a URL. If the scheme does not pan out, whatever we
+   * consumed is ordinary text and the run simply continues — returning false here
+   * instead would leave `here.` with no token at all, since TEXT never gets its turn.
+   */
+  if (valid_symbols[LINK] && c == 'h') {
+    if (eat_str(lexer, "http")) {
+      if (lexer->lookahead == 's') advance(lexer);
+      if (eat_str(lexer, "://")) return scan_link_body(lexer);
+    }
+    if (!valid_symbols[TEXT]) return false;
+    return scan_text(lexer, true);
+  }
 
   /*
    * From here the order follows `Lexer::markup` exactly, and the order matters: typst
