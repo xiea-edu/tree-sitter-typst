@@ -623,6 +623,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "math_primes_marker"
+        },
+        {
+          "type": "SYMBOL",
           "name": "math_delimited"
         },
         {
@@ -827,6 +831,10 @@
         {
           "type": "SYMBOL",
           "name": "math_primes"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "math_primes_marker"
         },
         {
           "type": "SYMBOL",
@@ -1441,34 +1449,29 @@
         "type": "SEQ",
         "members": [
           {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "FIELD",
-                "name": "base",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_math_operand"
-                }
-              },
-              {
-                "type": "BLANK"
-              }
-            ]
+            "type": "FIELD",
+            "name": "base",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_math_operand"
+            }
           },
           {
-            "type": "ALIAS",
-            "content": {
-              "type": "IMMEDIATE_TOKEN",
-              "content": {
-                "type": "PATTERN",
-                "value": "'+"
-              }
-            },
-            "named": true,
-            "value": "math_primes_marker"
+            "type": "SYMBOL",
+            "name": "_adjacent_prime"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "math_primes_marker"
           }
         ]
+      }
+    },
+    "math_primes_marker": {
+      "type": "TOKEN",
+      "content": {
+        "type": "PATTERN",
+        "value": "'+"
       }
     },
     "math_frac": {
@@ -4255,20 +4258,6 @@
       "_math_spread_arg"
     ],
     [
-      "_math_expr",
-      "_math_operand"
-    ],
-    [
-      "_math_expr",
-      "_math_operand",
-      "_math_args"
-    ],
-    [
-      "_math_expr",
-      "_math_operand",
-      "math_delimited"
-    ],
-    [
       "_math_operand",
       "_math_args"
     ]
@@ -4338,6 +4327,10 @@
     {
       "type": "SYMBOL",
       "name": "_float_trailing_dot"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_adjacent_prime"
     },
     {
       "type": "SYMBOL",

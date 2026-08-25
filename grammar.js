@@ -82,6 +82,7 @@ module.exports = grammar({
     $._heading_end,     // a heading ends at the newline, or at a label
     $._line_end,        // a heading or list item ends at the newline
     $._float_trailing_dot,  // `1.` is a float; `1.method()` is a field access
+    $._adjacent_prime,  // zero-width: a `'` follows immediately, so it attaches
     $._error_sentinel,  // never matched; signals error recovery to the scanner
   ],
 
@@ -149,14 +150,7 @@ module.exports = grammar({
     [$._math_named_arg],
     [$._math_spread_arg],
 
-
-    // A bare `'` is a prime with no base, so an operand may be empty up to that point.
-    [$._math_expr, $._math_operand],
-    [$._math_expr, $._math_operand, $._math_args],
-    [$._math_expr, $._math_operand, $.math_delimited],
-
     [$._math_operand, $._math_args],
-
   ],
 
   rules: {
@@ -335,14 +329,23 @@ module.exports = grammar({
       )),
     )),
 
-    // Primes bind like an attachment but take no right operand, and only when directly
-    // adjacent: `a'` attaches, `a '` does not.
-    // The base is optional: a bare `$'$` is a prime with nothing to attach to, which
-    // typst emits as a standalone `MathPrimes`.
+    /*
+     * Primes bind like an attachment but take no right operand, and only when directly
+     * adjacent: `a'` attaches while `a '` is `a` followed by a standalone prime. A bare
+     * `$'$` is a prime with nothing to attach to at all.
+     *
+     * Adjacency comes from a zero-width scanner token rather than `token.immediate`,
+     * which would need a second token for `'` — and with both valid the lexer picks
+     * whichever it likes, so the immediate one never matches. That is what broke
+     * `f("x", ')`, where the space before the quote left it unmatchable.
+     */
     math_primes: $ => prec.left(PREC_MATH.attach, seq(
-      optional(field('base', $._math_operand)),
-      alias(token.immediate(/'+/), $.math_primes_marker),
+      field('base', $._math_operand),
+      $._adjacent_prime,
+      $.math_primes_marker,
     )),
+
+    math_primes_marker: _ => token(/'+/),
 
     math_frac: $ => prec.left(PREC_MATH.frac, seq(
       field('numerator', $._math_expr),
@@ -886,6 +889,7 @@ function mathExpr($, { operators }) {
     $.math_shorthand,
     $.math_align_point,
     $.math_primes,
+    $.math_primes_marker,
     $.math_delimited,
     $.math_root,
     $.math_call,

@@ -39,6 +39,7 @@ enum TokenType {
   HEADING_END,
   LINE_END,
   FLOAT_TRAILING_DOT,
+  ADJACENT_PRIME,
   ERROR_SENTINEL,
 };
 
@@ -408,6 +409,22 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
   // whitespace-sensitive tokens there does more harm than letting the built-in lexer
   // resynchronize.
   if (valid_symbols[ERROR_SENTINEL]) return false;
+
+  /*
+   * Zero-width: a `'` follows with nothing in between, which is what makes it attach.
+   * `a'` is a prime on `a`; `a '` is `a` and then a standalone prime.
+   *
+   * Checked before any whitespace is skipped, so "nothing in between" is simply whether
+   * the very next character is the quote. Expressing it with `token.immediate` instead
+   * would create a second token for `'`, and with both valid the lexer picks whichever
+   * it likes — the same trap that defeated the math delimiters.
+   */
+  if (valid_symbols[ADJACENT_PRIME]) {
+    if (lexer->eof(lexer) || lexer->lookahead != '\'') return false;
+    lexer->mark_end(lexer);
+    lexer->result_symbol = ADJACENT_PRIME;
+    return true;
+  }
 
   /*
    * Inside a raw block nothing is trivia — every space and newline is content — so this

@@ -3186,6 +3186,10 @@
           "named": true
         },
         {
+          "type": "math_primes_marker",
+          "named": true
+        },
+        {
           "type": "math_root",
           "named": true
         },
@@ -3392,6 +3396,10 @@
             "named": true
           },
           {
+            "type": "math_primes_marker",
+            "named": true
+          },
+          {
             "type": "math_root",
             "named": true
           },
@@ -3567,6 +3575,10 @@
           },
           {
             "type": "math_primes",
+            "named": true
+          },
+          {
+            "type": "math_primes_marker",
             "named": true
           },
           {
@@ -3844,6 +3856,10 @@
             "named": true
           },
           {
+            "type": "math_primes_marker",
+            "named": true
+          },
+          {
             "type": "math_root",
             "named": true
           },
@@ -4030,6 +4046,10 @@
             "named": true
           },
           {
+            "type": "math_primes_marker",
+            "named": true
+          },
+          {
             "type": "math_root",
             "named": true
           },
@@ -4091,7 +4111,7 @@
     "fields": {
       "base": {
         "multiple": true,
-        "required": false,
+        "required": true,
         "types": [
           {
             "type": "#",
@@ -4211,6 +4231,10 @@
           },
           {
             "type": "math_primes",
+            "named": true
+          },
+          {
+            "type": "math_primes_marker",
             "named": true
           },
           {
@@ -4423,6 +4447,10 @@
           },
           {
             "type": "math_primes",
+            "named": true
+          },
+          {
+            "type": "math_primes_marker",
             "named": true
           },
           {
