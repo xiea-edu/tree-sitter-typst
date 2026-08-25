@@ -38,6 +38,7 @@ enum TokenType {
   STMT_END,
   HEADING_END,
   LINE_END,
+  FLOAT_TRAILING_DOT,
   ERROR_SENTINEL,
 };
 
@@ -545,6 +546,26 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     if (lexer->lookahead == '\n') saw_newline = true;
     saw_space = true;
     skip(lexer);
+  }
+
+  /*
+   * `1.` is a float, but `1.method()` is a field access on an integer. Telling them
+   * apart needs one character of lookahead past the dot, which a tree-sitter regex
+   * cannot do — so the scanner does it. A digit after the dot is an ordinary float and
+   * is left to the grammar; a second dot is the spread operator.
+   */
+  if (valid_symbols[FLOAT_TRAILING_DOT] && lexer->lookahead >= '0' && lexer->lookahead <= '9') {
+    while (lexer->lookahead >= '0' && lexer->lookahead <= '9') advance(lexer);
+    if (lexer->lookahead != '.') return false;
+    advance(lexer);
+    int32_t after = lexer->lookahead;
+    if (iswalpha((wint_t)after) || after == '_' || after == '.' ||
+        (after >= '0' && after <= '9')) {
+      return false;
+    }
+    lexer->mark_end(lexer);
+    lexer->result_symbol = FLOAT_TRAILING_DOT;
+    return true;
   }
 
   int32_t c = lexer->lookahead;

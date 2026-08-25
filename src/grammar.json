@@ -1903,6 +1903,15 @@
           "name": "float"
         },
         {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_float_trailing_dot"
+          },
+          "named": true,
+          "value": "float"
+        },
+        {
           "type": "SYMBOL",
           "name": "numeric"
         },
@@ -3161,8 +3170,13 @@
                   "type": "CHOICE",
                   "members": [
                     {
-                      "type": "SYMBOL",
-                      "name": "named"
+                      "type": "ALIAS",
+                      "content": {
+                        "type": "SYMBOL",
+                        "name": "_destructuring_named"
+                      },
+                      "named": true,
+                      "value": "named"
                     },
                     {
                       "type": "SYMBOL",
@@ -3187,8 +3201,13 @@
                         "type": "CHOICE",
                         "members": [
                           {
-                            "type": "SYMBOL",
-                            "name": "named"
+                            "type": "ALIAS",
+                            "content": {
+                              "type": "SYMBOL",
+                              "name": "_destructuring_named"
+                            },
+                            "named": true,
+                            "value": "named"
                           },
                           {
                             "type": "SYMBOL",
@@ -3225,6 +3244,31 @@
         {
           "type": "STRING",
           "value": ")"
+        }
+      ]
+    },
+    "_destructuring_named": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "FIELD",
+          "name": "name",
+          "content": {
+            "type": "SYMBOL",
+            "name": "ident"
+          }
+        },
+        {
+          "type": "STRING",
+          "value": ":"
+        },
+        {
+          "type": "FIELD",
+          "name": "pattern",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_pattern"
+          }
         }
       ]
     },
@@ -3962,17 +4006,21 @@
     [
       "array",
       "dict",
+      "params"
+    ],
+    [
+      "dict",
+      "params"
+    ],
+    [
+      "array",
+      "dict",
       "params",
       "destructuring"
     ],
     [
-      "dict",
+      "params",
       "destructuring"
-    ],
-    [
-      "dict",
-      "destructuring",
-      "params"
     ],
     [
       "_postfixable",
@@ -4117,6 +4165,10 @@
     {
       "type": "SYMBOL",
       "name": "_line_end"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_float_trailing_dot"
     },
     {
       "type": "SYMBOL",

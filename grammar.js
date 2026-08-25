@@ -81,6 +81,7 @@ module.exports = grammar({
     $._stmt_end,        // an embedded statement ends at the newline
     $._heading_end,     // a heading ends at the newline, or at a label
     $._line_end,        // a heading or list item ends at the newline
+    $._float_trailing_dot,  // `1.` is a float; `1.method()` is a field access
     $._error_sentinel,  // never matched; signals error recovery to the scanner
   ],
 
@@ -96,12 +97,14 @@ module.exports = grammar({
   // alternatives in parallel instead. Every entry below is one of those genuine
   // ambiguities, not a workaround for a badly factored rule.
   conflicts: $ => [
-    // `(a, b)` — array of values, or a pattern binding two names?
+    // `(a, b)` — array of values, or a pattern binding two names? And `(a: b)` is a
+    // dictionary, a parameter list or a destructuring pattern depending on where it sits.
     [$.array, $.dict],
     [$.array, $.dict, $.destructuring],
+    [$.array, $.dict, $.params],
+    [$.dict, $.params],
     [$.array, $.dict, $.params, $.destructuring],
-    [$.dict, $.destructuring],
-    [$.dict, $.destructuring, $.params],
+    [$.params, $.destructuring],
 
     // An identifier is a value in an expression and a binding site in a pattern.
     [$._postfixable, $._pattern],
@@ -152,6 +155,8 @@ module.exports = grammar({
     [$._math_expr, $._math_operand],
     [$._math_expr, $._math_operand, $._math_args],
     [$._math_expr, $._math_operand, $.math_delimited],
+
+
   ],
 
   rules: {
@@ -487,6 +492,9 @@ module.exports = grammar({
       $.bool,
       $.int,
       $.float,
+      // Typst accepts a bare trailing dot. Distinguishing `1.` from `1.method()` needs
+      // lookahead past the dot, so the scanner supplies this one.
+      alias($._float_trailing_dot, $.float),
       $.numeric,
       $.str,
     ),
@@ -684,9 +692,18 @@ module.exports = grammar({
 
     destructuring: $ => seq(
       '(',
-      sepBy(',', choice($.named, $.spread, $._pattern)),
+      sepBy(',', choice(alias($._destructuring_named, $.named), $.spread, $._pattern)),
       optional(','),
       ')',
+    ),
+
+    // The value of a named entry in a destructuring pattern is itself a PATTERN, not an
+    // expression: `let (drawables: _) = f()` discards that field, and `_` is not an
+    // expression anywhere else.
+    _destructuring_named: $ => seq(
+      field('name', $.ident),
+      ':',
+      field('pattern', $._pattern),
     ),
 
     // `_ = f()` discards a result, and typst models it as a destructuring assignment

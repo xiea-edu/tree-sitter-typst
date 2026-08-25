@@ -4827,6 +4827,24 @@
           }
         ]
       },
+      "pattern": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "destructuring",
+            "named": true
+          },
+          {
+            "type": "ident",
+            "named": true
+          },
+          {
+            "type": "underscore",
+            "named": true
+          }
+        ]
+      },
       "value": {
         "multiple": false,
         "required": false,
