@@ -2502,6 +2502,22 @@
               {
                 "type": "SYMBOL",
                 "name": "parenthesized"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "func_call"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "field_access"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "array"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "dict"
               }
             ]
           }
@@ -3073,8 +3089,17 @@
             "type": "FIELD",
             "name": "pattern",
             "content": {
-              "type": "SYMBOL",
-              "name": "destructuring"
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "destructuring"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "underscore"
+                }
+              ]
             }
           },
           {

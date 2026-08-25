@@ -1546,6 +1546,10 @@
           {
             "type": "destructuring",
             "named": true
+          },
+          {
+            "type": "underscore",
+            "named": true
           }
         ]
       },
@@ -2501,6 +2505,22 @@
         "multiple": false,
         "required": true,
         "types": [
+          {
+            "type": "array",
+            "named": true
+          },
+          {
+            "type": "dict",
+            "named": true
+          },
+          {
+            "type": "field_access",
+            "named": true
+          },
+          {
+            "type": "func_call",
+            "named": true
+          },
           {
             "type": "parenthesized",
             "named": true

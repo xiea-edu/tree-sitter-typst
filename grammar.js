@@ -568,10 +568,18 @@ module.exports = grammar({
     )),
 
     named: $ => seq(field('name', $.ident), ':', field('value', $._expr)),
-    // A dictionary key may be a string or a computed expression in parentheses:
-    // `((field-key): true)` builds the key at run time.
+    // A dictionary key may be any expression that computes to one — a string, something
+    // parenthesized, or a call such as `(a.keys().first(): "")`. A bare identifier is
+    // deliberately absent: `k: v` is a `named` argument, which typst keeps distinct.
     keyed: $ => seq(
-      field('key', choice($.str, $.parenthesized)),
+      field('key', choice(
+        $.str,
+        $.parenthesized,
+        $.func_call,
+        $.field_access,
+        $.array,
+        $.dict,
+      )),
       ':',
       field('value', $._expr),
     ),
@@ -639,8 +647,10 @@ module.exports = grammar({
       ')',
     ),
 
+    // `_ = f()` discards a result, and typst models it as a destructuring assignment
+    // whose pattern is the placeholder.
     destruct_assignment: $ => prec.right(PREC.assign, seq(
-      field('pattern', $.destructuring),
+      field('pattern', choice($.destructuring, $.underscore)),
       '=',
       field('value', $._expr),
     )),
