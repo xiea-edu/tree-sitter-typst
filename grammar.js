@@ -35,6 +35,15 @@ const PREC_ARGS = 21;
 const PREC_ACCESS = 20;
 const PREC_CALL = 19;
 
+// Math has its own precedence table (typst's `math_op`): `/` builds a fraction, `^`
+// and `_` attachments, and a call or root binds tighter than either.
+const PREC_MATH = {
+  frac: 1,
+  attach: 2,
+  func: 2,
+  root: 2,
+};
+
 /** Number suffixes Typst accepts. `%` is included; anything else is an error. */
 const UNIT = /pt|mm|cm|in|deg|rad|em|fr|%/;
 
@@ -116,6 +125,13 @@ module.exports = grammar({
     // `let f • (` again, now that the function form builds a closure.
     [$._let_closure],
     [$._pattern, $._let_closure],
+
+    // AUTO-DISCOVERED CONFLICTS
+    [$._math_operand, $.math_delimited],
+    [$._math_expr, $.math_delimited],
+    [$.math],
+    [$.math_delimited],
+
   ],
 
   rules: {
@@ -124,8 +140,7 @@ module.exports = grammar({
     // -----------------------------------------------------------------------
     //
     // Most markup tokens come from the external scanner, which reproduces typst's
-    // `Lexer::markup` — see src/scanner.c for why they cannot be regexes. Math is still
-    // consumed as a single `equation` token; phase 3 gives it structure.
+    // `Lexer::markup` — see src/scanner.c for why they cannot be regexes.
 
     source_file: $ => repeat($._markup_expr),
 
@@ -203,10 +218,104 @@ module.exports = grammar({
       $._line_end,
     ),
 
-    // Placeholder for phase 3. Consuming an equation as a single token keeps whole
-    // documents parsing without pretending to model math structure; the coverage ledger
-    // still reports every math kind as outstanding.
-    equation: _ => token(seq('$', repeat(choice(/[^$\\]/, /\\./)), '$')),
+    // -----------------------------------------------------------------------
+    // math
+    // -----------------------------------------------------------------------
+    //
+    // Math is its own mode with its own tokens: `*` is a symbol rather than bold, a
+    // multi-character run is a symbol name while a single character is a variable, and
+    // `/`, `^`, `_` are operators. Typst distinguishes inline `$x$` from display `$ x $`
+    // by the spacing inside the dollars, but that is a layout decision — both produce the
+    // same `Equation` node.
+
+    equation: $ => seq('$', optional($.math), '$'),
+
+    math: $ => repeat1($._math_expr),
+
+    _math_expr: $ => mathExpr($, { operators: true }),
+
+    // What an attachment may take as base or script. Excluding the operators is what
+    // keeps `x_i^2` a single flat attachment with both scripts, as typst produces,
+    // rather than a subscript whose script is itself a superscript.
+    _math_operand: $ => mathExpr($, { operators: false }),
+
+    // A run of two or more characters names a symbol (`sum`, `alpha`); a single
+    // character is a variable. That is why `$sum$` is the summation sign but `$s u m$`
+    // is three variables. Note there is no `_` here — unlike code identifiers, since `_`
+    // is the subscript operator in math.
+    math_ident: _ => token(/[\p{XID_Start}][\p{XID_Start}\p{Mn}\p{Mc}\p{Nd}]+/u),
+
+    // A single grapheme, or a number kept whole.
+    math_text: _ => token(choice(
+      /[0-9]+(\.[0-9]+)?/,
+      /[^\s\\"\-:!.,;#_$/^&'()\[\]{}|<>=~*+]/u,
+    )),
+
+    // `a.b` — built by typst's lexer rather than its parser, so the dot is not a general
+    // field access here.
+    math_field_access: $ => prec.left(seq(
+      choice($.math_ident, $.math_field_access),
+      token.immediate('.'),
+      alias(token.immediate(/[\p{XID_Start}][\p{XID_Start}\p{Mn}\p{Mc}\p{Nd}]*/u), $.math_ident),
+    )),
+
+    // `sum(x)` — a call needs the parenthesis directly adjacent, like in code.
+    math_call: $ => prec.left(PREC_MATH.func, seq(
+      field('item', choice($.math_ident, $.math_field_access)),
+      field('args', alias($._math_args, $.math_args)),
+    )),
+    _math_args: $ => seq(
+      token.immediate('('),
+      optional($.math),
+      ')',
+    ),
+
+    // `(x + y)`, `[|v|]` and the Unicode bracket pairs. Typst re-labels the delimiters as
+    // math text, since they render as symbols rather than acting as grouping syntax.
+    math_delimited: $ => seq(
+      alias(choice('(', '[', '{', '⟨', '⌊', '⌈', '|', '‖', '[|'), $.math_text),
+      optional($.math),
+      alias(choice(')', ']', '}', '⟩', '⌋', '⌉', '|', '‖', '|]'), $.math_text),
+    ),
+
+    // `x^2`, `x_i`, `x_i^2`. Right-associative, and `^` and `_` chain into a single
+    // attachment so `x_i^2` is one node with both a subscript and a superscript.
+    math_attach: $ => prec.left(PREC_MATH.attach, seq(
+      field('base', $._math_operand),
+      repeat1(seq(
+        field('operator', choice('^', '_')),
+        field('attachment', $._math_operand),
+      )),
+    )),
+
+    // Primes bind like an attachment but take no right operand, and only when directly
+    // adjacent: `a'` attaches, `a '` does not.
+    math_primes: $ => prec.left(PREC_MATH.attach, seq(
+      field('base', $._math_operand),
+      alias(token.immediate(/'+/), $.math_primes_marker),
+    )),
+
+    math_frac: $ => prec.left(PREC_MATH.frac, seq(
+      field('numerator', $._math_expr),
+      '/',
+      field('denominator', $._math_expr),
+    )),
+
+    math_root: $ => prec.right(PREC_MATH.root, seq(
+      field('operator', choice('√', '∛', '∜')),
+      field('radicand', $._math_operand),
+    )),
+
+    math_align_point: _ => '&',
+
+    // The full shorthand set from typst's math lexer, longest first so that `<==>` is
+    // not read as `<=` followed by `=>`.
+    math_shorthand: _ => token(choice(
+      '<==>', '<-->', '<--', '<-<', '<->', '<<-', '<<<', '<=>', '<==', '<~~',
+      '>->', '>>>', '=>>', '|->', '|=>', '~~>', '::=', '-->', '->>', '...',
+      '<=', '<<', '<-', '<~', '>=', '>>', '=>', '=:', ':=', '!=', '||', '~>',
+      '->', '*', '-', '~',
+    )),
 
     // A `#` in markup escapes into code mode for exactly one expression. Typst emits the
     // `Hash` as a sibling of the expression rather than a parent, so the expression node
@@ -668,5 +777,37 @@ function markupExpr($, { label }) {
     $._bracket_text,
     // A bare colon is plain text; `term_item` claims it as a separator where one fits.
     alias(':', $.text),
+  );
+}
+
+/**
+ * The math alternatives, with the infix operators made optional.
+ *
+ * Typst drives this with precedence: an attachment parses its operands at a level that
+ * excludes further attachments, then chains any following `^`/`_` into the same node.
+ * Dropping the operators from the operand rule expresses the same thing, which is what
+ * keeps `x_i^2` one flat attachment carrying both scripts.
+ */
+function mathExpr($, { operators }) {
+  return choice(
+    $.math_text,
+    $.math_ident,
+    $.math_field_access,
+    $.math_shorthand,
+    $.math_align_point,
+    $.math_primes,
+    $.math_delimited,
+    $.math_root,
+    $.math_call,
+    $.str,
+    $.escape,
+    $.linebreak,
+    $._hash_expr,
+    ...(operators ? [$.math_attach, $.math_frac] : []),
+    // Typst lexes these as punctuation or as the start of a shorthand, then falls
+    // through to math text when no shorthand matched. `=`, `+`, `<`, `>` and `|` are
+    // ordinary symbols in math; only multi-character forms like `<=` or `|->` are
+    // shorthands, and longest-match already prefers those.
+    alias(choice('.', ',', ';', '!', '=', '+', '<', '>', '|', ':'), $.math_text),
   );
 }

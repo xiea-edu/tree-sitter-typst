@@ -87,11 +87,22 @@ export const KIND_MAP = {
   // ---- math --------------------------------------------------------------
   Equation: 'equation',
 
-  // Phase 3 — math internals. `equation` is currently a single token, so nothing
-  // inside it is modelled yet:
-  // Math, MathText, MathIdent, MathFieldAccess, MathShorthand,
-  // MathAlignPoint, MathCall, MathArgs, MathDelimited, MathAttach, MathPrimes,
-  // MathFrac, MathRoot,
+  Math: 'math',
+  MathText: 'math_text',
+  MathIdent: 'math_ident',
+  MathFieldAccess: 'math_field_access',
+  MathShorthand: 'math_shorthand',
+  MathAlignPoint: 'math_align_point',
+  MathCall: 'math_call',
+  MathArgs: 'math_args',
+  MathDelimited: 'math_delimited',
+  MathAttach: 'math_attach',
+  MathFrac: 'math_frac',
+  MathRoot: 'math_root',
+
+  // Typst's `MathPrimes` is the `'` run itself, wrapped by a `MathAttach`. Ours names
+  // the run `math_primes_marker` and the pairing `math_primes`.
+  MathPrimes: 'math_primes_marker',
 
   // ---- code --------------------------------------------------------------
 
