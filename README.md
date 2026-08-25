@@ -26,11 +26,15 @@ from.
 
 | | |
 | --- | --- |
-| Validity agreement with typst | **94.8%** of 3,740 corpus files |
+| Validity agreement with typst | **98.1%** of 3,740 corpus files (67 false rejects, 5 false accepts) |
 | `SyntaxKind` coverage | **130 / 130** kinds the corpus produces |
-| Span agreement | 77% of files structurally identical |
+| Span agreement | **78.3%** of files structurally identical to typst's tree |
 | Golden tests | 60, all passing |
 | Fuzz / incremental | clean |
+
+Span agreement is the strictest number here and the one still worth pushing: it requires
+every mapped node to land on exactly the same byte range as typst's, so a single
+disagreement anywhere marks the whole file as differing.
 
 ## Using it in Neovim
 
@@ -112,6 +116,18 @@ npm run test:queries && npm run test:corpus && npm run test:valid && npm run tes
 Useful flags: `--limit=N` caps files per group, `--rounds=N` sets fuzz/incremental
 iterations, `--seed=N` reproduces a specific failing run.
 
+Note that `--limit` changes which files are compared, so the scores move with it — the
+floors below are calibrated against the full corpus.
+
+### Score floors
+
+`test/thresholds.json` holds the minimum each score must meet. They exist so the suite is
+a regression detector rather than a permanently red light: demanding perfection from a
+grammar at 98% would fail every run, and a check that always fails is one nobody reads.
+Every run prints the delta in both directions, so it is obvious which way things moved.
+
+Ratchet them up as the numbers improve — never down to make a red build pass.
+
 ### Debugging a single file
 
 ```bash
@@ -157,7 +173,7 @@ and would bloat the repo.
   dedent. We model the block as delimiters, an optional language tag and one content span
   — enough for injections, and the dedent is a presentation decision rather than syntax.
 - Typst wraps an implicit function call — a variable directly followed by a delimited
-  group, as in `(x)/2$` — in an extra `Math` node with the same bounds as its parent.
+  group, as in `$f(x)/2$` — in an extra `Math` node with the same bounds as its parent.
   We leave the pair as siblings. The grouping is identical either way, and a node with
   the same extent as its parent buys an editor nothing.
 - A trailing `1.` with no digits after the dot (`#{1.}`) is a float in typst. Telling it

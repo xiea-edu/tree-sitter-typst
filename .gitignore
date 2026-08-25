@@ -1,11 +1,15 @@
 node_modules/
-corpus/
 target/
 build/
 prebuilds/
 *.log
 .tmp/
 *.wasm
+
+# The fetched differential corpus, anchored to the repo root on purpose: an unanchored
+# `corpus/` also matches `test/corpus/`, which is where the golden tests live. Without
+# the slash they are silently untracked and a fresh clone runs none of them.
+/corpus/
 
 # NOTE: src/parser.c, src/grammar.json, src/node-types.json and src/tree_sitter/
 # are intentionally COMMITTED. Consumers (nvim-treesitter, Helix, Zed) compile

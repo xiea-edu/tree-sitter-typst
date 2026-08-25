@@ -1,18 +1,19 @@
 {
   "name": "tree-sitter-typst",
   "version": "0.1.0",
-  "description": "Tree-sitter grammar for the Typst markup language",
+  "description": "Tree-sitter grammar for the Typst markup language, differential-tested against the real Typst parser",
   "license": "MIT",
-  "keywords": ["parser", "lexer", "tree-sitter", "typst"],
-  "main": "bindings/node",
-  "types": "bindings/node",
+  "keywords": [
+    "parser",
+    "lexer",
+    "tree-sitter",
+    "typst"
+  ],
   "files": [
     "grammar.js",
     "tree-sitter.json",
-    "binding.gyp",
     "queries/**",
-    "src/**",
-    "bindings/node/**"
+    "src/**"
   ],
   "scripts": {
     "generate": "tree-sitter generate",
@@ -29,17 +30,7 @@
     "corpus:fetch": "node scripts/fetch-corpus.mjs",
     "parse": "tree-sitter parse"
   },
-  "dependencies": {
-    "node-addon-api": "^8.3.0",
-    "node-gyp-build": "^4.8.4"
-  },
   "devDependencies": {
     "tree-sitter-cli": "^0.26.13"
-  },
-  "peerDependencies": {
-    "tree-sitter": "^0.25.0"
-  },
-  "peerDependenciesMeta": {
-    "tree-sitter": { "optional": true }
   }
 }

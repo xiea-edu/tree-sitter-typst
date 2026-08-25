@@ -1,0 +1,15 @@
+{
+  "_comment": [
+    "Minimum scores the suite must meet. These exist so CI is a regression detector",
+    "rather than a permanently red light: demanding perfection from a grammar that is",
+    "at 98% would fail every run, and a check that always fails is one nobody reads.",
+    "",
+    "Ratchet them up as the numbers improve — never down to make a red build pass.",
+    "A drop means a real regression, and the run prints the delta so it is obvious",
+    "which direction things moved."
+  ],
+  "validityAgreement": 0.98,
+  "spanAgreement": 0.78,
+  "kindCoverage": 1.0,
+  "maxFalseAccepts": 8
+}

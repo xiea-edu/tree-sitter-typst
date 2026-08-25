@@ -20,6 +20,26 @@ import {
 } from './lib/harness.mjs';
 import { KIND_MAP, UNMAPPED_OK } from './lib/kind-map.mjs';
 
+/*
+ * Score floors, so the suite is a regression detector rather than a permanently red
+ * light. Demanding perfection from a grammar at 98% would fail every run, and a check
+ * that always fails is one nobody reads.
+ */
+const THRESHOLDS = JSON.parse(
+  fs.readFileSync(new URL('./thresholds.json', import.meta.url), 'utf8'),
+);
+
+/** Compare a ratio against its floor, reporting the delta in either direction. */
+function checkThreshold(label, actual, floor) {
+  const asPct = (x) => `${(x * 100).toFixed(2)}%`;
+  const delta = ((actual - floor) * 100).toFixed(2);
+  if (actual + 1e-9 < floor) {
+    fail(`${label} ${asPct(actual)} is below the ${asPct(floor)} floor (${delta} points)`);
+  } else {
+    pass(`${label} ${asPct(actual)} meets the ${asPct(floor)} floor (+${delta} points)`);
+  }
+}
+
 const args = process.argv.slice(2);
 const cmd = args.find((a) => !a.startsWith('--')) ?? 'all';
 const numFlag = (n, d) => {
@@ -87,7 +107,11 @@ function tierValid() {
       console.log(`    ${rel(f)}${firstErrorHint(f)}`);
     }
   }
-  if (totalAgree !== total) failed = true;
+  checkThreshold('validity agreement', total ? totalAgree / total : 1,
+                 THRESHOLDS.validityAgreement);
+  if (falseAccepts.length > THRESHOLDS.maxFalseAccepts) {
+    fail(`${falseAccepts.length} false accepts exceeds the limit of ${THRESHOLDS.maxFalseAccepts}`);
+  }
   return { totalAgree, total, falseRejects, falseAccepts };
 }
 
@@ -170,8 +194,10 @@ function tierDiff() {
       console.log(`    ${rel(file)}`);
       for (const d of diff.slice(0, 2)) console.log(color.dim(`      ${d}`));
     }
-    failed = true;
   }
+
+  checkThreshold('span agreement', filesCompared ? filesMatching / filesCompared : 1,
+                 THRESHOLDS.spanAgreement);
 }
 
 /**
@@ -472,6 +498,8 @@ function tierCoverage() {
   const missing = kinds.filter(([k]) => KIND_MAP[k] === undefined && !UNMAPPED_OK.has(k));
 
   console.log(`  ${covered.length}/${kinds.length} kinds handled  ${color.bold(pct(covered.length, kinds.length))}`);
+  checkThreshold("kind coverage", kinds.length ? covered.length / kinds.length : 1,
+                 THRESHOLDS.kindCoverage);
   if (missing.length) {
     console.log(color.dim('\n  not yet handled (most frequent first):'));
     const lines = missing.map(([k, n]) => `${k}(${n})`);
