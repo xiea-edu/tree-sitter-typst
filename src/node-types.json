@@ -4091,7 +4091,7 @@
     "fields": {
       "base": {
         "multiple": true,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "#",

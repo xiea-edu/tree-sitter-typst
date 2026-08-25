@@ -36,6 +36,38 @@ Span agreement is the strictest number here and the one still worth pushing: it 
 every mapped node to land on exactly the same byte range as typst's, so a single
 disagreement anywhere marks the whole file as differing.
 
+## How it compares
+
+Tier 1 is the only tier that ports across grammars unchanged — it asks nothing about node
+names — so it can be run against the other Typst grammars directly:
+
+```bash
+node scripts/compare-parsers.mjs ../uben0-tree-sitter-typst ../SeniorMars-tree-sitter-typst
+```
+
+Measured over the same 3,740 files:
+
+| grammar | overall | typst suite | false rejects | false accepts |
+| --- | --- | --- | --- | --- |
+| this grammar | 98.07% | 94.12% | 67 | 5 |
+| [uben0](https://github.com/uben0/tree-sitter-typst) | **98.42%** | **95.48%** | **52** | 7 |
+| [SeniorMars](https://github.com/SeniorMars/tree-sitter-typst) | 97.22% | 92.76% | 99 | 5 |
+
+uben0 is ahead on validity. It is not a subset relationship, though — it accepts 63 files
+this grammar rejects, and rejects 48 that this one accepts, so the two fail on different
+things. That difference list is the most useful backlog available: each entry is a
+construct with a known-good counterexample.
+
+The comparison is rough. Other grammars may target a different Typst version than the
+pinned 0.15.1 oracle, and may have different goals — a grammar aiming only at
+highlighting can reasonably accept more than the language does. Nothing here compares
+tree *structure*, which would need a hand-written kind map per grammar.
+
+One trap worth knowing if you run this yourself: tree-sitter caches compiled parsers by
+*language name*, and every Typst grammar is called `typst`. Without clearing that cache
+between runs, whichever compiled first answers for all the others and you get three
+identical scores. The script clears it.
+
 ## Using it in Neovim
 
 Neovim ships a `typst` parser already, so point it at this one:

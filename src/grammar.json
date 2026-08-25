@@ -1273,12 +1273,20 @@
         "type": "SEQ",
         "members": [
           {
-            "type": "FIELD",
-            "name": "base",
-            "content": {
-              "type": "SYMBOL",
-              "name": "_math_operand"
-            }
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "FIELD",
+                "name": "base",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_operand"
+                }
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
           },
           {
             "type": "ALIAS",
@@ -4032,6 +4040,24 @@
     ],
     [
       "_math_spread_arg"
+    ],
+    [
+      "_math_expr",
+      "_math_operand"
+    ],
+    [
+      "_math_expr",
+      "_math_operand",
+      "_math_args"
+    ],
+    [
+      "_math_expr",
+      "_math_operand",
+      "math_delimited"
+    ],
+    [
+      "_math_operand",
+      "_math_args"
     ]
   ],
   "precedences": [],

@@ -28,6 +28,7 @@
     "test:queries": "node test/run.mjs queries",
     "oracle:build": "cargo build --release --manifest-path tools/oracle/Cargo.toml",
     "corpus:fetch": "node scripts/fetch-corpus.mjs",
+    "compare": "node scripts/compare-parsers.mjs",
     "parse": "tree-sitter parse"
   },
   "devDependencies": {

@@ -147,6 +147,12 @@ module.exports = grammar({
     [$._math_named_arg],
     [$._math_spread_arg],
 
+
+    // A bare `'` is a prime with no base, so an operand may be empty up to that point.
+    [$._math_expr, $._math_operand],
+    [$._math_expr, $._math_operand, $._math_args],
+    [$._math_expr, $._math_operand, $.math_delimited],
+    [$._math_operand, $._math_args],
   ],
 
   rules: {
@@ -327,8 +333,10 @@ module.exports = grammar({
 
     // Primes bind like an attachment but take no right operand, and only when directly
     // adjacent: `a'` attaches, `a '` does not.
+    // The base is optional: a bare `$'$` is a prime with nothing to attach to, which
+    // typst emits as a standalone `MathPrimes`.
     math_primes: $ => prec.left(PREC_MATH.attach, seq(
-      field('base', $._math_operand),
+      optional(field('base', $._math_operand)),
       alias(token.immediate(/'+/), $.math_primes_marker),
     )),
 
