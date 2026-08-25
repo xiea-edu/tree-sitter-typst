@@ -64,10 +64,10 @@ module.exports = grammar({
     $.shorthand,        // `~ ... --- -- -?`, and `-` before a digit
     $._star,            // `*` only outside a word
     $._underscore,      // `_` only outside a word
-    $._heading_marker,  // `=`+ at line start, followed by a space
-    $._list_marker,     // `-` at line start, followed by a space
-    $._enum_marker,     // `+` or `1.` at line start, followed by a space
-    $._term_marker,     // `/` at line start, followed by a space
+    $.heading_marker,  // `=`+ at line start, followed by a space
+    $.list_marker,     // `-` at line start, followed by a space
+    $.enum_marker,     // `+` or `1.` at line start, followed by a space
+    $.term_marker,     // `/` at line start, followed by a space
     $.raw_delim,        // a backtick fence; the closer must match the opener's count
     $.raw_lang,         // the language tag of a fenced block, for injections
     $.raw_content,      // everything between the fences, whitespace included
@@ -204,14 +204,14 @@ module.exports = grammar({
     // Each of these ends at the end of its line; `_line_end` is a zero-width token the
     // scanner emits when the body is over.
     heading: $ => seq(
-      $._heading_marker,
+      $.heading_marker,
       optional(alias($._markup_unlabelled, $.markup)),
       $._heading_end,
     ),
-    list_item: $ => seq($._list_marker, optional($.markup), $._line_end),
-    enum_item: $ => seq($._enum_marker, optional($.markup), $._line_end),
+    list_item: $ => seq($.list_marker, optional($.markup), $._line_end),
+    enum_item: $ => seq($.enum_marker, optional($.markup), $._line_end),
     term_item: $ => seq(
-      $._term_marker,
+      $.term_marker,
       field('term', optional($.markup)),
       ':',
       field('description', optional($.markup)),

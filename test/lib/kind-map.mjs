@@ -46,7 +46,7 @@ export const UNMAPPED_OK = new Set([
   'Import', 'Include', 'As',
 
   // Structural markers that we fold into their parent node rather than name separately.
-  'HeadingMarker', 'ListMarker', 'EnumMarker', 'TermMarker', 'RefMarker',
+  'RefMarker',
 
   // Whitespace typst strips from a raw block when computing its dedent. That is a
   // presentation decision — how the block will be laid out — not syntax, and it is the
@@ -73,6 +73,11 @@ export const KIND_MAP = {
   SmartQuote: 'smart_quote',
   Strong: 'strong',
   Emph: 'emph',
+  HeadingMarker: 'heading_marker',
+  ListMarker: 'list_marker',
+  EnumMarker: 'enum_marker',
+  TermMarker: 'term_marker',
+
   Raw: 'raw',
   RawDelim: 'raw_delim',
   RawLang: 'raw_lang',

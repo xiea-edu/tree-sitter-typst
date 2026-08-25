@@ -438,7 +438,7 @@
       "members": [
         {
           "type": "SYMBOL",
-          "name": "_heading_marker"
+          "name": "heading_marker"
         },
         {
           "type": "CHOICE",
@@ -468,7 +468,7 @@
       "members": [
         {
           "type": "SYMBOL",
-          "name": "_list_marker"
+          "name": "list_marker"
         },
         {
           "type": "CHOICE",
@@ -493,7 +493,7 @@
       "members": [
         {
           "type": "SYMBOL",
-          "name": "_enum_marker"
+          "name": "enum_marker"
         },
         {
           "type": "CHOICE",
@@ -518,7 +518,7 @@
       "members": [
         {
           "type": "SYMBOL",
-          "name": "_term_marker"
+          "name": "term_marker"
         },
         {
           "type": "FIELD",
@@ -3818,19 +3818,19 @@
     },
     {
       "type": "SYMBOL",
-      "name": "_heading_marker"
+      "name": "heading_marker"
     },
     {
       "type": "SYMBOL",
-      "name": "_list_marker"
+      "name": "list_marker"
     },
     {
       "type": "SYMBOL",
-      "name": "_enum_marker"
+      "name": "enum_marker"
     },
     {
       "type": "SYMBOL",
-      "name": "_term_marker"
+      "name": "term_marker"
     },
     {
       "type": "SYMBOL",
