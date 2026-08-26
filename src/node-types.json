@@ -1097,26 +1097,6 @@
         "required": false,
         "types": [
           {
-            "type": "array",
-            "named": true
-          },
-          {
-            "type": "auto",
-            "named": true
-          },
-          {
-            "type": "binary",
-            "named": true
-          },
-          {
-            "type": "bool",
-            "named": true
-          },
-          {
-            "type": "closure",
-            "named": true
-          },
-          {
             "type": "code_block",
             "named": true
           },
@@ -1126,110 +1106,6 @@
           },
           {
             "type": "content_block",
-            "named": true
-          },
-          {
-            "type": "contextual",
-            "named": true
-          },
-          {
-            "type": "destruct_assignment",
-            "named": true
-          },
-          {
-            "type": "dict",
-            "named": true
-          },
-          {
-            "type": "equation",
-            "named": true
-          },
-          {
-            "type": "field_access",
-            "named": true
-          },
-          {
-            "type": "float",
-            "named": true
-          },
-          {
-            "type": "for_loop",
-            "named": true
-          },
-          {
-            "type": "func_call",
-            "named": true
-          },
-          {
-            "type": "func_return",
-            "named": true
-          },
-          {
-            "type": "ident",
-            "named": true
-          },
-          {
-            "type": "int",
-            "named": true
-          },
-          {
-            "type": "label",
-            "named": true
-          },
-          {
-            "type": "let_binding",
-            "named": true
-          },
-          {
-            "type": "loop_break",
-            "named": true
-          },
-          {
-            "type": "loop_continue",
-            "named": true
-          },
-          {
-            "type": "module_import",
-            "named": true
-          },
-          {
-            "type": "module_include",
-            "named": true
-          },
-          {
-            "type": "none",
-            "named": true
-          },
-          {
-            "type": "numeric",
-            "named": true
-          },
-          {
-            "type": "parenthesized",
-            "named": true
-          },
-          {
-            "type": "raw",
-            "named": true
-          },
-          {
-            "type": "set_rule",
-            "named": true
-          },
-          {
-            "type": "show_rule",
-            "named": true
-          },
-          {
-            "type": "str",
-            "named": true
-          },
-          {
-            "type": "unary",
-            "named": true
-          },
-          {
-            "type": "while_loop",
             "named": true
           }
         ]
@@ -1239,139 +1115,11 @@
         "required": true,
         "types": [
           {
-            "type": "array",
-            "named": true
-          },
-          {
-            "type": "auto",
-            "named": true
-          },
-          {
-            "type": "binary",
-            "named": true
-          },
-          {
-            "type": "bool",
-            "named": true
-          },
-          {
-            "type": "closure",
-            "named": true
-          },
-          {
             "type": "code_block",
             "named": true
           },
           {
-            "type": "conditional",
-            "named": true
-          },
-          {
             "type": "content_block",
-            "named": true
-          },
-          {
-            "type": "contextual",
-            "named": true
-          },
-          {
-            "type": "destruct_assignment",
-            "named": true
-          },
-          {
-            "type": "dict",
-            "named": true
-          },
-          {
-            "type": "equation",
-            "named": true
-          },
-          {
-            "type": "field_access",
-            "named": true
-          },
-          {
-            "type": "float",
-            "named": true
-          },
-          {
-            "type": "for_loop",
-            "named": true
-          },
-          {
-            "type": "func_call",
-            "named": true
-          },
-          {
-            "type": "func_return",
-            "named": true
-          },
-          {
-            "type": "ident",
-            "named": true
-          },
-          {
-            "type": "int",
-            "named": true
-          },
-          {
-            "type": "label",
-            "named": true
-          },
-          {
-            "type": "let_binding",
-            "named": true
-          },
-          {
-            "type": "loop_break",
-            "named": true
-          },
-          {
-            "type": "loop_continue",
-            "named": true
-          },
-          {
-            "type": "module_import",
-            "named": true
-          },
-          {
-            "type": "module_include",
-            "named": true
-          },
-          {
-            "type": "none",
-            "named": true
-          },
-          {
-            "type": "numeric",
-            "named": true
-          },
-          {
-            "type": "parenthesized",
-            "named": true
-          },
-          {
-            "type": "raw",
-            "named": true
-          },
-          {
-            "type": "set_rule",
-            "named": true
-          },
-          {
-            "type": "show_rule",
-            "named": true
-          },
-          {
-            "type": "str",
-            "named": true
-          },
-          {
-            "type": "unary",
-            "named": true
-          },
-          {
-            "type": "while_loop",
             "named": true
           }
         ]
@@ -1846,111 +1594,11 @@
             "named": true
           },
           {
-            "type": "content_block",
-            "named": true
-          },
-          {
-            "type": "dict",
-            "named": true
-          },
-          {
-            "type": "equation",
-            "named": true
-          },
-          {
-            "type": "field_access",
-            "named": true
-          },
-          {
-            "type": "float",
-            "named": true
-          },
-          {
-            "type": "func_call",
-            "named": true
-          },
-          {
-            "type": "ident",
-            "named": true
-          },
-          {
-            "type": "int",
-            "named": true
-          },
-          {
-            "type": "label",
-            "named": true
-          },
-          {
-            "type": "none",
-            "named": true
-          },
-          {
-            "type": "numeric",
-            "named": true
-          },
-          {
-            "type": "parenthesized",
-            "named": true
-          },
-          {
-            "type": "raw",
-            "named": true
-          },
-          {
-            "type": "str",
-            "named": true
-          }
-        ]
-      }
-    }
-  },
-  {
-    "type": "for_loop",
-    "named": true,
-    "fields": {
-      "body": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "array",
-            "named": true
-          },
-          {
-            "type": "auto",
-            "named": true
-          },
-          {
-            "type": "binary",
-            "named": true
-          },
-          {
-            "type": "bool",
-            "named": true
-          },
-          {
-            "type": "closure",
-            "named": true
-          },
-          {
-            "type": "code_block",
-            "named": true
-          },
-          {
             "type": "conditional",
             "named": true
           },
           {
             "type": "content_block",
-            "named": true
-          },
-          {
-            "type": "contextual",
-            "named": true
-          },
-          {
-            "type": "destruct_assignment",
             "named": true
           },
           {
@@ -1978,10 +1626,6 @@
             "named": true
           },
           {
-            "type": "func_return",
-            "named": true
-          },
-          {
             "type": "ident",
             "named": true
           },
@@ -1991,26 +1635,6 @@
           },
           {
             "type": "label",
-            "named": true
-          },
-          {
-            "type": "let_binding",
-            "named": true
-          },
-          {
-            "type": "loop_break",
-            "named": true
-          },
-          {
-            "type": "loop_continue",
-            "named": true
-          },
-          {
-            "type": "module_import",
-            "named": true
-          },
-          {
-            "type": "module_include",
             "named": true
           },
           {
@@ -2030,23 +1654,31 @@
             "named": true
           },
           {
-            "type": "set_rule",
-            "named": true
-          },
-          {
-            "type": "show_rule",
-            "named": true
-          },
-          {
             "type": "str",
             "named": true
           },
           {
-            "type": "unary",
+            "type": "while_loop",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "for_loop",
+    "named": true,
+    "fields": {
+      "body": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "code_block",
             "named": true
           },
           {
-            "type": "while_loop",
+            "type": "content_block",
             "named": true
           }
         ]
@@ -2248,6 +1880,10 @@
             "named": true
           },
           {
+            "type": "conditional",
+            "named": true
+          },
+          {
             "type": "content_block",
             "named": true
           },
@@ -2265,6 +1901,10 @@
           },
           {
             "type": "float",
+            "named": true
+          },
+          {
+            "type": "for_loop",
             "named": true
           },
           {
@@ -2301,6 +1941,10 @@
           },
           {
             "type": "str",
+            "named": true
+          },
+          {
+            "type": "while_loop",
             "named": true
           }
         ]
@@ -6318,139 +5962,11 @@
         "required": true,
         "types": [
           {
-            "type": "array",
-            "named": true
-          },
-          {
-            "type": "auto",
-            "named": true
-          },
-          {
-            "type": "binary",
-            "named": true
-          },
-          {
-            "type": "bool",
-            "named": true
-          },
-          {
-            "type": "closure",
-            "named": true
-          },
-          {
             "type": "code_block",
             "named": true
           },
           {
-            "type": "conditional",
-            "named": true
-          },
-          {
             "type": "content_block",
-            "named": true
-          },
-          {
-            "type": "contextual",
-            "named": true
-          },
-          {
-            "type": "destruct_assignment",
-            "named": true
-          },
-          {
-            "type": "dict",
-            "named": true
-          },
-          {
-            "type": "equation",
-            "named": true
-          },
-          {
-            "type": "field_access",
-            "named": true
-          },
-          {
-            "type": "float",
-            "named": true
-          },
-          {
-            "type": "for_loop",
-            "named": true
-          },
-          {
-            "type": "func_call",
-            "named": true
-          },
-          {
-            "type": "func_return",
-            "named": true
-          },
-          {
-            "type": "ident",
-            "named": true
-          },
-          {
-            "type": "int",
-            "named": true
-          },
-          {
-            "type": "label",
-            "named": true
-          },
-          {
-            "type": "let_binding",
-            "named": true
-          },
-          {
-            "type": "loop_break",
-            "named": true
-          },
-          {
-            "type": "loop_continue",
-            "named": true
-          },
-          {
-            "type": "module_import",
-            "named": true
-          },
-          {
-            "type": "module_include",
-            "named": true
-          },
-          {
-            "type": "none",
-            "named": true
-          },
-          {
-            "type": "numeric",
-            "named": true
-          },
-          {
-            "type": "parenthesized",
-            "named": true
-          },
-          {
-            "type": "raw",
-            "named": true
-          },
-          {
-            "type": "set_rule",
-            "named": true
-          },
-          {
-            "type": "show_rule",
-            "named": true
-          },
-          {
-            "type": "str",
-            "named": true
-          },
-          {
-            "type": "unary",
-            "named": true
-          },
-          {
-            "type": "while_loop",
             "named": true
           }
         ]

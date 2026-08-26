@@ -273,7 +273,19 @@ function tierDiff() {
 const TRIVIA_OWNING = new Set(['Markup', 'Code']);
 
 function compareSpans(theirs, mine, buf) {
-  const have = new Set(mine.map((n) => `${n.start}:${n.end}:${n.kind}`));
+  /*
+   * The root is normalized to the whole file before comparing.
+   *
+   * tree-sitter's root node begins at its first child, and leading *whitespace* is never
+   * a child — a leading comment is, being a named node, but blank lines are not. So a
+   * file starting with a newline gets a `source_file` that begins at byte 1 while typst's
+   * `Markup` begins at 0. No grammar can change that; it is a property of the tree format.
+   * Requiring the two to agree would be measuring something unrepresentable rather than
+   * anything about this grammar, so the root alone is compared on the file's full extent.
+   */
+  const have = new Set(mine.map((n) =>
+    n.kind === 'source_file' ? `0:${buf.length}:source_file`
+                             : `${n.start}:${n.end}:${n.kind}`));
   const out = [];
 
   /** True when no non-trivia node of typst's own lies inside this span. */

@@ -2852,6 +2852,18 @@
         {
           "type": "SYMBOL",
           "name": "equation"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "conditional"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "while_loop"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "for_loop"
         }
       ]
     },
@@ -4033,6 +4045,19 @@
         ]
       }
     },
+    "_block": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "code_block"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "content_block"
+        }
+      ]
+    },
     "conditional": {
       "type": "PREC_RIGHT",
       "value": 0,
@@ -4056,7 +4081,7 @@
             "name": "then",
             "content": {
               "type": "SYMBOL",
-              "name": "_expr"
+              "name": "_block"
             }
           },
           {
@@ -4073,8 +4098,17 @@
                     "type": "FIELD",
                     "name": "else",
                     "content": {
-                      "type": "SYMBOL",
-                      "name": "_expr"
+                      "type": "CHOICE",
+                      "members": [
+                        {
+                          "type": "SYMBOL",
+                          "name": "_block"
+                        },
+                        {
+                          "type": "SYMBOL",
+                          "name": "conditional"
+                        }
+                      ]
                     }
                   }
                 ]
@@ -4110,7 +4144,7 @@
             "name": "body",
             "content": {
               "type": "SYMBOL",
-              "name": "_expr"
+              "name": "_block"
             }
           }
         ]
@@ -4151,7 +4185,7 @@
             "name": "body",
             "content": {
               "type": "SYMBOL",
-              "name": "_expr"
+              "name": "_block"
             }
           }
         ]
@@ -4518,6 +4552,14 @@
       "set_rule"
     ],
     [
+      "_hash_value",
+      "_postfixable"
+    ],
+    [
+      "_value",
+      "_postfixable"
+    ],
+    [
       "_markup_expr",
       "term_item"
     ],
@@ -4525,10 +4567,6 @@
       "markup"
     ],
     [
-      "_let_closure"
-    ],
-    [
-      "_pattern",
       "_let_closure"
     ],
     [

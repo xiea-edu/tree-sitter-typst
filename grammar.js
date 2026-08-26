@@ -136,6 +136,11 @@ module.exports = grammar({
     // identifier `foo` followed by a separate content block?
     [$._postfixable, $.set_rule],
 
+    // `#if c [x]` — a conditional embedded in markup ends there, or continues as the
+    // target of a field access. Only what follows the block says which.
+    [$._hash_value, $._postfixable],
+    [$._value, $._postfixable],
+
     // `/ a: b` — a term item, or ordinary text that happens to contain a colon? The
     // colon is plain text in markup, and only a term item gives it a second meaning.
     [$._markup_expr, $.term_item],
@@ -145,7 +150,6 @@ module.exports = grammar({
 
     // `let f • (` again, now that the function form builds a closure.
     [$._let_closure],
-    [$._pattern, $._let_closure],
 
     // Math delimiters double as symbols: `(` opens a group but also renders as a
     // parenthesis, and a closing brace with no opener is simply a symbol. Whether a run
@@ -681,6 +685,13 @@ module.exports = grammar({
       $.label,
       $.raw,
       $.equation,
+      // A branch or loop is a value too, so `if a { b } else { c }.filter(f)` field-
+      // accesses the whole conditional rather than just its else block — typst nests
+      // `FieldAccess(Conditional, ...)`. Real code does this to a comprehension often
+      // enough that six corpus files depend on it.
+      $.conditional,
+      $.while_loop,
+      $.for_loop,
     ),
 
     field_access: $ => prec.left(PREC_ACCESS, seq(
@@ -861,17 +872,27 @@ module.exports = grammar({
 
     // ---- control flow -----------------------------------------------------
 
+    /*
+     * The body of a branch or loop is a *block*, never a bare expression: typst rejects
+     * `if a 1`, `while a 1` and `for x in y 1` outright. Accepting an expression there
+     * was both too permissive and the reason `a * if c {1} else {2} + b` nested wrongly —
+     * the else branch would swallow `{2} + b` as a binary, leaving the outer `+` inside
+     * the conditional instead of applying to the whole product.
+     */
+    _block: $ => choice($.code_block, $.content_block),
+
     conditional: $ => prec.right(seq(
       'if',
       field('condition', $._expr),
-      field('then', $._expr),
-      optional(seq('else', field('else', $._expr))),
+      field('then', $._block),
+      // `else if` chains, so the else branch takes another conditional as well as a block.
+      optional(seq('else', field('else', choice($._block, $.conditional)))),
     )),
 
     while_loop: $ => prec.right(seq(
       'while',
       field('condition', $._expr),
-      field('body', $._expr),
+      field('body', $._block),
     )),
 
     for_loop: $ => prec.right(seq(
@@ -879,7 +900,7 @@ module.exports = grammar({
       field('pattern', $._pattern),
       'in',
       field('iterable', $._expr),
-      field('body', $._expr),
+      field('body', $._block),
     )),
 
     loop_break: _ => 'break',
