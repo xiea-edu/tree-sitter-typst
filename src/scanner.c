@@ -188,6 +188,46 @@ static bool at_line_trailer(TSLexer *lexer) {
   return lexer->eof(lexer) || lexer->lookahead == '\n';
 }
 
+static void scan_block_comment_body(TSLexer *lexer);
+
+/**
+ * Like `at_line_trailer`, but a comment counts as nothing too.
+ *
+ * A heading or list item ends at its last real child, not at the line break: typst reads
+ * `= H // note` as a `Heading` covering `= H`, with the comment outside it as trivia.
+ * Callers `mark_end` before probing, so the terminator still lands before the comment
+ * even though finding the line end means scanning past it.
+ *
+ * Only for terminators that mark their end first. A caller that might *decline* after
+ * this has consumed a comment would throw the comment away with its own progress — see
+ * `emit_block_comment` for that case.
+ */
+typedef enum {
+  TRAILER_ENDS,       // only blanks and comments remain on this line
+  TRAILER_CLEAN,      // the line continues, and nothing beyond blanks was consumed
+  TRAILER_ATE_SLASH,  // the line continues, but a `/` was eaten to find that out
+} Trailer;
+
+static Trailer at_line_trailer_or_comment(TSLexer *lexer) {
+  for (;;) {
+    if (at_line_trailer(lexer)) return TRAILER_ENDS;
+    if (lexer->lookahead != '/') return TRAILER_CLEAN;
+
+    // Committing to the `/` is unavoidable — telling a comment from a division needs the
+    // character after it, and the lexer cannot rewind. When it turns out not to open a
+    // comment the caller is told, so it can carry on from here rather than declining and
+    // throwing the slash away.
+    advance(lexer);
+    if (lexer->lookahead == '/') {
+      while (!lexer->eof(lexer) && lexer->lookahead != '\n') advance(lexer);
+      return TRAILER_ENDS;  // a line comment runs to the break, so the line ends here
+    }
+    if (lexer->lookahead != '*') return TRAILER_ATE_SLASH;
+    advance(lexer);
+    scan_block_comment_body(lexer);
+  }
+}
+
 /* Typst's `space_or_end`: end of file, whitespace, or the start of a comment. */
 static bool at_space_or_end(TSLexer *lexer) {
   if (lexer->eof(lexer)) return true;
@@ -335,6 +375,26 @@ static bool scan_text(TSLexer *lexer, bool started) {
  * same token to `Text`, which leaves it as a standalone one-character node rather than
  * part of the following run.
  */
+/*
+ * Finish a `/` that has already been consumed and is known not to open a comment.
+ *
+ * Mid-line — which is where the line-end probes call this from — a `/` followed by a
+ * space is a text node of its own, matching typst, while `a/b` simply carries the run on.
+ */
+static bool scan_text(TSLexer *lexer, bool started);
+static bool at_space_or_end(TSLexer *lexer);
+static bool emit_marker_or_text(TSLexer *lexer, unsigned marker,
+                                const bool *valid_symbols, bool at_line_start);
+
+static bool slash_tail(TSLexer *lexer, const bool *valid_symbols) {
+  if (at_space_or_end(lexer)) {
+    // Never at the start of a line here, so this is a text node rather than a term marker.
+    return emit_marker_or_text(lexer, TERM_MARKER, valid_symbols, false);
+  }
+  if (!valid_symbols[TEXT]) return false;
+  return scan_text(lexer, true);
+}
+
 static bool emit_marker_or_text(TSLexer *lexer, unsigned marker,
                                 const bool *valid_symbols, bool at_line_start) {
   lexer->mark_end(lexer);
@@ -964,24 +1024,37 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
    * LINE_END.
    */
   if (valid_symbols[HEADING_END]) {
-    // Mark first: `at_line_trailer` consumes any blanks, and the terminator must sit at
-    // the true end of the heading rather than after the space before a label.
+    // Mark first: the probe consumes blanks and any trailing comment, and the terminator
+    // must sit at the true end of the heading — before the space preceding a label, and
+    // before a `// note`, which typst leaves outside the `Heading` as trivia.
     lexer->mark_end(lexer);
-    bool eol = at_line_trailer(lexer);
-    if (eol || lexer->lookahead == ']' || lexer->lookahead == '<') {
+    Trailer t = at_line_trailer_or_comment(lexer);
+    if (t == TRAILER_ENDS || lexer->lookahead == ']' || lexer->lookahead == '<') {
       lexer->result_symbol = HEADING_END;
       return true;
     }
+    // The probe ate a slash that opened nothing. Finish the job here rather than
+    // declining, which would discard it and leave the run with no token at all — and
+    // finish it the same way the main dispatch would: a spaced `/` is a text node of its
+    // own, mid-line, while `a/b` keeps the run going.
+    if (t == TRAILER_ATE_SLASH) return slash_tail(lexer, valid_symbols);
   }
 
-  // A list item or term item ends at the end of its line.
+  // A list item or term item ends at the end of its line — before any trailing comment,
+  // which typst keeps outside the item.
   if (valid_symbols[LINE_END]) {
-    if (lexer->eof(lexer) || lexer->lookahead == '\n' || lexer->lookahead == ']' ||
-        at_line_trailer(lexer)) {
+    if (lexer->eof(lexer) || lexer->lookahead == '\n' || lexer->lookahead == ']') {
       lexer->mark_end(lexer);
       lexer->result_symbol = LINE_END;
       return true;
     }
+    lexer->mark_end(lexer);
+    Trailer t = at_line_trailer_or_comment(lexer);
+    if (t == TRAILER_ENDS) {
+      lexer->result_symbol = LINE_END;
+      return true;
+    }
+    if (t == TRAILER_ATE_SLASH) return slash_tail(lexer, valid_symbols);
   }
 
   /*

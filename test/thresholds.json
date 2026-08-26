@@ -19,9 +19,9 @@
     "Ratchet these up as the numbers improve — never down to make a red build pass."
   ],
   "suiteValidityAgreement": 1,
-  "spanAgreement": 0.79,
+  "spanAgreement": 0.8,
   "kindCoverage": 1,
   "maxSuiteFalseAccepts": 0,
   "pinnedValidityAgreement": 1,
-  "pinnedSpanAgreement": 0.91
+  "pinnedSpanAgreement": 0.92
 }
