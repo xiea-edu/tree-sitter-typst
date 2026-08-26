@@ -92,7 +92,7 @@ function tierValid() {
       seen++;
       if (o.ok === t.ok) { agree++; totalAgree++; }
       else if (o.ok && !t.ok) falseRejects.push(file);
-      else { falseAccepts.push(file); groupFalseAccepts++; }
+      else { falseAccepts.push({ file, msg: o.errors?.[0]?.msg ?? "" }); groupFalseAccepts++; }
     }
     perGroup.set(g.name, { agree, seen, falseAccepts: groupFalseAccepts });
 
@@ -109,6 +109,15 @@ function tierValid() {
     console.log(color.dim('\n  first false rejects — these are grammar gaps:'));
     for (const f of falseRejects.slice(0, SHOW)) {
       console.log(`    ${rel(f)}${firstErrorHint(f)}`);
+    }
+  }
+
+  // Listed as well as counted, because the two directions need opposite fixes and a bare
+  // count gives no way to start on either.
+  if (falseAccepts.length) {
+    console.log(color.dim('\n  first false accepts — here the grammar is too permissive:'));
+    for (const { file, msg } of falseAccepts.slice(0, SHOW)) {
+      console.log(`    ${rel(file)}${msg ? color.dim(`  typst: ${msg}`) : ''}`);
     }
   }
   /*

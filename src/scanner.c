@@ -38,7 +38,11 @@ enum TokenType {
   STMT_END,
   HEADING_END,
   LINE_END,
-  FLOAT_TRAILING_DOT,
+  CODE_SEP,
+  NUMBER_INT,
+  NUMBER_FLOAT,
+  NUMBER_NUMERIC,
+  BLOCK_COMMENT,
   ADJACENT_PRIME,
   LINK,
   ERROR_SENTINEL,
@@ -363,6 +367,254 @@ static bool scan_link_body(TSLexer *lexer) {
   return true;
 }
 
+/**
+ * Numbers, per typst's `Lexer::number`.
+ *
+ * This is in the scanner rather than the grammar because typst *validates* the token it
+ * lexed, and a malformed number is a hard error rather than a shorter match. A regex
+ * would silently split `123.456e` into the float `123.456` and the identifier `e`, and
+ * `0b1010pt` into an integer and an identifier — both of which then parse happily as two
+ * expressions, which is why they showed up as false accepts.
+ *
+ * Declining here makes the parser report an error exactly where typst does.
+ *
+ * Returns the token kind through `*kind_out`; the caller sets `result_symbol`.
+ */
+static bool scan_number(TSLexer *lexer, int32_t first, unsigned *kind_out) {
+  char buf[64];
+  unsigned len = 0;
+  bool overflow = false;
+
+#define PUSH(c) do { if (len < sizeof(buf) - 1) buf[len++] = (char)(c); else overflow = true; } while (0)
+
+  unsigned base = 10;
+
+  // `first` has already been consumed by the caller.
+  PUSH(first);
+
+  if (first == '0') {
+    switch (lexer->lookahead) {
+      case 'b': base = 2; break;
+      case 'o': base = 8; break;
+      case 'x': base = 16; break;
+      default: break;
+    }
+    if (base != 10) {
+      PUSH(lexer->lookahead);
+      advance(lexer);
+    }
+  }
+
+  // Digits. Hex takes any alphanumeric so that a bad digit lands inside the number and
+  // is reported, rather than being split off as a separate identifier.
+  if (base == 16) {
+    while (iswalnum((wint_t)lexer->lookahead)) { PUSH(lexer->lookahead); advance(lexer); }
+  } else {
+    while (lexer->lookahead >= '0' && lexer->lookahead <= '9') {
+      PUSH(lexer->lookahead);
+      advance(lexer);
+    }
+  }
+
+  bool is_float = (first == '.');
+  bool exponent_digits = true;
+  bool ended_early = false;
+
+  // The suffix runs to the end of the alphanumeric run, so `1hello` is rejected whole
+  // rather than becoming the integer `1` and an identifier.
+  char suffix[16];
+  unsigned slen = 0;
+
+  if (base == 10) {
+    if (!is_float && lexer->lookahead == '.') {
+      // `1..2` is a spread and `1.method()` a field access, so the dot only belongs to
+      // the number when neither follows. Deciding that needs a look past the dot, and
+      // the lexer cannot rewind — so mark the end here first. If the dot turns out not
+      // to be ours the token still ends before it, and `1` is returned as an integer.
+      lexer->mark_end(lexer);
+      advance(lexer);
+      int32_t after = lexer->lookahead;
+      if (after == '.' || iswalpha((wint_t)after) || after == '_') {
+        // The number is finished. Nothing more can be consumed — we are already past
+        // the dot — so jump straight to validation with the end marked before it.
+        ended_early = true;
+        goto finish;
+      }
+      is_float = true;
+      PUSH('.');
+      while (lexer->lookahead >= '0' && lexer->lookahead <= '9') {
+        PUSH(lexer->lookahead);
+        advance(lexer);
+      }
+    }
+
+    // `1em` is a length, not an exponent. Those two characters belong to the suffix, so
+    // they must not enter the number buffer — `1em` is Numeric, not Float.
+    if (lexer->lookahead == 'e' || lexer->lookahead == 'E') {
+      int32_t marker = lexer->lookahead;
+      advance(lexer);
+      if (marker == 'e' && lexer->lookahead == 'm') {
+        suffix[slen++] = 'e';
+        suffix[slen++] = 'm';
+        advance(lexer);
+      } else {
+        is_float = true;
+        PUSH(marker);
+        if (lexer->lookahead == '+' || lexer->lookahead == '-') {
+          PUSH(lexer->lookahead);
+          advance(lexer);
+        }
+        exponent_digits = false;
+        while (lexer->lookahead >= '0' && lexer->lookahead <= '9') {
+          PUSH(lexer->lookahead);
+          advance(lexer);
+          exponent_digits = true;
+        }
+      }
+    }
+  }
+
+  while (iswalnum((wint_t)lexer->lookahead) || lexer->lookahead == '%') {
+    if (slen < sizeof(suffix) - 1) suffix[slen++] = (char)lexer->lookahead;
+    else overflow = true;
+    advance(lexer);
+  }
+
+finish:
+  suffix[slen] = '\0';
+  buf[len] = '\0';
+
+  if (overflow) return false;
+
+  // An incomplete exponent (`1e`, `2E+`) is not a number at all.
+  if (!exponent_digits) return false;
+
+  bool has_suffix = slen > 0;
+  if (has_suffix) {
+    static const char *const UNITS[] = {"pt", "mm", "cm", "in", "deg", "rad", "em", "fr", "%"};
+    bool known = false;
+    for (unsigned i = 0; i < sizeof(UNITS) / sizeof(UNITS[0]); i++) {
+      if (strcmp(suffix, UNITS[i]) == 0) { known = true; break; }
+    }
+    if (!known) return false;
+    // Only decimal numbers carry units: `0b1010pt` is an error in typst.
+    if (base != 10) return false;
+  }
+
+  if (base != 10) {
+    // Every digit must be legal for the base, and there must be at least one.
+    if (len <= 2) return false;
+    for (unsigned i = 2; i < len; i++) {
+      unsigned d;
+      char ch = buf[i];
+      if (ch >= '0' && ch <= '9') d = (unsigned)(ch - '0');
+      else if (ch >= 'a' && ch <= 'f') d = (unsigned)(ch - 'a' + 10);
+      else if (ch >= 'A' && ch <= 'F') d = (unsigned)(ch - 'A' + 10);
+      else return false;
+      if (d >= base) return false;
+    }
+  }
+
+  // A decimal integer too large for an i64 is a float in typst, not an error.
+  if (base == 10 && !is_float && !has_suffix) {
+    unsigned i = 0;
+    while (i + 1 < len && buf[i] == '0') i++;
+    unsigned digits = len - i;
+    if (digits > 19 || (digits == 19 && strcmp(buf + i, "9223372036854775807") > 0)) {
+      is_float = true;
+    }
+  }
+
+  // When the scan stopped at a dot that turned out to belong to a field access, the end
+  // is already marked before it and must not be extended.
+  if (!ended_early) lexer->mark_end(lexer);
+  *kind_out = has_suffix ? NUMBER_NUMERIC : (is_float ? NUMBER_FLOAT : NUMBER_INT);
+  return true;
+
+#undef PUSH
+}
+
+/*
+ * Separating two expressions inside `{ }`.
+ *
+ * Typst's code loop demands a `;` or a line break after every expression, so `{ 1 2 }` is
+ * an error. What counts as a line break is narrower than "contains a newline":
+ *
+ *   - A line comment gives one, because the newline that ends it is real trivia.
+ *   - A *block* comment does not, even when it spans lines: typst emits it as a single
+ *     trivia token, so two expressions with only a multi-line block comment between them
+ *     are still an error. Its newlines are skipped over here rather than counted.
+ *   - `.` and `else` carry the previous expression across a line break (typst's
+ *     `AtNewline::ContextualContinue`), so `a\n.b()` is one method call and
+ *     `if c {}\nelse {}` one conditional.
+ *
+ * Three outcomes rather than two. `SEP_NONE` means "no separator, and nothing but blanks
+ * was consumed", which lets the caller fall through to the rest of the dispatch instead
+ * of returning. That matters because `return` makes an expression's end coincide with the
+ * start of another one: after `return`, both this token and a number are valid, and a
+ * bare `return false` here would starve `return 0pt` of its numeric token entirely.
+ */
+typedef enum {
+  SEP_NONE,       // not a separator; only blanks consumed, so the caller may continue
+  SEP_YES,        // emit the separator
+  SEP_CONTINUES,  // the expression carries on; decline outright
+} SepVerdict;
+
+static SepVerdict scan_code_sep(TSLexer *lexer) {
+  bool newline = false;
+
+  for (;;) {
+    while (!lexer->eof(lexer) &&
+           (lexer->lookahead == ' ' || lexer->lookahead == '\t' || lexer->lookahead == '\r')) {
+      skip(lexer);
+    }
+    if (lexer->eof(lexer)) return SEP_YES;
+
+    int32_t ch = lexer->lookahead;
+    if (ch == '\n') { newline = true; skip(lexer); continue; }
+
+    // The closing brace ends the block; its last expression needs no separator.
+    if (ch == '}') return SEP_YES;
+
+    if (ch == '/') {
+      advance(lexer);
+      if (lexer->lookahead == '/') {
+        while (!lexer->eof(lexer) && lexer->lookahead != '\n') advance(lexer);
+        continue;
+      }
+      if (lexer->lookahead == '*') {
+        advance(lexer);
+        unsigned depth = 1;
+        int32_t prev = 0;
+        while (depth > 0 && !lexer->eof(lexer)) {
+          int32_t c2 = lexer->lookahead;
+          advance(lexer);
+          if (prev == '*' && c2 == '/') { depth--; prev = 0; }
+          else if (prev == '/' && c2 == '*') { depth++; prev = 0; }
+          else prev = c2;
+        }
+        continue;
+      }
+      // A bare `/` is division, which continues the expression on the same line but
+      // cannot reach back across a line break.
+      return newline ? SEP_YES : SEP_CONTINUES;
+    }
+
+    if (!newline) return SEP_NONE;
+
+    if (ch == '.') {
+      advance(lexer);
+      // `.5` is a float, so only a field name continues the expression.
+      if (iswalpha((wint_t)lexer->lookahead) || lexer->lookahead == '_') return SEP_CONTINUES;
+      return SEP_YES;
+    }
+    if (ch == 'e' && eat_str(lexer, "else") && !is_id_continue(lexer->lookahead)) {
+      return SEP_CONTINUES;
+    }
+    return SEP_YES;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // raw
 // ---------------------------------------------------------------------------
@@ -597,6 +849,17 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     return true;
   }
 
+  // Decided before any whitespace is skipped, like the terminators above, so the
+  // zero-width token lands at the true end of the expression it closes.
+  if (valid_symbols[CODE_SEP]) {
+    lexer->mark_end(lexer);
+    switch (scan_code_sep(lexer)) {
+      case SEP_YES:       lexer->result_symbol = CODE_SEP; return true;
+      case SEP_CONTINUES: return false;
+      case SEP_NONE:      break;  // only blanks consumed; carry on with the dispatch
+    }
+  }
+
   if (valid_symbols[STMT_END]) {
     lexer->mark_end(lexer);
 
@@ -631,23 +894,30 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
   }
 
   /*
-   * `1.` is a float, but `1.method()` is a field access on an integer. Telling them
-   * apart needs one character of lookahead past the dot, which a tree-sitter regex
-   * cannot do — so the scanner does it. A digit after the dot is an ordinary float and
-   * is left to the grammar; a second dot is the spread operator.
+   * Numbers. Typst validates the token it lexed rather than backing off to a shorter
+   * match, so a malformed number has to be *declined* here — see `scan_number`.
    */
-  if (valid_symbols[FLOAT_TRAILING_DOT] && lexer->lookahead >= '0' && lexer->lookahead <= '9') {
-    while (lexer->lookahead >= '0' && lexer->lookahead <= '9') advance(lexer);
-    if (lexer->lookahead != '.') return false;
-    advance(lexer);
-    int32_t after = lexer->lookahead;
-    if (iswalpha((wint_t)after) || after == '_' || after == '.' ||
-        (after >= '0' && after <= '9')) {
-      return false;
+  if (valid_symbols[NUMBER_INT] || valid_symbols[NUMBER_FLOAT] ||
+      valid_symbols[NUMBER_NUMERIC]) {
+    int32_t first = lexer->lookahead;
+    bool start = first >= '0' && first <= '9';
+    if (!start && first == '.') {
+      // Only `.5` is a number; a bare `.` is field access, which the grammar owns.
+      advance(lexer);
+      if (lexer->lookahead < '0' || lexer->lookahead > '9') return false;
+      start = true;
+    } else if (start) {
+      advance(lexer);
     }
-    lexer->mark_end(lexer);
-    lexer->result_symbol = FLOAT_TRAILING_DOT;
-    return true;
+    if (start) {
+      unsigned kind = 0;
+      if (!scan_number(lexer, first, &kind)) return false;
+      // Declining when the grammar did not ask for this particular kind keeps the
+      // number out of positions that only accept, say, an integer.
+      if (!valid_symbols[kind]) return false;
+      lexer->result_symbol = (enum TokenType)kind;
+      return true;
+    }
   }
 
   int32_t c = lexer->lookahead;
@@ -807,9 +1077,41 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
 
   if (c == '/') {
     advance(lexer);
-    // `//` and `/*` open comments, not term items. Bailing out entirely lets the
-    // built-in lexer match the comment; returning false discards what we consumed.
-    if (lexer->lookahead == '/' || lexer->lookahead == '*') return false;
+
+    /*
+     * `Lexer::block_comment`: block comments nest, so the first inner terminator does not
+     * close the outer one. Nesting is not regular, so the depth is counted here.
+     *
+     * This has to live inside the `/` dispatch rather than in a check of its own. A
+     * scanner cannot rewind, so an earlier check that consumed the `/` and then declined
+     * would leave every other `/` token — the term-item marker, division, a slash inside
+     * a text run — with no way to be produced at all.
+     */
+    if (lexer->lookahead == '*') {
+      if (!valid_symbols[BLOCK_COMMENT]) return false;
+      advance(lexer);
+
+      unsigned depth = 1;
+      int32_t prev = 0;
+      while (depth > 0) {
+        // Unterminated is not an error in typst; the comment just runs to end of file.
+        if (lexer->eof(lexer)) break;
+        int32_t ch = lexer->lookahead;
+        advance(lexer);
+        // A shared character cannot both close one level and open the next.
+        if (prev == '*' && ch == '/') { depth--; prev = 0; }
+        else if (prev == '/' && ch == '*') { depth++; prev = 0; }
+        else prev = ch;
+      }
+
+      lexer->mark_end(lexer);
+      lexer->result_symbol = BLOCK_COMMENT;
+      return true;
+    }
+
+    // `//` opens a line comment, which the built-in lexer matches. Bailing out lets it;
+    // returning false discards what we consumed either way.
+    if (lexer->lookahead == '/') return false;
     if (at_space_or_end(lexer)) {
       return emit_marker_or_text(lexer, TERM_MARKER, valid_symbols,
                                  at_line_start);

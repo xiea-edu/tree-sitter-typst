@@ -49,9 +49,6 @@ const PREC_MATH = {
 const MATH_OPEN = choice('(', '[', '{', '⟨', '⌊', '⌈', '|', '‖', '[|');
 const MATH_CLOSE = choice(')', ']', '}', '⟩', '⌋', '⌉', '|', '‖', '|]');
 
-/** Number suffixes Typst accepts. `%` is included; anything else is an error. */
-const UNIT = /pt|mm|cm|in|deg|rad|em|fr|%/;
-
 module.exports = grammar({
   name: 'typst',
 
@@ -81,7 +78,16 @@ module.exports = grammar({
     $._stmt_end,        // an embedded statement ends at the newline
     $._heading_end,     // a heading ends at the newline, or at a label
     $._line_end,        // a heading or list item ends at the newline
-    $._float_trailing_dot,  // `1.` is a float; `1.method()` is a field access
+    $._code_sep,        // zero-width: a line break separates two code expressions
+    // Numbers come from the scanner because typst *validates* the token it lexed: it
+    // reads the whole alphanumeric run and errors if the result is not a number, rather
+    // than backing off to a shorter match. A regex splits `123.456e` into a float and an
+    // identifier, and `0b1010pt` into an integer and an identifier — both of which then
+    // parse cleanly as two expressions, so the error disappears.
+    $._number_int,
+    $._number_float,
+    $._number_numeric,
+    $._block_comment,   // `/* ... */`, which nests
     $._adjacent_prime,  // zero-width: a `'` follows immediately, so it attaches
     $.link,            // a bare URL, with `[]` and `()` balanced
     $._error_sentinel,  // never matched; signals error recovery to the scanner
@@ -459,7 +465,18 @@ module.exports = grammar({
     code_block: $ => seq('{', optional($.code), '}'),
 
     // Typst wraps the contents of `{ ... }` in a `Code` node, distinct from the block.
-    code: $ => repeat1(seq($._expr, optional(';'))),
+    /*
+     * Typst requires a `;` or a line break *between* code expressions — `{ 1 2 }` is
+     * "expected semicolon or line break", not two expressions. Leaving the separator
+     * optional was how `{123.456e}` slipped through: it lexes as a float and an
+     * identifier, which an unseparated sequence happily accepts.
+     *
+     * The terminator is required rather than optional, which is what makes it bite: the
+     * scanner supplies it at a line break and at the closing brace, and declines before
+     * a `.` or an `else`, since those two continue the previous expression across a
+     * newline (`a\n.b()` is one method call).
+     */
+    code: $ => repeat1(seq($._expr, choice(';', $._code_sep))),
 
     content_block: $ => seq('[', optional($.markup), ']'),
 
@@ -493,46 +510,18 @@ module.exports = grammar({
       $.none,
       $.auto,
       $.bool,
-      $.int,
-      $.float,
-      // Typst accepts a bare trailing dot. Distinguishing `1.` from `1.method()` needs
-      // lookahead past the dot, so the scanner supplies this one.
-      alias($._float_trailing_dot, $.float),
-      $.numeric,
+      // All three are lexed and validated by the scanner, which mirrors `Lexer::number`.
+      // Three tokens rather than one keeps the node names in step with typst's `Int` /
+      // `Float` / `Numeric` kinds.
+      alias($._number_int, $.int),
+      alias($._number_float, $.float),
+      alias($._number_numeric, $.numeric),
       $.str,
     ),
 
     none: _ => 'none',
     auto: _ => 'auto',
     bool: _ => choice('true', 'false'),
-
-    // Longest-match settles the overlap between these three: for `1pt`, `numeric`
-    // matches three characters and `int` only one, so `numeric` wins.
-    int: _ => token(choice(
-      /0b[01]+/,
-      /0o[0-7]+/,
-      /0x[0-9a-fA-F]+/,
-      /[0-9]+/,
-    )),
-
-    float: _ => token(choice(
-      // A digit is required after the dot. Typst also accepts a bare trailing dot
-      // (`1.` is a float) but distinguishing that from the method call `1.method()`
-      // needs lookahead, which tree-sitter's lexer does not have. Method calls are far
-      // more common, so they win.
-      /[0-9]+\.[0-9]+([eE][+-]?[0-9]+)?/,
-      /\.[0-9]+([eE][+-]?[0-9]+)?/,
-      /[0-9]+[eE][+-]?[0-9]+/,
-    )),
-
-    numeric: _ => token(seq(
-      choice(
-        /[0-9]+\.[0-9]+([eE][+-]?[0-9]+)?/,
-        /\.[0-9]+([eE][+-]?[0-9]+)?/,
-        /[0-9]+/,
-      ),
-      UNIT,
-    )),
 
     // No interpolation; `\` escapes the next character.
     str: _ => token(seq('"', repeat(choice(/[^"\\]/, /\\./)), '"')),
@@ -552,7 +541,16 @@ module.exports = grammar({
       const left = [
         [PREC.mul, choice('*', '/')],
         [PREC.add, choice('+', '-')],
-        [PREC.cmp, choice('==', '!=', '<', '<=', '>', '>=', 'in', seq('not', 'in'))],
+        // `not in` is one token, not two. As `seq('not', 'in')` a bare `not` beginning a
+        // fresh expression looks like the start of this operator, so
+        //   1
+        //   not b
+        // commits to the binary reading and then fails. One token cannot be entered
+        // without the `in` actually being there.
+        [PREC.cmp, choice('==', '!=', '<', '<=', '>', '>=', 'in',
+                          // Exactly one space: typst's lexer does `eat_if(" in")`, so a
+                          // newline between the two words is an error, not an operator.
+                          'not in')],
         [PREC.and, 'and'],
         [PREC.or, 'or'],
       ];
@@ -823,11 +821,10 @@ module.exports = grammar({
 
     line_comment: _ => token(seq('//', /[^\r\n]*/)),
 
-    block_comment: _ => token(seq(
-      '/*',
-      /[^*]*\*+([^/*][^*]*\*+)*/,
-      '/',
-    )),
+    // Typst's block comments nest — `/* /* */ */` is a single comment, and the first
+    // `*/` does not end it. Nesting is not a regular language, so the scanner counts
+    // the depth. See `Lexer::block_comment`.
+    block_comment: $ => $._block_comment,
   },
 });
 

@@ -1937,7 +1937,8 @@
                 "value": ";"
               },
               {
-                "type": "BLANK"
+                "type": "SYMBOL",
+                "name": "_code_sep"
               }
             ]
           }
@@ -2050,25 +2051,31 @@
           "name": "bool"
         },
         {
-          "type": "SYMBOL",
-          "name": "int"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "float"
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_number_int"
+          },
+          "named": true,
+          "value": "int"
         },
         {
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
-            "name": "_float_trailing_dot"
+            "name": "_number_float"
           },
           "named": true,
           "value": "float"
         },
         {
-          "type": "SYMBOL",
-          "name": "numeric"
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_number_numeric"
+          },
+          "named": true,
+          "value": "numeric"
         },
         {
           "type": "SYMBOL",
@@ -2096,79 +2103,6 @@
           "value": "false"
         }
       ]
-    },
-    "int": {
-      "type": "TOKEN",
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "PATTERN",
-            "value": "0b[01]+"
-          },
-          {
-            "type": "PATTERN",
-            "value": "0o[0-7]+"
-          },
-          {
-            "type": "PATTERN",
-            "value": "0x[0-9a-fA-F]+"
-          },
-          {
-            "type": "PATTERN",
-            "value": "[0-9]+"
-          }
-        ]
-      }
-    },
-    "float": {
-      "type": "TOKEN",
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "PATTERN",
-            "value": "[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?"
-          },
-          {
-            "type": "PATTERN",
-            "value": "\\.[0-9]+([eE][+-]?[0-9]+)?"
-          },
-          {
-            "type": "PATTERN",
-            "value": "[0-9]+[eE][+-]?[0-9]+"
-          }
-        ]
-      }
-    },
-    "numeric": {
-      "type": "TOKEN",
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "PATTERN",
-                "value": "[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?"
-              },
-              {
-                "type": "PATTERN",
-                "value": "\\.[0-9]+([eE][+-]?[0-9]+)?"
-              },
-              {
-                "type": "PATTERN",
-                "value": "[0-9]+"
-              }
-            ]
-          },
-          {
-            "type": "PATTERN",
-            "value": "pt|mm|cm|in|deg|rad|em|fr|%"
-          }
-        ]
-      }
     },
     "str": {
       "type": "TOKEN",
@@ -2407,17 +2341,8 @@
                       "value": "in"
                     },
                     {
-                      "type": "SEQ",
-                      "members": [
-                        {
-                          "type": "STRING",
-                          "value": "not"
-                        },
-                        {
-                          "type": "STRING",
-                          "value": "in"
-                        }
-                      ]
+                      "type": "STRING",
+                      "value": "not in"
                     }
                   ]
                 }
@@ -4114,24 +4039,8 @@
       }
     },
     "block_comment": {
-      "type": "TOKEN",
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "STRING",
-            "value": "/*"
-          },
-          {
-            "type": "PATTERN",
-            "value": "[^*]*\\*+([^/*][^*]*\\*+)*"
-          },
-          {
-            "type": "STRING",
-            "value": "/"
-          }
-        ]
-      }
+      "type": "SYMBOL",
+      "name": "_block_comment"
     }
   },
   "extras": [
@@ -4310,7 +4219,23 @@
     },
     {
       "type": "SYMBOL",
-      "name": "_float_trailing_dot"
+      "name": "_code_sep"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_number_int"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_number_float"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_number_numeric"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_block_comment"
     },
     {
       "type": "SYMBOL",

@@ -241,7 +241,24 @@ several trailing content blocks
           (text))))))
 
 ================================================================================
-a spaced bracket is not an argument
+a bracket on the next line is a separate expression
+================================================================================
+
+#{ f
+[a] }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (code_block
+    (code
+      (ident)
+      (content_block
+        (markup
+          (text))))))
+
+================================================================================
+two code expressions on one line need a separator
 ================================================================================
 
 #{ f [a] }
@@ -250,8 +267,9 @@ a spaced bracket is not an argument
 
 (source_file
   (code_block
+    (ERROR
+      (ident))
     (code
-      (ident)
       (content_block
         (markup
           (text))))))
