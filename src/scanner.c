@@ -48,6 +48,7 @@ enum TokenType {
   LINEBREAK,
   ADJACENT_PRIME,
   LINK,
+  NON_ASCII_SPACE,
   ERROR_SENTINEL,
 };
 
@@ -88,6 +89,41 @@ static inline bool is_space(int32_t c) {
 }
 
 static inline bool is_alnum(int32_t c) { return iswalnum((wint_t)c); }
+
+/*
+ * Whether `c` counts as being "in a word" for the `*`/`_` delimiter test.
+ *
+ * Typst's `Lexer::in_word` is alphanumeric *minus* the Han, Hiragana, Katakana and Hangul
+ * scripts. Those are written without spaces between words, so treating a `*` between two
+ * of their characters as literal text — the way `a*b` is text in English — would make
+ * emphasis impossible to write in CJK at all. `以*本*` is therefore a strong, while
+ * `a*b*` is not.
+ *
+ * The ranges below are the assigned blocks of those four scripts. Characters that are not
+ * alphanumeric to begin with never reach the exclusion, so a few punctuation code points
+ * falling inside a range does no harm.
+ */
+static bool is_wordy(int32_t c) {
+  if (!is_alnum(c)) return false;
+  if (c < 0x1100) return true;  // the common case: Latin, Greek, Cyrillic, Hebrew, Thai
+
+  if ((c >= 0x1100 && c <= 0x11FF) ||    // Hangul Jamo
+      (c >= 0x2E80 && c <= 0x2EFF) ||    // CJK Radicals Supplement
+      (c >= 0x3005 && c <= 0x303B) ||    // Han iteration marks and friends
+      (c >= 0x3041 && c <= 0x30FF) ||    // Hiragana and Katakana
+      (c >= 0x3131 && c <= 0x318E) ||    // Hangul Compatibility Jamo
+      (c >= 0x31F0 && c <= 0x31FF) ||    // Katakana Phonetic Extensions
+      (c >= 0x3400 && c <= 0x4DBF) ||    // CJK Extension A
+      (c >= 0x4E00 && c <= 0x9FFF) ||    // CJK Unified Ideographs
+      (c >= 0xA960 && c <= 0xA97F) ||    // Hangul Jamo Extended-A
+      (c >= 0xAC00 && c <= 0xD7FF) ||    // Hangul Syllables and Extended-B
+      (c >= 0xF900 && c <= 0xFAFF) ||    // CJK Compatibility Ideographs
+      (c >= 0xFF66 && c <= 0xFF9F) ||    // halfwidth Katakana
+      (c >= 0x20000 && c <= 0x3134F)) {  // CJK supplementary planes
+    return false;
+  }
+  return true;
+}
 
 /* Typst identifiers continue on XID_Continue, `_` and `-`. `iswalnum` is a practical
  * stand-in for XID_Continue here; the exact Unicode tables only matter for identifiers
@@ -198,9 +234,9 @@ static bool scan_text(TSLexer *lexer, bool started) {
      * of these when it is genuinely a delimiter.
      */
     if (c == '*' || c == '_') {
-      if (!is_alnum(last)) break;
+      if (!is_wordy(last)) break;
       advance(lexer);
-      if (!is_alnum(lexer->lookahead)) break;
+      if (!is_wordy(lexer->lookahead)) break;
       lexer->mark_end(lexer);
       last = c;
       any = true;
@@ -1047,6 +1083,26 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
   int32_t c = lexer->lookahead;
   uint32_t column = lexer->get_column(lexer);
   bool at_line_start = saw_newline || column == 0;
+
+  /*
+   * Non-ASCII whitespace is trivia everywhere *except* markup. Typst's code and math
+   * lexers skip with `char::is_whitespace`, which takes U+00A0 and U+3000; its markup
+   * lexer instead gives such a character a one-character `Text` node of its own, which is
+   * why `is_space` above stays strictly ASCII.
+   *
+   * The two cases are told apart by whether markup text is on offer here — the branch
+   * below hands markup's copy to `scan_text`. Being an extra, this token is offered in
+   * nearly every state, so declining in markup is what keeps the distinction.
+   */
+  if (valid_symbols[NON_ASCII_SPACE] && !valid_symbols[TEXT] &&
+      c > 127 && iswspace((wint_t)c)) {
+    while (!lexer->eof(lexer) && lexer->lookahead > 127 && iswspace((wint_t)lexer->lookahead)) {
+      advance(lexer);
+    }
+    lexer->mark_end(lexer);
+    lexer->result_symbol = NON_ASCII_SPACE;
+    return true;
+  }
 
 
   if (lexer->eof(lexer)) return false;

@@ -4301,6 +4301,10 @@
     },
     {
       "type": "SYMBOL",
+      "name": "_non_ascii_space"
+    },
+    {
+      "type": "SYMBOL",
       "name": "line_comment"
     },
     {
@@ -4501,6 +4505,10 @@
     {
       "type": "SYMBOL",
       "name": "link"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_non_ascii_space"
     },
     {
       "type": "SYMBOL",

@@ -53,8 +53,11 @@ module.exports = grammar({
   name: 'typst',
 
   extras: $ => [
-    // Unicode whitespace, not just ASCII: Typst treats U+3000 and friends as spaces.
     /\s/,
+    // Non-ASCII whitespace is trivia in code and math but *content* in markup, where
+    // typst gives a character like U+3000 its own one-character `Text` node. Only the
+    // scanner can tell the two apart, so this is an external token rather than a regex.
+    $._non_ascii_space,
     $.line_comment,
     $.block_comment,
   ],
@@ -92,7 +95,8 @@ module.exports = grammar({
     $._escape,          // `\x`, or `\u{...}` with a codepoint that is a real character
     $._linebreak,       // `\` at the end of a line
     $._adjacent_prime,  // zero-width: a `'` follows immediately, so it attaches
-    $.link,            // a bare URL, with `[]` and `()` balanced
+    $.link,             // a bare URL, with `[]` and `()` balanced
+    $._non_ascii_space, // whitespace outside markup, where typst skips it as trivia
     $._error_sentinel,  // never matched; signals error recovery to the scanner
   ],
 
