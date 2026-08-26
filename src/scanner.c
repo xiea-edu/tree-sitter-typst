@@ -68,8 +68,24 @@ enum TokenType {
  * only at real token boundaries inside a raw block, and it round-trips through
  * serialize/deserialize. The incremental-equivalence tier checks that it actually does.
  */
+/*
+ * Marker columns of the list, enum and term items currently open.
+ *
+ * Typst runs an item's body under `AtNewline::RequireColumn`: the item continues onto
+ * the following lines for as long as they are indented *past* the marker, which is how a
+ * nested list ends up inside its parent's markup rather than beside it. Deciding that at
+ * a line break needs the marker's column, and nothing at the break itself carries it —
+ * so it is pushed when the marker is emitted and popped when the item ends.
+ *
+ * Sixteen levels is far past any real document; deeper nesting simply stops tracking and
+ * ends items at the line break, which is the old behaviour rather than a failure.
+ */
+#define MAX_ITEM_DEPTH 16
+
 typedef struct {
   uint8_t raw_backticks;
+  uint8_t depth;
+  uint8_t columns[MAX_ITEM_DEPTH];
 } Scanner;
 
 // ---------------------------------------------------------------------------
@@ -189,6 +205,56 @@ static bool at_line_trailer(TSLexer *lexer) {
 }
 
 static void scan_block_comment_body(TSLexer *lexer);
+
+/**
+ * Whether the line after this break is indented past the innermost open item's marker.
+ *
+ * That is typst's `AtNewline::RequireColumn`: an item's body runs on while following
+ * lines stay indented past the marker, so a continuation line and a nested list both end
+ * up inside the item rather than beside it. A blank line ends it regardless — a parbreak
+ * closes every item — and so does running out of file.
+ *
+ * Consumes nothing the caller keeps: every caller marks its end first.
+ */
+/**
+ * Record the column of an item marker that is about to be emitted.
+ *
+ * Self-correcting: any entry at or past this column belongs to an item that cannot still
+ * be open, since a marker here would have been indented further to nest inside it. Those
+ * are dropped first.
+ *
+ * That matters because the pops at line ends cannot be fully trusted. GLR explores
+ * branches it later abandons, and scanner state only persists behind tokens that survive,
+ * so a speculative marker can leave an entry that no line end will ever remove. Rebuilding
+ * from the columns themselves keeps the top honest regardless of what the stack picked up
+ * along the way.
+ */
+static void push_item_column(Scanner *scanner, uint32_t column) {
+  while (scanner->depth > 0 && scanner->columns[scanner->depth - 1] >= column) {
+    scanner->depth--;
+  }
+  if (scanner->depth < MAX_ITEM_DEPTH) scanner->columns[scanner->depth++] = (uint8_t)column;
+}
+
+static bool next_line_continues_item(TSLexer *lexer, const Scanner *scanner) {
+  if (scanner->depth == 0) return false;
+  const uint8_t marker_column = scanner->columns[scanner->depth - 1];
+
+  // Step over the break itself. A second one is a parbreak, which ends every open item.
+  if (lexer->lookahead != 0x0A) return false;
+  skip(lexer);
+
+  uint32_t indent = 0;
+  for (;;) {
+    if (lexer->eof(lexer)) return false;
+    if (lexer->lookahead == 0x0A) return false;  // blank line: parbreak
+    if (lexer->lookahead == 0x20) { indent++; skip(lexer); continue; }
+    if (lexer->lookahead == 0x09) { indent += 2; skip(lexer); continue; }
+    if (lexer->lookahead == 0x0D) { skip(lexer); continue; }
+    break;
+  }
+  return indent > marker_column;
+}
 
 /**
  * Like `at_line_trailer`, but a comment counts as nothing too.
@@ -384,22 +450,27 @@ static bool scan_text(TSLexer *lexer, bool started) {
 static bool scan_text(TSLexer *lexer, bool started);
 static bool at_space_or_end(TSLexer *lexer);
 static bool emit_marker_or_text(TSLexer *lexer, unsigned marker,
-                                const bool *valid_symbols, bool at_line_start);
+                                const bool *valid_symbols, bool at_line_start,
+                                Scanner *scanner, uint32_t column);
 
 static bool slash_tail(TSLexer *lexer, const bool *valid_symbols) {
   if (at_space_or_end(lexer)) {
     // Never at the start of a line here, so this is a text node rather than a term marker.
-    return emit_marker_or_text(lexer, TERM_MARKER, valid_symbols, false);
+    return emit_marker_or_text(lexer, TERM_MARKER, valid_symbols, false, NULL, 0);
   }
   if (!valid_symbols[TEXT]) return false;
   return scan_text(lexer, true);
 }
 
 static bool emit_marker_or_text(TSLexer *lexer, unsigned marker,
-                                const bool *valid_symbols, bool at_line_start) {
+                                const bool *valid_symbols, bool at_line_start,
+                                Scanner *scanner, uint32_t column) {
   lexer->mark_end(lexer);
 
   if (at_line_start && valid_symbols[marker]) {
+    // An item marker opens a body that may run past this line, so its column is recorded
+    // for the line-end test. Headings never continue, so they record nothing.
+    if (scanner && marker != HEADING_MARKER) push_item_column(scanner, column);
     lexer->result_symbol = marker;
     return true;
   }
@@ -1040,21 +1111,47 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     if (t == TRAILER_ATE_SLASH) return slash_tail(lexer, valid_symbols);
   }
 
+  bool continued_item = false;
+
   // A list item or term item ends at the end of its line — before any trailing comment,
   // which typst keeps outside the item.
   if (valid_symbols[LINE_END]) {
-    if (lexer->eof(lexer) || lexer->lookahead == '\n' || lexer->lookahead == ']') {
-      lexer->mark_end(lexer);
-      lexer->result_symbol = LINE_END;
-      return true;
-    }
     lexer->mark_end(lexer);
-    Trailer t = at_line_trailer_or_comment(lexer);
-    if (t == TRAILER_ENDS) {
+
+    if (lexer->eof(lexer) || lexer->lookahead == ']') {
+      if (scanner->depth) scanner->depth--;
       lexer->result_symbol = LINE_END;
       return true;
     }
-    if (t == TRAILER_ATE_SLASH) return slash_tail(lexer, valid_symbols);
+
+    Trailer t = TRAILER_ENDS;
+    if (lexer->lookahead != '\n') {
+      t = at_line_trailer_or_comment(lexer);
+      if (t == TRAILER_ATE_SLASH) return slash_tail(lexer, valid_symbols);
+    }
+
+    if (t == TRAILER_ENDS) {
+      /*
+       * The break ends the item only if the next line is not indented past the marker —
+       * typst's `AtNewline::RequireColumn`. When it is, no terminator is produced and the
+       * item's markup carries on, which is how a continuation line and a nested list both
+       * end up inside the item rather than beside it.
+       *
+       * Carrying on means falling through, not declining: this runs before the markup
+       * dispatch, so returning false here would be the answer for the whole call and the
+       * next line's text would never get a token. The probe skips what it reads, so the
+       * break and indent become trivia and the dispatch resumes at the first real
+       * character — still at the start of a line, which `continued_item` preserves for
+       * the marker checks that depend on it.
+       */
+      if (next_line_continues_item(lexer, scanner)) {
+        continued_item = true;
+      } else {
+        if (scanner->depth) scanner->depth--;
+        lexer->result_symbol = LINE_END;
+        return true;
+      }
+    }
   }
 
   /*
@@ -1184,7 +1281,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
 
   int32_t c = lexer->lookahead;
   uint32_t column = lexer->get_column(lexer);
-  bool at_line_start = saw_newline || column == 0;
+  bool at_line_start = saw_newline || column == 0 || continued_item;
 
   /*
    * Non-ASCII whitespace is trivia everywhere *except* markup. Typst's code and math
@@ -1309,6 +1406,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     if (at_space_or_end(lexer)) {
       lexer->mark_end(lexer);
       if (at_line_start && valid_symbols[LIST_MARKER]) {
+        push_item_column(scanner, column);
         lexer->result_symbol = LIST_MARKER;
         return true;
       }
@@ -1348,7 +1446,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     while (lexer->lookahead == '=') advance(lexer);
     if (at_space_or_end(lexer)) {
       return emit_marker_or_text(lexer, HEADING_MARKER, valid_symbols,
-                                 at_line_start);
+                                 at_line_start, scanner, column);
     }
     if (!valid_symbols[TEXT]) return false;
     return scan_text(lexer, true);
@@ -1358,7 +1456,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     advance(lexer);
     if (at_space_or_end(lexer)) {
       return emit_marker_or_text(lexer, ENUM_MARKER, valid_symbols,
-                                 at_line_start);
+                                 at_line_start, scanner, column);
     }
     if (!valid_symbols[TEXT]) return false;
     return scan_text(lexer, true);
@@ -1371,7 +1469,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
       advance(lexer);
       if (at_space_or_end(lexer)) {
         return emit_marker_or_text(lexer, ENUM_MARKER, valid_symbols,
-                                 at_line_start);
+                                 at_line_start, scanner, column);
       }
     }
     if (!valid_symbols[TEXT]) return false;
@@ -1404,7 +1502,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     if (lexer->lookahead == '/') return false;
     if (at_space_or_end(lexer)) {
       return emit_marker_or_text(lexer, TERM_MARKER, valid_symbols,
-                                 at_line_start);
+                                 at_line_start, scanner, column);
     }
     if (!valid_symbols[TEXT]) return false;
     return scan_text(lexer, true);
@@ -1462,12 +1560,23 @@ void tree_sitter_typst_external_scanner_destroy(void *payload) { free(payload); 
  * `in_word` is decided inside the text run rather than remembered between calls.
  */
 unsigned tree_sitter_typst_external_scanner_serialize(void *payload, char *buffer) {
-  buffer[0] = (char)((Scanner *)payload)->raw_backticks;
-  return 1;
+  Scanner *scanner = (Scanner *)payload;
+  unsigned n = 0;
+  buffer[n++] = (char)scanner->raw_backticks;
+  buffer[n++] = (char)scanner->depth;
+  for (unsigned i = 0; i < scanner->depth && i < MAX_ITEM_DEPTH; i++) {
+    buffer[n++] = (char)scanner->columns[i];
+  }
+  return n;
 }
 
 void tree_sitter_typst_external_scanner_deserialize(void *payload, const char *buffer,
                                                     unsigned length) {
   Scanner *scanner = (Scanner *)payload;
   scanner->raw_backticks = length >= 1 ? (uint8_t)buffer[0] : 0;
+  scanner->depth = length >= 2 ? (uint8_t)buffer[1] : 0;
+  if (scanner->depth > MAX_ITEM_DEPTH) scanner->depth = MAX_ITEM_DEPTH;
+  for (unsigned i = 0; i < scanner->depth; i++) {
+    scanner->columns[i] = (i + 2 < length) ? (uint8_t)buffer[i + 2] : 0;
+  }
 }

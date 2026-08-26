@@ -50,10 +50,21 @@ const PAIRS = MATH ? [['[', ']']] : [['[', ']'], ['(', ')'], ['{', '}']];
 const EVEN = MATH ? ['$', '`'] : ['$', '`', '_', '*', '"'];
 const count = (t, ch) => t.split(ch).length - 1;
 
-function balanced(t) {
-  for (const [open, close] of PAIRS) if (count(t, open) !== count(t, close)) return false;
-  for (const ch of EVEN) if (count(t, ch) % 2 !== 0) return false;
-  return true;
+/**
+ * A fingerprint of the delimiter structure: the imbalance of each pair, and the parity of
+ * each self-closing delimiter.
+ *
+ * Trials must keep the *starting file's* fingerprint, not reach some absolute balance.
+ * Demanding real balance rejects perfectly ordinary inputs — a file containing one `(` in
+ * prose never balances, and the shrink would refuse to start. Preserving the fingerprint
+ * is what actually matters: it stops a step from deleting a lone closing bracket and
+ * landing on input typst accepts for a completely different reason.
+ */
+function fingerprint(t) {
+  return [
+    ...PAIRS.map(([open, close]) => count(t, open) - count(t, close)),
+    ...EVEN.map((ch) => count(t, ch) % 2),
+  ].join(',');
 }
 
 /** Whether our parse of the trial file contains ERROR or MISSING. Throws if the CLI
@@ -78,14 +89,18 @@ function typstAccepts() {
 
 let trials = 0;
 
+let baseline = null;
+
 function reproduces(text) {
-  if (!text.trim() || !balanced(text)) return false;
+  if (!text.trim()) return false;
+  if (baseline !== null && fingerprint(text) !== baseline) return false;
   trials++;
   fs.writeFileSync(TRIAL, text);
   return typstAccepts() && oursErrors();
 }
 
 let text = fs.readFileSync(file, 'utf8');
+baseline = fingerprint(text);
 
 if (!reproduces(text)) {
   console.log(color.yellow(
