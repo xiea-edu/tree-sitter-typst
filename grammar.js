@@ -853,14 +853,16 @@ module.exports = grammar({
         $.import_items,
         // Parenthesized lists let an import span several lines. The parentheses are
         // siblings of `import_items` rather than wrapping it, matching typst.
-        seq('(', optional($.import_items), optional(','), ')'),
+        seq('(', optional($.import_items), ')'),
       )))),
     )),
 
-    import_items: $ => sepBy1(',', choice(
-      $.import_item_path,
-      $.renamed_import_item,
-    )),
+    // The trailing comma belongs *inside* the item list: typst ends `ImportItems` after
+    // it and leaves only the closing paren outside.
+    import_items: $ => seq(
+      sepBy1(',', choice($.import_item_path, $.renamed_import_item)),
+      optional(','),
+    ),
 
     import_item_path: $ => sepBy1('.', $.ident),
 

@@ -4556,10 +4556,6 @@
             "named": false
           },
           {
-            "type": ",",
-            "named": false
-          },
-          {
             "type": "import_items",
             "named": true
           }
