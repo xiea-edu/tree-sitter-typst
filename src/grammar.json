@@ -289,8 +289,13 @@
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "markup"
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_markup_no_strong"
+              },
+              "named": true,
+              "value": "markup"
             },
             {
               "type": "BLANK"
@@ -314,8 +319,13 @@
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "markup"
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_markup_no_emph"
+              },
+              "named": true,
+              "value": "markup"
             },
             {
               "type": "BLANK"
@@ -327,6 +337,176 @@
           "name": "_underscore"
         }
       ]
+    },
+    "_markup_no_strong": {
+      "type": "REPEAT1",
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "text"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "escape"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "linebreak"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "shorthand"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "smart_quote"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "emph"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "raw"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "link"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "label"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "ref"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "heading"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "list_item"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "enum_item"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "term_item"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "equation"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_hash_expr"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_bracket_text"
+          },
+          {
+            "type": "ALIAS",
+            "content": {
+              "type": "STRING",
+              "value": ":"
+            },
+            "named": true,
+            "value": "text"
+          }
+        ]
+      }
+    },
+    "_markup_no_emph": {
+      "type": "REPEAT1",
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "text"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "escape"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "linebreak"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "shorthand"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "smart_quote"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "strong"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "raw"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "link"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "label"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "ref"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "heading"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "list_item"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "enum_item"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "term_item"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "equation"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_hash_expr"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_bracket_text"
+          },
+          {
+            "type": "ALIAS",
+            "content": {
+              "type": "STRING",
+              "value": ":"
+            },
+            "named": true,
+            "value": "text"
+          }
+        ]
+      }
     },
     "label": {
       "type": "TOKEN",
@@ -4179,12 +4359,6 @@
     [
       "_markup_expr",
       "term_item"
-    ],
-    [
-      "strong"
-    ],
-    [
-      "emph"
     ],
     [
       "markup"

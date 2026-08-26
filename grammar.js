@@ -135,11 +135,7 @@ module.exports = grammar({
     // colon is plain text in markup, and only a term item gives it a second meaning.
     [$._markup_expr, $.term_item],
 
-    // `**` and `__` — an empty strong/emph, or the opening of a nested one? And a run of
-    // markup can always be extended or closed. Typst resolves these while scanning for
-    // the matching delimiter; GLR keeps both readings alive instead.
-    [$.strong],
-    [$.emph],
+    // A run of markup can always be extended or closed.
     [$.markup],
 
     // `let f • (` again, now that the function form builds a closure.
@@ -218,8 +214,24 @@ module.exports = grammar({
       $.raw_delim,
     ),
 
-    strong: $ => seq($._star, optional($.markup), $._star),
-    emph: $ => seq($._underscore, optional($.markup), $._underscore),
+    /*
+     * Typst never nests a delimiter inside its own kind. `strong` runs `markup` with the
+     * stop set `{Star, Parbreak, RightBracket, End}`, so the very next `*` closes it:
+     * `*a *b* c*` is two separate strongs with the text `b` between them, not one
+     * containing another. Excluding the delimiter from its own body says exactly that.
+     *
+     * That also removes the ambiguity outright. The `[$.strong]` and `[$.emph]` conflicts
+     * this replaces let GLR choose any pairing it liked, and on a dense run it would pick
+     * one that could not close — failing the whole file rather than just nesting oddly.
+     *
+     * The other kind still nests: `*a _b_ c*` is a strong containing an emph, because
+     * only `Star` is in strong's stop set.
+     */
+    strong: $ => seq($._star, optional(alias($._markup_no_strong, $.markup)), $._star),
+    emph: $ => seq($._underscore, optional(alias($._markup_no_emph, $.markup)), $._underscore),
+
+    _markup_no_strong: $ => repeat1(markupExpr($, { label: true, strong: false })),
+    _markup_no_emph: $ => repeat1(markupExpr($, { label: true, emph: false })),
 
     // `<name>` — identifier characters plus `:` and `.`.
     label: _ => token(seq('<', /[_\-:.\p{XID_Continue}]+/u, '>')),
@@ -875,15 +887,16 @@ function sepBy(sep, rule) {
  * heading's body stops at a `Label`, for instance. Generating the choice lets us say the
  * same thing once instead of maintaining two nearly identical lists.
  */
-function markupExpr($, { label }) {
+function markupExpr($, { label, strong = true, emph = true }) {
   return choice(
     $.text,
     $.escape,
     $.linebreak,
     $.shorthand,
     $.smart_quote,
-    $.strong,
-    $.emph,
+    // Dropped from a delimiter's own body — see `strong` and `emph`.
+    ...(strong ? [$.strong] : []),
+    ...(emph ? [$.emph] : []),
     $.raw,
     $.link,
     ...(label ? [$.label] : []),
