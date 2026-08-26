@@ -794,10 +794,6 @@
         },
         {
           "type": "SYMBOL",
-          "name": "math_primes_marker"
-        },
-        {
-          "type": "SYMBOL",
           "name": "math_delimited"
         },
         {
@@ -1030,10 +1026,6 @@
         {
           "type": "SYMBOL",
           "name": "math_primes"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "math_primes_marker"
         },
         {
           "type": "SYMBOL",
@@ -1648,54 +1640,83 @@
             }
           },
           {
-            "type": "REPEAT1",
-            "content": {
-              "type": "SEQ",
-              "members": [
-                {
-                  "type": "FIELD",
-                  "name": "operator",
-                  "content": {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "STRING",
-                        "value": "^"
-                      },
-                      {
-                        "type": "STRING",
-                        "value": "_"
-                      }
-                    ]
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "SYMBOL",
+                    "name": "_adjacent_prime"
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "math_primes"
+                  },
+                  {
+                    "type": "REPEAT",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_math_script"
+                    }
                   }
-                },
-                {
-                  "type": "FIELD",
-                  "name": "attachment",
-                  "content": {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "ALIAS",
-                        "content": {
-                          "type": "SYMBOL",
-                          "name": "_math_group"
-                        },
-                        "named": true,
-                        "value": "math"
-                      },
-                      {
-                        "type": "SYMBOL",
-                        "name": "_math_operand"
-                      }
-                    ]
-                  }
+                ]
+              },
+              {
+                "type": "REPEAT1",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_script"
                 }
-              ]
-            }
+              }
+            ]
           }
         ]
       }
+    },
+    "_math_script": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "FIELD",
+          "name": "operator",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "STRING",
+                "value": "^"
+              },
+              {
+                "type": "STRING",
+                "value": "_"
+              }
+            ]
+          }
+        },
+        {
+          "type": "FIELD",
+          "name": "attachment",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_group"
+                },
+                "named": true,
+                "value": "math"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "_math_operand"
+              }
+            ]
+          }
+        }
+      ]
     },
     "_math_group": {
       "type": "PREC_DYNAMIC",
@@ -1753,31 +1774,6 @@
       }
     },
     "math_primes": {
-      "type": "PREC_LEFT",
-      "value": 2,
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "FIELD",
-            "name": "base",
-            "content": {
-              "type": "SYMBOL",
-              "name": "_math_operand"
-            }
-          },
-          {
-            "type": "SYMBOL",
-            "name": "_adjacent_prime"
-          },
-          {
-            "type": "SYMBOL",
-            "name": "math_primes_marker"
-          }
-        ]
-      }
-    },
-    "math_primes_marker": {
       "type": "TOKEN",
       "content": {
         "type": "PATTERN",

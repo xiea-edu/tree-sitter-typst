@@ -68,7 +68,7 @@
 (math_text) @markup.math
 (math_shorthand) @operator
 (math_align_point) @punctuation.special
-(math_primes_marker) @operator
+(math_primes) @operator
 (math_attach ["^" "_"] @operator)
 (math_frac "/" @operator)
 (math_root ["√" "∛" "∜"] @operator)

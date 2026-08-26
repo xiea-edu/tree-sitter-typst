@@ -167,9 +167,9 @@ $f'$
 (source_file
   (equation
     (math
-      (math_primes
+      (math_attach
         (math_text)
-        (math_primes_marker)))))
+        (math_primes)))))
 
 ================================================================================
 shorthands

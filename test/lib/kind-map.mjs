@@ -106,8 +106,8 @@ export const KIND_MAP = {
   MathRoot: 'math_root',
 
   // Typst's `MathPrimes` is the `'` run itself, wrapped by a `MathAttach`. Ours names
-  // the run `math_primes_marker` and the pairing `math_primes`.
-  MathPrimes: 'math_primes_marker',
+  // the run `math_primes` and lets `math_attach` be the pairing, as typst does.
+  MathPrimes: 'math_primes',
 
   // ---- code --------------------------------------------------------------
 

@@ -2850,10 +2850,6 @@
           "named": true
         },
         {
-          "type": "math_primes_marker",
-          "named": true
-        },
-        {
           "type": "math_root",
           "named": true
         },
@@ -2937,7 +2933,7 @@
     "fields": {
       "attachment": {
         "multiple": true,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "#",
@@ -3061,10 +3057,6 @@
           },
           {
             "type": "math_primes",
-            "named": true
-          },
-          {
-            "type": "math_primes_marker",
             "named": true
           },
           {
@@ -3250,10 +3242,6 @@
             "named": true
           },
           {
-            "type": "math_primes_marker",
-            "named": true
-          },
-          {
             "type": "math_root",
             "named": true
           },
@@ -3309,7 +3297,7 @@
       },
       "operator": {
         "multiple": true,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "^",
@@ -3321,6 +3309,16 @@
           }
         ]
       }
+    },
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "math_primes",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -3532,10 +3530,6 @@
             "named": true
           },
           {
-            "type": "math_primes_marker",
-            "named": true
-          },
-          {
             "type": "math_root",
             "named": true
           },
@@ -3726,10 +3720,6 @@
             "named": true
           },
           {
-            "type": "math_primes_marker",
-            "named": true
-          },
-          {
             "type": "math_root",
             "named": true
           },
@@ -3783,208 +3773,6 @@
           }
         ]
       }
-    }
-  },
-  {
-    "type": "math_primes",
-    "named": true,
-    "fields": {
-      "base": {
-        "multiple": true,
-        "required": true,
-        "types": [
-          {
-            "type": "#",
-            "named": false
-          },
-          {
-            "type": ";",
-            "named": false
-          },
-          {
-            "type": "array",
-            "named": true
-          },
-          {
-            "type": "auto",
-            "named": true
-          },
-          {
-            "type": "bool",
-            "named": true
-          },
-          {
-            "type": "code_block",
-            "named": true
-          },
-          {
-            "type": "conditional",
-            "named": true
-          },
-          {
-            "type": "content_block",
-            "named": true
-          },
-          {
-            "type": "contextual",
-            "named": true
-          },
-          {
-            "type": "dict",
-            "named": true
-          },
-          {
-            "type": "equation",
-            "named": true
-          },
-          {
-            "type": "escape",
-            "named": true
-          },
-          {
-            "type": "field_access",
-            "named": true
-          },
-          {
-            "type": "float",
-            "named": true
-          },
-          {
-            "type": "for_loop",
-            "named": true
-          },
-          {
-            "type": "func_call",
-            "named": true
-          },
-          {
-            "type": "func_return",
-            "named": true
-          },
-          {
-            "type": "ident",
-            "named": true
-          },
-          {
-            "type": "int",
-            "named": true
-          },
-          {
-            "type": "label",
-            "named": true
-          },
-          {
-            "type": "let_binding",
-            "named": true
-          },
-          {
-            "type": "linebreak",
-            "named": true
-          },
-          {
-            "type": "loop_break",
-            "named": true
-          },
-          {
-            "type": "loop_continue",
-            "named": true
-          },
-          {
-            "type": "math",
-            "named": true
-          },
-          {
-            "type": "math_align_point",
-            "named": true
-          },
-          {
-            "type": "math_call",
-            "named": true
-          },
-          {
-            "type": "math_delimited",
-            "named": true
-          },
-          {
-            "type": "math_field_access",
-            "named": true
-          },
-          {
-            "type": "math_ident",
-            "named": true
-          },
-          {
-            "type": "math_primes",
-            "named": true
-          },
-          {
-            "type": "math_primes_marker",
-            "named": true
-          },
-          {
-            "type": "math_root",
-            "named": true
-          },
-          {
-            "type": "math_shorthand",
-            "named": true
-          },
-          {
-            "type": "math_text",
-            "named": true
-          },
-          {
-            "type": "module_import",
-            "named": true
-          },
-          {
-            "type": "module_include",
-            "named": true
-          },
-          {
-            "type": "none",
-            "named": true
-          },
-          {
-            "type": "numeric",
-            "named": true
-          },
-          {
-            "type": "parenthesized",
-            "named": true
-          },
-          {
-            "type": "raw",
-            "named": true
-          },
-          {
-            "type": "set_rule",
-            "named": true
-          },
-          {
-            "type": "show_rule",
-            "named": true
-          },
-          {
-            "type": "str",
-            "named": true
-          },
-          {
-            "type": "while_loop",
-            "named": true
-          }
-        ]
-      }
-    },
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "math_primes_marker",
-          "named": true
-        }
-      ]
     }
   },
   {
@@ -4135,10 +3923,6 @@
           },
           {
             "type": "math_primes",
-            "named": true
-          },
-          {
-            "type": "math_primes_marker",
             "named": true
           },
           {
@@ -6341,7 +6125,7 @@
     "named": true
   },
   {
-    "type": "math_primes_marker",
+    "type": "math_primes",
     "named": true
   },
   {

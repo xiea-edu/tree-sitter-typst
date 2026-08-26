@@ -392,13 +392,31 @@ module.exports = grammar({
 
     // `x^2`, `x_i`, `x_i^2`. Right-associative, and `^` and `_` chain into a single
     // attachment so `x_i^2` is one node with both a subscript and a superscript.
+    /*
+     * `x^2`, `x_i`, `x_i^2`, and primes. Right-associative, and `^` and `_` chain into a
+     * single attachment so `x_i^2` is one node carrying both scripts.
+     *
+     * Primes belong here rather than in a rule of their own: typst wraps `c'` in a
+     * `MathAttach` whose child is a `MathPrimes`, and folds primes and scripts into the
+     * *same* attachment, so `c'_1` is one node with three children rather than an attach
+     * nested inside another. They take no right operand, and attach only when directly
+     * adjacent — `a'` attaches while `a '` is `a` followed by a standalone prime. That
+     * adjacency is a zero-width scanner token rather than `token.immediate`, which would
+     * need a second token for `'`; with both valid the lexer picks whichever it likes,
+     * and the immediate one never matches.
+     */
     math_attach: $ => prec.left(PREC_MATH.attach, seq(
       field('base', $._math_operand),
-      repeat1(seq(
-        field('operator', choice('^', '_')),
-        field('attachment', choice(alias($._math_group, $.math), $._math_operand)),
-      )),
+      choice(
+        seq($._adjacent_prime, $.math_primes, repeat($._math_script)),
+        repeat1($._math_script),
+      ),
     )),
+
+    _math_script: $ => seq(
+      field('operator', choice('^', '_')),
+      field('attachment', choice(alias($._math_group, $.math), $._math_operand)),
+    ),
 
     /*
      * Round parens in an attachment slot are *grouping*, not a delimited group: typst
@@ -439,13 +457,9 @@ module.exports = grammar({
      * whichever it likes, so the immediate one never matches. That is what broke
      * `f("x", ')`, where the space before the quote left it unmatchable.
      */
-    math_primes: $ => prec.left(PREC_MATH.attach, seq(
-      field('base', $._math_operand),
-      $._adjacent_prime,
-      $.math_primes_marker,
-    )),
-
-    math_primes_marker: _ => token(/'+/),
+    // The `'` run itself, which typst calls `MathPrimes`. The node that *wraps* a base
+    // with its primes is `math_attach`, not this — see the attachment rule above.
+    math_primes: _ => token(/'+/),
 
     // Both slots group round parens, the same way a script slot does — see `_math_group`.
     math_frac: $ => prec.left(PREC_MATH.frac, seq(
@@ -1012,7 +1026,6 @@ function mathExpr($, { operators }) {
     $.math_shorthand,
     $.math_align_point,
     $.math_primes,
-    $.math_primes_marker,
     $.math_delimited,
     alias($.math_implicit_call, $.math),
     $.math_root,
