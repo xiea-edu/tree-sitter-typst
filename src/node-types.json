@@ -1807,6 +1807,11 @@
     }
   },
   {
+    "type": "escape",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "field_access",
     "named": true,
     "fields": {
@@ -2856,6 +2861,11 @@
         }
       ]
     }
+  },
+  {
+    "type": "linebreak",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "list_item",
@@ -6710,10 +6720,6 @@
     "named": true
   },
   {
-    "type": "escape",
-    "named": true
-  },
-  {
     "type": "false",
     "named": false
   },
@@ -6765,10 +6771,6 @@
     "type": "line_comment",
     "named": true,
     "extra": true
-  },
-  {
-    "type": "linebreak",
-    "named": true
   },
   {
     "type": "link",

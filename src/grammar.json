@@ -221,24 +221,12 @@
       ]
     },
     "escape": {
-      "type": "TOKEN",
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "PATTERN",
-            "value": "\\\\u\\{[0-9a-fA-F]*\\}"
-          },
-          {
-            "type": "PATTERN",
-            "value": "\\\\[^ \\t\\r\\n]"
-          }
-        ]
-      }
+      "type": "SYMBOL",
+      "name": "_escape"
     },
     "linebreak": {
-      "type": "STRING",
-      "value": "\\"
+      "type": "SYMBOL",
+      "name": "_linebreak"
     },
     "smart_quote": {
       "type": "CHOICE",
@@ -2993,8 +2981,89 @@
           "type": "CHOICE",
           "members": [
             {
-              "type": "STRING",
-              "value": ":"
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": ":"
+                },
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "SEQ",
+                      "members": [
+                        {
+                          "type": "SEQ",
+                          "members": [
+                            {
+                              "type": "CHOICE",
+                              "members": [
+                                {
+                                  "type": "SYMBOL",
+                                  "name": "named"
+                                },
+                                {
+                                  "type": "SYMBOL",
+                                  "name": "keyed"
+                                },
+                                {
+                                  "type": "SYMBOL",
+                                  "name": "spread"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "REPEAT",
+                              "content": {
+                                "type": "SEQ",
+                                "members": [
+                                  {
+                                    "type": "STRING",
+                                    "value": ","
+                                  },
+                                  {
+                                    "type": "CHOICE",
+                                    "members": [
+                                      {
+                                        "type": "SYMBOL",
+                                        "name": "named"
+                                      },
+                                      {
+                                        "type": "SYMBOL",
+                                        "name": "keyed"
+                                      },
+                                      {
+                                        "type": "SYMBOL",
+                                        "name": "spread"
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "CHOICE",
+                          "members": [
+                            {
+                              "type": "STRING",
+                              "value": ","
+                            },
+                            {
+                              "type": "BLANK"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
+                }
+              ]
             },
             {
               "type": "SEQ",
@@ -4236,6 +4305,14 @@
     {
       "type": "SYMBOL",
       "name": "_block_comment"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_escape"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_linebreak"
     },
     {
       "type": "SYMBOL",

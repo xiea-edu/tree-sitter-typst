@@ -88,6 +88,8 @@ module.exports = grammar({
     $._number_float,
     $._number_numeric,
     $._block_comment,   // `/* ... */`, which nests
+    $._escape,          // `\x`, or `\u{...}` with a codepoint that is a real character
+    $._linebreak,       // `\` at the end of a line
     $._adjacent_prime,  // zero-width: a `'` follows immediately, so it attaches
     $.link,            // a bare URL, with `[]` and `()` balanced
     $._error_sentinel,  // never matched; signals error recovery to the scanner
@@ -188,11 +190,19 @@ module.exports = grammar({
       alias(']', $.text),
     ),
 
-    // `\u{1f600}` or `\` plus any single character. A `\` before whitespace or end of
-    // line is a linebreak instead, which falls out of longest-match: `escape` needs two
-    // characters, so a lone `\` can only be `linebreak`.
-    escape: _ => token(choice(/\\u\{[0-9a-fA-F]*\}/, /\\[^ \t\r\n]/)),
-    linebreak: _ => '\\',
+    /*
+     * `\u{1f600}` or `\` plus any single character; a `\` before whitespace or end of line
+     * is a linebreak instead.
+     *
+     * Both come from the scanner, and they have to come from it together. Typst validates
+     * the codepoint — `\u{FFFFFF}` is past the last one and `\u{D800}` is a surrogate, so
+     * neither is a character — and a regex cannot check that. But declining the escape is
+     * only half the job: with `linebreak` left as a plain `\` token, the backslash would
+     * simply match that instead and the invalid escape would still parse. Owning both is
+     * what makes an invalid codepoint an error, exactly as in `Lexer::escape`.
+     */
+    escape: $ => $._escape,
+    linebreak: $ => $._linebreak,
 
     // Typst does not decide opening versus closing here; that is a rendering concern.
     smart_quote: _ => choice('\'', '"'),
@@ -656,11 +666,20 @@ module.exports = grammar({
       ')',
     ),
 
+    /*
+     * The leading `:` is a marker, not a shorthand for the empty dictionary. `(:)` is the
+     * empty dict, but `(:..a, k: 1)` is a dict with items — typst emits `Colon` followed
+     * by the items either way. Treating the colon as an alternative *to* the items is
+     * what made `(:..base, ..overrides)` fail to parse.
+     *
+     * It is needed whenever nothing else marks the parens as a dictionary: with only
+     * spreads inside, `(..a)` is an array.
+     */
     dict: $ => seq(
       '(',
       choice(
-        ':',
-        seq(sepBy1(',', choice($.named, $.keyed, $.spread)), optional(',')),
+        seq(':', optional(dictItems($))),
+        dictItems($),
       ),
       ')',
     ),
@@ -913,4 +932,15 @@ function mathExpr($, { operators }) {
     // tried here.
     alias(prec.dynamic(-20, choice(MATH_OPEN, MATH_CLOSE)), $.math_text),
   );
+}
+
+/**
+ * The items of a dictionary literal.
+ *
+ * A plain function rather than a grammar rule so that it inlines at both use sites: a
+ * real rule would introduce a fresh `array`/`dict` ambiguity for the conflict list to
+ * carry, when the ambiguity is already declared against `dict` itself.
+ */
+function dictItems($) {
+  return seq(sepBy1(',', choice($.named, $.keyed, $.spread)), optional(','));
 }

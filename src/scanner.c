@@ -43,6 +43,8 @@ enum TokenType {
   NUMBER_FLOAT,
   NUMBER_NUMERIC,
   BLOCK_COMMENT,
+  ESCAPE,
+  LINEBREAK,
   ADJACENT_PRIME,
   LINK,
   ERROR_SENTINEL,
@@ -615,6 +617,73 @@ static SepVerdict scan_code_sep(TSLexer *lexer) {
   }
 }
 
+/*
+ * `Lexer::escape`: `\` plus one character, or `\u{...}` with a codepoint that names a
+ * real character. `\` before whitespace or end of file is a linebreak instead.
+ *
+ * Both live here rather than in the grammar, and they have to live here together. Typst
+ * validates the codepoint, which a regex cannot do — `\u{FFFFFF}` is past the last one
+ * and `\u{D800}` is a surrogate half, so neither is a character. Declining the escape is
+ * only half of it: if the grammar still had a plain `\` token for the linebreak, the
+ * backslash would match that and the invalid escape would parse anyway.
+ *
+ * Assumes the caller has checked that lookahead is a backslash.
+ */
+static bool scan_escape(TSLexer *lexer, const bool *valid_symbols) {
+  advance(lexer);
+
+  // `\` at the end of a line — or of the file — is a linebreak.
+  if (lexer->eof(lexer) || is_space(lexer->lookahead)) {
+    if (!valid_symbols[LINEBREAK]) return false;
+    lexer->mark_end(lexer);
+    lexer->result_symbol = LINEBREAK;
+    return true;
+  }
+
+  if (!valid_symbols[ESCAPE]) return false;
+
+  if (lexer->lookahead == 'u') {
+    advance(lexer);
+    // Only `\u{` begins a codepoint escape; a bare `\u` escapes the letter itself.
+    if (lexer->lookahead == '{') {
+      advance(lexer);
+
+      // Typst reads the whole alphanumeric run and *then* parses it, so `\u{zz}` is a bad
+      // codepoint rather than a `\u` escape followed by text.
+      uint32_t cp = 0;
+      bool any = false, bad = false;
+      while (iswalnum((wint_t)lexer->lookahead)) {
+        int32_t ch = lexer->lookahead;
+        unsigned d;
+        if (ch >= '0' && ch <= '9') d = (unsigned)(ch - '0');
+        else if (ch >= 'a' && ch <= 'f') d = (unsigned)(ch - 'a' + 10);
+        else if (ch >= 'A' && ch <= 'F') d = (unsigned)(ch - 'A' + 10);
+        else { d = 0; bad = true; }
+        if (cp > 0x10FFFF) bad = true;  // saturate rather than wrap
+        else cp = cp * 16 + d;
+        any = true;
+        advance(lexer);
+      }
+
+      if (lexer->lookahead != '}') return false;  // unclosed
+      advance(lexer);
+
+      // Must name an actual character: in range, and not a surrogate half.
+      if (!any || bad || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) return false;
+
+      lexer->mark_end(lexer);
+      lexer->result_symbol = ESCAPE;
+      return true;
+    }
+  } else {
+    advance(lexer);
+  }
+
+  lexer->mark_end(lexer);
+  lexer->result_symbol = ESCAPE;
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // raw
 // ---------------------------------------------------------------------------
@@ -736,8 +805,12 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
    * would create a second token for `'`, and with both valid the lexer picks whichever
    * it likes — the same trap that defeated the math delimiters.
    */
-  if (valid_symbols[ADJACENT_PRIME]) {
-    if (lexer->eof(lexer) || lexer->lookahead != '\'') return false;
+  // Falls through rather than declining when the next character is not a quote. Nothing
+  // has been consumed at this point, so continuing is safe — and necessary: returning
+  // false here would be the scanner's answer for the whole call, starving every other
+  // external token in math of its turn. That is what broke `$a \ b$`, where the prime is
+  // valid after `a` and the linebreak never got asked.
+  if (valid_symbols[ADJACENT_PRIME] && !lexer->eof(lexer) && lexer->lookahead == '\'') {
     lexer->mark_end(lexer);
     lexer->result_symbol = ADJACENT_PRIME;
     return true;
@@ -1118,6 +1191,12 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     }
     if (!valid_symbols[TEXT]) return false;
     return scan_text(lexer, true);
+  }
+
+  // `\` is either an escape or a linebreak, and only the scanner can tell which — see
+  // `scan_escape`. Checked before the text fallback because `\` ends a text run.
+  if (c == '\\' && (valid_symbols[ESCAPE] || valid_symbols[LINEBREAK])) {
+    return scan_escape(lexer, valid_symbols);
   }
 
   if (valid_symbols[TEXT]) {
