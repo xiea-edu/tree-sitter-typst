@@ -2,10 +2,6 @@
   "_comment": [
     "Minimum scores the suite must meet.",
     "",
-    "These exist so CI is a regression detector rather than a permanently red light:",
-    "demanding perfection from a grammar at 98% would fail every run, and a check that",
-    "always fails is one nobody reads.",
-    "",
     "The gate is the typst-suite group, NOT the whole corpus. `typst/typst@v0.15.1",
     "tests/suite` is a fixed, version-pinned set of 221 files, so its score is",
     "reproducible on any machine. The Universe package corpus is whatever the registry",
@@ -13,13 +9,17 @@
     "drifts — CI fetching 200 packages and a laptop fetching 600 do not produce the same",
     "number. It is reported, but not gated.",
     "",
-    "False accepts are counted absolutely within the suite for the same reason: a ratio",
-    "across the whole corpus would move with the number of packages fetched.",
+    "Validity is now pinned at 1.0 in both directions: every file typst accepts we accept,",
+    "and every file it rejects we reject. That is no longer a floor to climb but a property",
+    "to defend, so any regression fails the build.",
+    "",
+    "Span agreement is the one still climbing, and the floor sits just under the current",
+    "score so a real regression shows up without a red build on every run.",
     "",
     "Ratchet these up as the numbers improve — never down to make a red build pass."
   ],
-  "suiteValidityAgreement": 0.94,
-  "spanAgreement": 0.74,
-  "kindCoverage": 1.0,
-  "maxSuiteFalseAccepts": 6
+  "suiteValidityAgreement": 1,
+  "spanAgreement": 0.76,
+  "kindCoverage": 1,
+  "maxSuiteFalseAccepts": 0
 }
