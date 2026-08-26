@@ -43,6 +43,7 @@ enum TokenType {
   NUMBER_FLOAT,
   NUMBER_NUMERIC,
   BLOCK_COMMENT,
+  MATH_DOT,
   ESCAPE,
   LINEBREAK,
   ADJACENT_PRIME,
@@ -537,6 +538,52 @@ finish:
 }
 
 /*
+ * The body of a block comment, with the opening `/` and `*` already consumed.
+ *
+ * `Lexer::block_comment`: they nest, so the first inner terminator does not close the
+ * outer one. An unterminated comment is not an error in typst — it simply runs to the end
+ * of the file.
+ */
+static void scan_block_comment_body(TSLexer *lexer) {
+  unsigned depth = 1;
+  int32_t prev = 0;
+  while (depth > 0 && !lexer->eof(lexer)) {
+    int32_t c = lexer->lookahead;
+    advance(lexer);
+    // A shared character cannot both close one level and open the next.
+    if (prev == '*' && c == '/') { depth--; prev = 0; }
+    else if (prev == '/' && c == '*') { depth++; prev = 0; }
+    else prev = c;
+  }
+}
+
+/*
+ * Emit a block comment if one starts at the current position.
+ *
+ * The zero-width terminators have to look *past* comments to judge what follows, because
+ * a comment is pure trivia: a binding whose value has a comment before the `+ 2` is still
+ * a single expression, and typst ends it after the 2. Looking past one means consuming it,
+ * though, and a scanner
+ * that then declines throws the comment away along with its own progress — leaving the
+ * built-in lexer to re-read the opener as division and multiplication. Nothing else can
+ * supply the token, since `block_comment` is external.
+ *
+ * So the terminator emits the comment instead and is re-examined on the far side, which
+ * is where the decision belonged anyway. Consumes the `/` either way; callers return
+ * false on a miss, which discards it.
+ */
+static bool emit_block_comment(TSLexer *lexer, const bool *valid_symbols) {
+  if (!valid_symbols[BLOCK_COMMENT] || lexer->lookahead != '/') return false;
+  advance(lexer);
+  if (lexer->lookahead != '*') return false;
+  advance(lexer);
+  scan_block_comment_body(lexer);
+  lexer->mark_end(lexer);
+  lexer->result_symbol = BLOCK_COMMENT;
+  return true;
+}
+
+/*
  * Separating two expressions inside `{ }`.
  *
  * Typst's code loop demands a `;` or a line break after every expression, so `{ 1 2 }` is
@@ -560,6 +607,7 @@ typedef enum {
   SEP_NONE,       // not a separator; only blanks consumed, so the caller may continue
   SEP_YES,        // emit the separator
   SEP_CONTINUES,  // the expression carries on; decline outright
+  SEP_COMMENT,    // a block comment came first: emit it and judge again beyond it
 } SepVerdict;
 
 static SepVerdict scan_code_sep(TSLexer *lexer) {
@@ -585,17 +633,13 @@ static SepVerdict scan_code_sep(TSLexer *lexer) {
         continue;
       }
       if (lexer->lookahead == '*') {
+        // Stop at the comment rather than reading through it. Emitting it and re-probing
+        // beyond it is what keeps it from being discarded — and it gives typst's rule for
+        // free: starting over on the far side means the comment's own newlines never
+        // count as the separator, so `{ 1 /* \n */ 2 }` stays an error.
         advance(lexer);
-        unsigned depth = 1;
-        int32_t prev = 0;
-        while (depth > 0 && !lexer->eof(lexer)) {
-          int32_t c2 = lexer->lookahead;
-          advance(lexer);
-          if (prev == '*' && c2 == '/') { depth--; prev = 0; }
-          else if (prev == '/' && c2 == '*') { depth++; prev = 0; }
-          else prev = c2;
-        }
-        continue;
+        scan_block_comment_body(lexer);
+        return SEP_COMMENT;
       }
       // A bare `/` is division, which continues the expression on the same line but
       // cannot reach back across a line break.
@@ -929,6 +973,11 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     switch (scan_code_sep(lexer)) {
       case SEP_YES:       lexer->result_symbol = CODE_SEP; return true;
       case SEP_CONTINUES: return false;
+      case SEP_COMMENT:
+        if (!valid_symbols[BLOCK_COMMENT]) return false;
+        lexer->mark_end(lexer);
+        lexer->result_symbol = BLOCK_COMMENT;
+        return true;
       case SEP_NONE:      break;  // only blanks consumed; carry on with the dispatch
     }
   }
@@ -953,7 +1002,9 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
       lexer->result_symbol = STMT_END;
       return true;
     }
-    return false;
+    // A comment is trivia, so `#let a = 1 /* c */ + 2` is one expression and the statement
+    // does not end here. Emit the comment and let the terminator be judged beyond it.
+    return emit_block_comment(lexer, valid_symbols);
   }
 
   // Skip whitespace ourselves, tracking whether a line ended. Doing this here rather
@@ -1030,9 +1081,30 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     return true;
   }
 
-  // `...` — an ellipsis. A lone or doubled dot is ordinary text.
-  if (c == '.' && (valid_symbols[SHORTHAND] || valid_symbols[TEXT])) {
+  /*
+   * `...` is an ellipsis; a lone or doubled dot is ordinary text. In math a dot may also
+   * open a field access, and all three readings are decided here together because the
+   * lexer cannot rewind past the first `.` to try another.
+   */
+  if (c == '.' && (valid_symbols[SHORTHAND] || valid_symbols[TEXT] ||
+                   valid_symbols[MATH_DOT])) {
     advance(lexer);
+
+    /*
+     * `$angle.l$` is one field access but `$ab.$` is an identifier followed by a text
+     * dot, and only the character *after* the dot tells them apart. Expressing that with
+     * `token.immediate('.')` in the grammar cannot work: the immediate token wins
+     * whenever the dot touches the identifier, so the parser commits to a field access
+     * and then finds no name to complete it. Requiring the name here is what lets a
+     * sentence-ending period in math stay text.
+     */
+    if (valid_symbols[MATH_DOT] && !saw_space &&
+        (iswalpha((wint_t)lexer->lookahead) || lexer->lookahead == '_')) {
+      lexer->mark_end(lexer);
+      lexer->result_symbol = MATH_DOT;
+      return true;
+    }
+
     if (lexer->lookahead == '.') {
       advance(lexer);
       if (lexer->lookahead == '.') {
@@ -1163,20 +1235,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     if (lexer->lookahead == '*') {
       if (!valid_symbols[BLOCK_COMMENT]) return false;
       advance(lexer);
-
-      unsigned depth = 1;
-      int32_t prev = 0;
-      while (depth > 0) {
-        // Unterminated is not an error in typst; the comment just runs to end of file.
-        if (lexer->eof(lexer)) break;
-        int32_t ch = lexer->lookahead;
-        advance(lexer);
-        // A shared character cannot both close one level and open the next.
-        if (prev == '*' && ch == '/') { depth--; prev = 0; }
-        else if (prev == '/' && ch == '*') { depth++; prev = 0; }
-        else prev = ch;
-      }
-
+      scan_block_comment_body(lexer);
       lexer->mark_end(lexer);
       lexer->result_symbol = BLOCK_COMMENT;
       return true;

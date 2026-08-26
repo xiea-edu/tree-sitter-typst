@@ -88,6 +88,7 @@ module.exports = grammar({
     $._number_float,
     $._number_numeric,
     $._block_comment,   // `/* ... */`, which nests
+    $._math_dot,        // the `.` of a math field access: a name must follow it
     $._escape,          // `\x`, or `\u{...}` with a codepoint that is a real character
     $._linebreak,       // `\` at the end of a line
     $._adjacent_prime,  // zero-width: a `'` follows immediately, so it attaches
@@ -288,9 +289,17 @@ module.exports = grammar({
 
     // `a.b` — built by typst's lexer rather than its parser, so the dot is not a general
     // field access here.
+    /*
+     * `$angle.l$` is a field access, but `$ab.$` is an identifier followed by a text dot —
+     * a sentence-ending period after a symbol name is extremely common. Only the character
+     * *after* the dot separates the two, and `token.immediate('.')` cannot look there: it
+     * wins whenever the dot touches the identifier, so the parser committed to a field
+     * access and then had no name to finish it. The scanner supplies a dot that exists
+     * only when a name follows.
+     */
     math_field_access: $ => prec.left(seq(
       choice($.math_ident, $.math_field_access),
-      token.immediate('.'),
+      alias($._math_dot, '.'),
       alias(token.immediate(/[\p{XID_Start}][\p{XID_Start}\p{Mn}\p{Mc}\p{Nd}]*/u), $.math_ident),
     )),
 
@@ -534,7 +543,9 @@ module.exports = grammar({
     bool: _ => choice('true', 'false'),
 
     // No interpolation; `\` escapes the next character.
-    str: _ => token(seq('"', repeat(choice(/[^"\\]/, /\\./)), '"')),
+    // `[\s\S]` rather than `.` after the backslash: a string may be escaped across a line
+    // break, and tree-sitter's `.` does not match one.
+    str: _ => token(seq('"', repeat(choice(/[^"\\]/, /\\[\s\S]/)), '"')),
 
     // XID_Start plus `_` to begin; XID_Continue plus `_` and `-` to continue. The
     // trailing hyphen rule is why `my-var` is one identifier and `a - b` is subtraction.
