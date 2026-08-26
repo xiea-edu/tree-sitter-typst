@@ -327,9 +327,20 @@ module.exports = grammar({
     // Math arguments are comma- or semicolon-separated, and each one may be named
     // (`lr(}, size: #h)`) or spread. Each argument's contents are wrapped in `math`,
     // which is what typst's `math_exprs` does per argument.
+    /*
+     * The separators carry a dynamic precedence because `,` and `;` have a second
+     * reading: `mathExpr` also offers them as `math_text`, which is what they are
+     * everywhere outside an argument list. Left evenly matched, every separator doubles
+     * the number of parses, and a call holding two sibling calls of two rows each — the
+     * shape at the heart of Mozilla's MathML torture test — never resolves.
+     *
+     * Only `prec.dynamic` states this. A static precedence has no effect here: the two
+     * readings are separate parses GLR is choosing between, not competing rules within
+     * one.
+     */
     _math_args: $ => seq(
       token.immediate('('),
-      sepBy(choice(',', ';'), optional($._math_arg)),
+      sepBy(prec.dynamic(30, choice(',', ';')), optional($._math_arg)),
       ')',
     ),
 
