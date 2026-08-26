@@ -308,8 +308,13 @@ static bool scan_text(TSLexer *lexer, bool started) {
       continue;
     }
     if (c == '>') {
-      // `>` stops a run only so that `<label>` can be recognized; on its own it is
-      // ordinary text and the run carries on.
+      /*
+       * A `>` ends the run it meets and opens a new one: typst reads `a>b` as the two
+       * texts `a` and `>b`, and `a>>b` as three. It only ever *starts* a run, never
+       * continues one — carrying on through it merged nodes typst keeps apart, which is
+       * what split `(it) => it.len()` differently from the reference parser.
+       */
+      if (any) break;
       advance(lexer);
       lexer->mark_end(lexer);
       any = true;

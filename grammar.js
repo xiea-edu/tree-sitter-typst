@@ -410,7 +410,7 @@ module.exports = grammar({
      * delimited too — it is the script position that asks for grouping, not the
      * parentheses themselves.
      */
-    _math_group: $ => seq('(', optional($.math), ')'),
+    _math_group: $ => prec.dynamic(5, seq('(', optional($.math), ')')),
 
     /*
      * `$f(x)$` — a single-letter variable directly followed by a delimited group. Typst
@@ -447,15 +447,16 @@ module.exports = grammar({
 
     math_primes_marker: _ => token(/'+/),
 
+    // Both slots group round parens, the same way a script slot does — see `_math_group`.
     math_frac: $ => prec.left(PREC_MATH.frac, seq(
-      field('numerator', $._math_expr),
+      field('numerator', choice(alias($._math_group, $.math), $._math_expr)),
       '/',
-      field('denominator', $._math_expr),
+      field('denominator', choice(alias($._math_group, $.math), $._math_expr)),
     )),
 
     math_root: $ => prec.right(PREC_MATH.root, seq(
       field('operator', choice('√', '∛', '∜')),
-      field('radicand', $._math_operand),
+      field('radicand', choice(alias($._math_group, $.math), $._math_operand)),
     )),
 
     math_align_point: _ => '&',

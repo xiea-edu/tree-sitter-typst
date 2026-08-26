@@ -1698,29 +1698,33 @@
       }
     },
     "_math_group": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "STRING",
-          "value": "("
-        },
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "SYMBOL",
-              "name": "math"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
-          "type": "STRING",
-          "value": ")"
-        }
-      ]
+      "type": "PREC_DYNAMIC",
+      "value": 5,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "("
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "math"
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          },
+          {
+            "type": "STRING",
+            "value": ")"
+          }
+        ]
+      }
     },
     "math_implicit_call": {
       "type": "PREC_LEFT",
@@ -1790,8 +1794,22 @@
             "type": "FIELD",
             "name": "numerator",
             "content": {
-              "type": "SYMBOL",
-              "name": "_math_expr"
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "ALIAS",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "_math_group"
+                  },
+                  "named": true,
+                  "value": "math"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "_math_expr"
+                }
+              ]
             }
           },
           {
@@ -1802,8 +1820,22 @@
             "type": "FIELD",
             "name": "denominator",
             "content": {
-              "type": "SYMBOL",
-              "name": "_math_expr"
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "ALIAS",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "_math_group"
+                  },
+                  "named": true,
+                  "value": "math"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "_math_expr"
+                }
+              ]
             }
           }
         ]
@@ -1840,8 +1872,22 @@
             "type": "FIELD",
             "name": "radicand",
             "content": {
-              "type": "SYMBOL",
-              "name": "_math_operand"
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "ALIAS",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "_math_group"
+                  },
+                  "named": true,
+                  "value": "math"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "_math_operand"
+                }
+              ]
             }
           }
         ]

@@ -691,6 +691,7 @@ embedded expressions are atomic - no closures
 
 (source_file
   (ident)
+  (text)
   (text))
 
 ================================================================================
