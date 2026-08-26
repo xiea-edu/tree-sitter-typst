@@ -51,6 +51,9 @@ export function listTypFiles(dir) {
 export function corpusGroups({ limit = Infinity } = {}) {
   const groups = [
     { name: 'typst-suite', files: listTypFiles(path.join(CORPUS, 'typst-suite')) },
+    // Repositories pinned by tag in fetch-corpus.mjs. Reported apart from the Universe
+    // sample because, being version-pinned, their score is reproducible and can be gated.
+    { name: 'pinned', files: listTypFiles(path.join(CORPUS, 'pinned')) },
     { name: 'packages', files: listTypFiles(path.join(CORPUS, 'packages')) },
   ].filter((g) => g.files.length);
 

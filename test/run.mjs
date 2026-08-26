@@ -145,6 +145,14 @@ function tierValid() {
     fail(`${suite.falseAccepts} false accepts in the typst suite exceeds the limit of ` +
          `${THRESHOLDS.maxSuiteFalseAccepts}`);
   }
+
+  // Repositories pinned by tag are gated too, for the same reason the suite is: a tag
+  // does not move, so the score is reproducible on any machine.
+  const pinned = perGroup.get('pinned');
+  if (pinned && pinned.seen) {
+    checkThreshold('pinned validity', pinned.agree / pinned.seen,
+                   THRESHOLDS.pinnedValidityAgreement);
+  }
   return { totalAgree, total, falseRejects, falseAccepts };
 }
 
@@ -240,6 +248,12 @@ function tierDiff() {
   if (suite && suite.compared) {
     checkThreshold('typst-suite span agreement', suite.matching / suite.compared,
                    THRESHOLDS.spanAgreement);
+  }
+
+  const pinned = perGroup.get('pinned');
+  if (pinned && pinned.compared) {
+    checkThreshold('pinned span agreement', pinned.matching / pinned.compared,
+                   THRESHOLDS.pinnedSpanAgreement);
   }
 }
 

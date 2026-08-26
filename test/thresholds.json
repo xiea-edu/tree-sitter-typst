@@ -21,5 +21,7 @@
   "suiteValidityAgreement": 1,
   "spanAgreement": 0.76,
   "kindCoverage": 1,
-  "maxSuiteFalseAccepts": 0
+  "maxSuiteFalseAccepts": 0,
+  "pinnedValidityAgreement": 1,
+  "pinnedSpanAgreement": 0.75
 }

@@ -32,6 +32,23 @@ const CACHE = path.join(CORPUS, '.cache');
 /** Typst version to pin the suite to. Keep in sync with tools/oracle/Cargo.toml. */
 const TYPST_VERSION = '0.15.1';
 
+/**
+ * Repositories fetched in full, regardless of the package slice.
+ *
+ * The Universe sample is the alphabetically-first N packages, which is reproducible but
+ * arbitrary — anything after roughly the letter `i` never gets fetched. A package you
+ * actually write documents against deserves to be in the corpus whatever its name, so
+ * pin it here.
+ *
+ * Taken from GitHub rather than the registry because a published tarball is only the
+ * library: the repository also carries examples, docs and tests, which is where the
+ * interesting syntax lives. Pinned to a tag for the same reason the suite is — an
+ * unpinned default branch would make the score move on its own.
+ */
+const PINNED_REPOS = [
+  { repo: 'touying-typ/touying', tag: '0.7.4' },
+];
+
 const args = process.argv.slice(2);
 const flag = (name, dflt) => {
   const hit = args.find((a) => a.startsWith(`--${name}=`));
@@ -104,6 +121,31 @@ async function fetchSuite(seen) {
   return count;
 }
 
+async function fetchPinned(seen) {
+  const dest = path.join(CORPUS, 'pinned');
+  fs.rmSync(dest, { recursive: true, force: true });
+
+  let count = 0;
+  for (const { repo, tag } of PINNED_REPOS) {
+    const slug = repo.replace('/', '-');
+    process.stdout.write(`  ${repo}@${tag} ... `);
+    const gz = await download(
+      `https://codeload.github.com/${repo}/tar.gz/refs/tags/${tag}`,
+      `${slug}-${tag}.tar.gz`,
+    );
+    let n = 0;
+    for (const { name, data } of readTarGz(gz)) {
+      if (!name.endsWith('.typ')) continue;
+      // Strip the tarball's `<repo>-<tag>/` prefix.
+      const rel = name.replace(/^[^/]+\//, '');
+      if (writeEntry(dest, `${repo.split('/')[1]}/${rel}`, data, seen)) n++;
+    }
+    process.stdout.write(`${n} .typ files\n`);
+    count += n;
+  }
+  return count;
+}
+
 async function fetchPackages(limit, seen) {
   const dest = path.join(CORPUS, 'packages');
   fs.rmSync(dest, { recursive: true, force: true });
@@ -171,6 +213,10 @@ async function main() {
   const suite = await fetchSuite(seen);
   console.log(`  -> ${suite} files from the Typst test suite\n`);
 
+  const pinned = await fetchPinned(seen);
+  console.log(`  -> ${pinned} files from pinned repositories
+`);
+
   let packages = 0;
   if (PACKAGE_COUNT > 0) {
     packages = await fetchPackages(PACKAGE_COUNT, seen);
@@ -180,11 +226,11 @@ async function main() {
   const manifest = {
     fetchedAt: new Date().toISOString(),
     typstVersion: TYPST_VERSION,
-    counts: { suite, packages, total: suite + packages },
+    counts: { suite, pinned, packages, total: suite + pinned + packages },
   };
   fs.writeFileSync(path.join(CORPUS, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
-  console.log(`Corpus ready: ${suite + packages} .typ files in corpus/`);
+  console.log(`Corpus ready: ${suite + pinned + packages} .typ files in corpus/`);
 }
 
 main().catch((err) => {
