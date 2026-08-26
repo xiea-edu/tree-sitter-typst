@@ -3170,6 +3170,10 @@
           "named": true
         },
         {
+          "type": "math",
+          "named": true
+        },
+        {
           "type": "math_align_point",
           "named": true
         },
@@ -3388,6 +3392,10 @@
             "named": true
           },
           {
+            "type": "math",
+            "named": true
+          },
+          {
             "type": "math_align_point",
             "named": true
           },
@@ -3567,6 +3575,10 @@
           },
           {
             "type": "loop_continue",
+            "named": true
+          },
+          {
+            "type": "math",
             "named": true
           },
           {
@@ -3840,6 +3852,10 @@
             "named": true
           },
           {
+            "type": "math",
+            "named": true
+          },
+          {
             "type": "math_align_point",
             "named": true
           },
@@ -4027,6 +4043,10 @@
           },
           {
             "type": "loop_continue",
+            "named": true
+          },
+          {
+            "type": "math",
             "named": true
           },
           {
@@ -4223,6 +4243,10 @@
           },
           {
             "type": "loop_continue",
+            "named": true
+          },
+          {
+            "type": "math",
             "named": true
           },
           {
@@ -4439,6 +4463,10 @@
           },
           {
             "type": "loop_continue",
+            "named": true
+          },
+          {
+            "type": "math",
             "named": true
           },
           {
@@ -4863,6 +4891,10 @@
         "types": [
           {
             "type": "ident",
+            "named": true
+          },
+          {
+            "type": "math_text",
             "named": true
           }
         ]

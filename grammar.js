@@ -92,6 +92,7 @@ module.exports = grammar({
     $._number_numeric,
     $._block_comment,   // `/* ... */`, which nests
     $._math_dot,        // the `.` of a math field access: a name must follow it
+    $._math_adjacent,   // zero-width: a delimiter follows immediately, so it is a call
     $._escape,          // `\x`, or `\u{...}` with a codepoint that is a real character
     $._linebreak,       // `\` at the end of a line
     $._adjacent_prime,  // zero-width: a `'` follows immediately, so it attaches
@@ -151,6 +152,11 @@ module.exports = grammar({
     // of math is finished or still open is likewise undecidable until the closer appears.
     [$._math_expr, $.math_delimited],
     [$._math_operand, $.math_delimited],
+    // `x^(a)` — grouping parens in a script slot, against the same parens read as a
+    // delimited group. Only the position tells them apart.
+    [$._math_operand, $.math_delimited, $._math_group],
+    [$._math_expr, $.math_delimited, $._math_group],
+    [$.math_delimited, $._math_group],
     [$.math],
 
     // `f(size: 2)` — is `size` the start of a math expression, or the name of an
@@ -297,10 +303,19 @@ module.exports = grammar({
     // is the subscript operator in math.
     math_ident: _ => token(/[\p{XID_Start}][\p{XID_Start}\p{Mn}\p{Mc}\p{Nd}]+/u),
 
-    // A single grapheme, or a number kept whole.
-    math_text: _ => token(choice(
+    /*
+     * A single grapheme, or a number kept whole.
+     *
+     * Split in two because only a *letter* may begin an implicit call: typst wraps
+     * `$f(x)$` in an extra `Math` node but leaves `$2(x)$` and `$+(x)$` alone. The two
+     * halves match disjoint character sets, so the lexer is never choosing between two
+     * tokens for the same text — the trap that sinks `token.immediate` here. Both are
+     * aliased back to `math_text` at every use, so the node name is unchanged.
+     */
+    _math_letter: _ => token(/\p{L}/u),
+    _math_other: _ => token(choice(
       /[0-9]+(\.[0-9]+)?/,
-      /[^\s\\"\-:!.,;#_$/^&'()\[\]{}|<>=~*+]/u,
+      /[^\s\\"\-:!.,;#_$/^&'()\[\]{}|<>=~*+\p{L}]/u,
     )),
 
     // `a.b` — built by typst's lexer rather than its parser, so the dot is not a general
@@ -356,7 +371,7 @@ module.exports = grammar({
     // already produced a math token for `size`, and a second token cannot be chosen for
     // the same characters. Typst reports the node as `Ident`, so that is what we call it.
     _math_named_arg: $ => prec.dynamic(2, seq(
-      field('name', alias(choice($.math_ident, $.math_text), $.ident)),
+      field('name', alias(choice($.math_ident, mathText($)), $.ident)),
       ':',
       optional($.math),
     )),
@@ -377,8 +392,37 @@ module.exports = grammar({
       field('base', $._math_operand),
       repeat1(seq(
         field('operator', choice('^', '_')),
-        field('attachment', $._math_operand),
+        field('attachment', choice(alias($._math_group, $.math), $._math_operand)),
       )),
+    )),
+
+    /*
+     * Round parens in an attachment slot are *grouping*, not a delimited group: typst
+     * emits `Math` with real `LeftParen`/`RightParen` tokens for `x_(a+b)`, so the parens
+     * disappear from the rendered output instead of showing as symbols.
+     *
+     * Only round parens, and only in that slot. Square and curly brackets stay
+     * `math_delimited` with the brackets as visible text, and a base like `(a+b)^2` is
+     * delimited too — it is the script position that asks for grouping, not the
+     * parentheses themselves.
+     */
+    _math_group: $ => seq('(', optional($.math), ')'),
+
+    /*
+     * `$f(x)$` — a single-letter variable directly followed by a delimited group. Typst
+     * wraps the pair in an extra `Math` node; `$f (x)$` with a space is two siblings, and
+     * `$2(x)$` and `$+(x)$` never wrap at all, since only a letter is continuable.
+     *
+     * The adjacency comes from a zero-width scanner token. `token.immediate` cannot
+     * express it: the delimiters already have a token, and a second one for the same
+     * characters leaves the lexer free to pick either. The scanner decides before skipping
+     * whitespace, so "nothing in between" is simply whether the next character opens a
+     * group — the same trick as the prime in `a'`.
+     */
+    math_implicit_call: $ => prec.left(PREC_MATH.func, seq(
+      alias($._math_letter, $.math_text),
+      $._math_adjacent,
+      $.math_delimited,
     )),
 
     /*
@@ -940,7 +984,7 @@ function markupExpr($, { label, strong = true, emph = true }) {
  */
 function mathExpr($, { operators }) {
   return choice(
-    $.math_text,
+    mathText($),
     $.math_ident,
     $.math_field_access,
     $.math_shorthand,
@@ -948,6 +992,7 @@ function mathExpr($, { operators }) {
     $.math_primes,
     $.math_primes_marker,
     $.math_delimited,
+    alias($.math_implicit_call, $.math),
     $.math_root,
     $.math_call,
     $.str,
@@ -984,4 +1029,15 @@ function mathExpr($, { operators }) {
  */
 function dictItems($) {
   return seq(sepBy1(',', choice($.named, $.keyed, $.spread)), optional(','));
+}
+
+/**
+ * A single math grapheme, as one node named `math_text`.
+ *
+ * A function rather than a rule so the two underlying tokens — letter and non-letter —
+ * inline at every use site. They are split only so the implicit-call rule can require a
+ * letter on its left; everywhere else the distinction does not exist.
+ */
+function mathText($) {
+  return choice(alias($._math_letter, $.math_text), alias($._math_other, $.math_text));
 }

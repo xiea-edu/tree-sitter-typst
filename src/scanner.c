@@ -44,6 +44,7 @@ enum TokenType {
   NUMBER_NUMERIC,
   BLOCK_COMMENT,
   MATH_DOT,
+  MATH_ADJACENT,
   ESCAPE,
   LINEBREAK,
   ADJACENT_PRIME,
@@ -894,6 +895,29 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     lexer->mark_end(lexer);
     lexer->result_symbol = ADJACENT_PRIME;
     return true;
+  }
+
+  /*
+   * Zero-width, and the same idea: a delimiter follows with nothing in between, which is
+   * what makes `$f(x)$` an implicit call while `$f (x)$` is two siblings. Checked here,
+   * before any whitespace is skipped, so "nothing in between" is just whether the very
+   * next character opens a group.
+   *
+   * Falls through rather than declining, since nothing has been consumed — the delimiter
+   * itself still has to be lexed by whoever comes next.
+   */
+  if (valid_symbols[MATH_ADJACENT] && !lexer->eof(lexer)) {
+    int32_t c = lexer->lookahead;
+    // The bars are deliberately absent. `|` and `‖` open *and* close a group, so after a
+    // letter they are simply symbols — typst reads `$f|x|$` as four separate texts, not a
+    // call on `|x|`. Admitting them here made the closing bar ambiguous against the
+    // opening one and cost five files their parse outright.
+    if (c == '(' || c == '[' || c == '{' ||
+        c == 0x27E8 || c == 0x230A || c == 0x2308) {  // ⟨ ⌊ ⌈
+      lexer->mark_end(lexer);
+      lexer->result_symbol = MATH_ADJACENT;
+      return true;
+    }
   }
 
   /*

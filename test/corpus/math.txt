@@ -146,13 +146,11 @@ $ sum_(i=0)^n x_i $
     (math
       (math_attach
         (math_ident)
-        (math_delimited
-          (math_text)
+        (math
           (math
             (math_text)
             (math_text)
-            (math_text))
-          (math_text))
+            (math_text)))
         (math_text))
       (math_attach
         (math_text)

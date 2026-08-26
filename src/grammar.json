@@ -750,8 +750,27 @@
       "type": "CHOICE",
       "members": [
         {
-          "type": "SYMBOL",
-          "name": "math_text"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_math_letter"
+              },
+              "named": true,
+              "value": "math_text"
+            },
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_math_other"
+              },
+              "named": true,
+              "value": "math_text"
+            }
+          ]
         },
         {
           "type": "SYMBOL",
@@ -780,6 +799,15 @@
         {
           "type": "SYMBOL",
           "name": "math_delimited"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "math_implicit_call"
+          },
+          "named": true,
+          "value": "math"
         },
         {
           "type": "SYMBOL",
@@ -961,8 +989,27 @@
       "type": "CHOICE",
       "members": [
         {
-          "type": "SYMBOL",
-          "name": "math_text"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_math_letter"
+              },
+              "named": true,
+              "value": "math_text"
+            },
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_math_other"
+              },
+              "named": true,
+              "value": "math_text"
+            }
+          ]
         },
         {
           "type": "SYMBOL",
@@ -991,6 +1038,15 @@
         {
           "type": "SYMBOL",
           "name": "math_delimited"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "math_implicit_call"
+          },
+          "named": true,
+          "value": "math"
         },
         {
           "type": "SYMBOL",
@@ -1168,7 +1224,15 @@
         "flags": "u"
       }
     },
-    "math_text": {
+    "_math_letter": {
+      "type": "TOKEN",
+      "content": {
+        "type": "PATTERN",
+        "value": "\\p{L}",
+        "flags": "u"
+      }
+    },
+    "_math_other": {
       "type": "TOKEN",
       "content": {
         "type": "CHOICE",
@@ -1179,7 +1243,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "[^\\s\\\\\"\\-:!.,;#_$/^&'()\\[\\]{}|<>=~*+]",
+            "value": "[^\\s\\\\\"\\-:!.,;#_$/^&'()\\[\\]{}|<>=~*+\\p{L}]",
             "flags": "u"
           }
         ]
@@ -1392,8 +1456,27 @@
                     "name": "math_ident"
                   },
                   {
-                    "type": "SYMBOL",
-                    "name": "math_text"
+                    "type": "CHOICE",
+                    "members": [
+                      {
+                        "type": "ALIAS",
+                        "content": {
+                          "type": "SYMBOL",
+                          "name": "_math_letter"
+                        },
+                        "named": true,
+                        "value": "math_text"
+                      },
+                      {
+                        "type": "ALIAS",
+                        "content": {
+                          "type": "SYMBOL",
+                          "name": "_math_other"
+                        },
+                        "named": true,
+                        "value": "math_text"
+                      }
+                    ]
                   }
                 ]
               },
@@ -1590,12 +1673,77 @@
                   "type": "FIELD",
                   "name": "attachment",
                   "content": {
-                    "type": "SYMBOL",
-                    "name": "_math_operand"
+                    "type": "CHOICE",
+                    "members": [
+                      {
+                        "type": "ALIAS",
+                        "content": {
+                          "type": "SYMBOL",
+                          "name": "_math_group"
+                        },
+                        "named": true,
+                        "value": "math"
+                      },
+                      {
+                        "type": "SYMBOL",
+                        "name": "_math_operand"
+                      }
+                    ]
                   }
                 }
               ]
             }
+          }
+        ]
+      }
+    },
+    "_math_group": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "("
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "math"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "STRING",
+          "value": ")"
+        }
+      ]
+    },
+    "math_implicit_call": {
+      "type": "PREC_LEFT",
+      "value": 2,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_math_letter"
+            },
+            "named": true,
+            "value": "math_text"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_math_adjacent"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "math_delimited"
           }
         ]
       }
@@ -4392,6 +4540,20 @@
       "math_delimited"
     ],
     [
+      "_math_operand",
+      "math_delimited",
+      "_math_group"
+    ],
+    [
+      "_math_expr",
+      "math_delimited",
+      "_math_group"
+    ],
+    [
+      "math_delimited",
+      "_math_group"
+    ],
+    [
       "math"
     ],
     [
@@ -4498,6 +4660,10 @@
     {
       "type": "SYMBOL",
       "name": "_math_dot"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_math_adjacent"
     },
     {
       "type": "SYMBOL",
