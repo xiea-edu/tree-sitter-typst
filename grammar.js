@@ -704,7 +704,11 @@ module.exports = grammar({
 
     unary: $ => choice(
       prec.left(PREC.unary, seq(field('operator', choice('+', '-')), field('operand', $._value))),
-      prec.left(PREC.not, seq(field('operator', 'not'), field('operand', $._value))),
+      // Right-associative, unlike `+`/`-`. Typst parses `not`'s operand at its *own*
+      // precedence rather than one above it, so a comparison at the same level is taken
+      // into the operand: `not a == b` is `not (a == b)`, while `and` — which binds
+      // looser — still leaves `(not a) and b`.
+      prec.right(PREC.not, seq(field('operator', 'not'), field('operand', $._value))),
     ),
 
     binary: $ => {

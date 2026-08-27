@@ -2766,7 +2766,7 @@
           }
         },
         {
-          "type": "PREC_LEFT",
+          "type": "PREC_RIGHT",
           "value": 4,
           "content": {
             "type": "SEQ",
