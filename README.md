@@ -4,7 +4,7 @@ A [tree-sitter](https://tree-sitter.github.io) grammar for [Typst](https://typst
 
 Covers all three of Typst's syntax modes — markup, code and math — and is
 differential-tested against `typst-syntax`, the parser from the real Typst compiler,
-over ~3,700 real documents.
+over ~3,800 real documents.
 
 ## Why another one
 
@@ -26,9 +26,9 @@ from.
 
 | | |
 | --- | --- |
-| Validity agreement with typst | **100%** of 3,740 corpus files — 0 false rejects, 0 false accepts |
+| Validity agreement with typst | **100%** of 3,831 corpus files — 0 false rejects, 0 false accepts |
+| Span agreement | **98.1%** of files structurally identical to typst's tree |
 | `SyntaxKind` coverage | **130 / 130** kinds the corpus produces |
-| Span agreement | **84.1%** of files structurally identical to typst's tree |
 | Golden tests | 61, all passing |
 | Fuzz / incremental | clean |
 
@@ -36,10 +36,13 @@ Validity agreement is exact in both directions: every file the reference parser 
 this grammar accepts, and every file it rejects — including the deliberately-broken ones
 in typst's own test suite — this grammar rejects too.
 
-Span agreement is the strictest number here and the one still worth pushing: it requires
-every mapped node to land on exactly the same byte range as typst's, so a single
-disagreement anywhere marks the whole file as differing. The remaining gap is
-concentrated in the three structural gaps listed under [Known gaps](#known-gaps).
+Span agreement is the stricter number: it requires every mapped node to land on exactly
+the same byte range as typst's, so a single disagreement anywhere marks the whole file as
+differing. Per group it is 100% on the pinned repositories, 98.5% on the Universe
+packages, and 88.0% on typst's own suite — the suite is lowest because it is deliberately
+full of syntax nobody writes on purpose.
+
+What remains is listed under [Known gaps](#known-gaps). None of it costs validity.
 
 ## How it compares
 
@@ -50,13 +53,13 @@ names — so it can be run against the other Typst grammars directly:
 node scripts/compare-parsers.mjs ../uben0-tree-sitter-typst ../SeniorMars-tree-sitter-typst
 ```
 
-All three measured in one run over the same 3,740 files:
+All three measured in one run over the same 3,831 files:
 
 | grammar | overall | typst suite | false rejects | false accepts |
 | --- | --- | --- | --- | --- |
 | this grammar | **100.00%** | **100.00%** | **0** | **0** |
-| [uben0](https://github.com/uben0/tree-sitter-typst) | 98.42% | 95.48% | 52 | 7 |
-| [SeniorMars](https://github.com/SeniorMars/tree-sitter-typst) | 97.22% | 92.76% | 99 | 5 |
+| [uben0](https://github.com/uben0/tree-sitter-typst) | 98.43% | 95.48% | 53 | 7 |
+| [SeniorMars](https://github.com/SeniorMars/tree-sitter-typst) | 97.26% | 92.76% | 100 | 5 |
 
 Two caveats belong with those numbers.
 
@@ -65,9 +68,9 @@ TODO ("Identify changes" also unchecked) and its last commit is from February 20
 targets pre-0.13 while the corpus and oracle are 0.15.1. Three minor versions of syntax it
 has never seen can only cost it false rejects.
 
-And the false-accept column has a small denominator: only **37 of the 3,740 files are
+And the false-accept column has a small denominator: only **37 of the 3,831 files are
 invalid Typst**, so that is the entire population one can come from. Getting all 37 is
-worth something, but it is 37, not 3,740.
+worth something, but it is 37, not 3,831.
 
 The comparison is also only fair on what it measures. Nothing here compares tree
 *structure*, which would need a hand-written kind map per grammar, and another grammar may
@@ -149,7 +152,7 @@ does not promise to make identical.
 ```bash
 npm install
 npm run oracle:build      # builds tools/oracle (needs a Rust toolchain)
-npm run corpus:fetch      # downloads ~3,700 real .typ files into corpus/ (gitignored)
+npm run corpus:fetch      # downloads ~3,800 real .typ files into corpus/ (gitignored)
 npm test
 ```
 
@@ -424,31 +427,56 @@ and would bloat the repo.
   Adversarial edge cases written by the people who designed the language, so it exercises
   exactly the corners a grammar gets wrong. Many files are *deliberately* invalid, which
   makes them just as useful: we must reject them too.
+- **Pinned repositories** (91 files) — packages you actually write documents against,
+  fetched in full from GitHub at a tag. The Universe sample below is the
+  alphabetically-first N packages, which is reproducible but arbitrary — it stops around
+  the letter *i* — so anything you depend on deserves to be listed in `PINNED_REPOS` in
+  `scripts/fetch-corpus.mjs` whatever its name. GitHub rather than the registry, because a
+  published tarball is only the library: the repository also carries examples, docs and
+  tests, which is where the interesting syntax lives.
+
+  Being version-pinned, this group's score is reproducible, so it is gated like the suite.
+  It currently holds [touying](https://github.com/touying-typ/touying).
 - **Typst Universe packages** (~3,500 files) — ordinary real-world documents, which catch
   the opposite failure mode: common constructs nobody thought to test.
 
+  This is the one group that is *not* gated: it is whatever the registry held on the day it
+  was fetched and however many packages were asked for, so CI fetching 200 and a laptop
+  fetching 600 do not produce the same number.
+
 ## Known gaps
 
-- Typst runs list and enum item bodies under `AtNewline::RequireColumn`, so an item
-  continues onto following lines while they stay indented past the marker. We end the item
-  at the first newline, leaving continuation lines as siblings. This costs structure, not
-  validity.
-- Typst splits a raw block's contents into one `Text` per line after computing a common
-  dedent. We model the block as delimiters, an optional language tag and one content span
-  — enough for injections, and the dedent is a presentation decision rather than syntax.
-- Typst wraps an implicit function call — a variable directly followed by a delimited
-  group, as in `$f(x)/2$` — in an extra `Math` node. We leave the pair as siblings.
+Roughly 70 of 3,831 files still differ from typst in tree *shape*. Every one of them
+parses without error; the disagreements are about where nodes begin and end.
 
-  This was implemented and then reverted. Modelling it needs an adjacency assertion, since
-  `a(b)` groups but `a (b)` does not, and `token.immediate` cannot express that here: it
-  creates a second token for the same delimiter characters, and with both valid the lexer
-  picks whichever it likes. A zero-width external token from the scanner does work — it
-  already knows whether it skipped whitespace — but the resulting grammar cost 1.4 points
-  of validity agreement (breaking math primes, delimiters and roots) to gain 1.3 points of
-  span agreement. A false reject breaks highlighting for a whole file, so validity wins.
+- **In-word `*` and `_`.** Typst ends a text run at one and starts a new one, so
+  `Administrator*innen` is two `Text` nodes and `1_000_g` is three. We produce one.
 
-These three are what the remaining span-agreement gap is made of. All three cost
-structure, not validity — every file involved still parses without error.
+  This is the single largest remaining cause, and it is architectural rather than an
+  oversight. Whether such a delimiter is emphasis or literal text depends on the character
+  *before* it, and at the start of a run the scanner cannot see backwards. Absorbing the
+  delimiter into the run is what makes the decision possible at all — the run knows what it
+  just consumed. Splitting the run would need the previous character to survive between
+  scanner calls, and it cannot: tree-sitter persists scanner state only behind tokens that
+  survive, so a remembered character outlives every token the built-in lexer produced in
+  between. An earlier version of this scanner tried exactly that and could not be kept
+  honest.
+
+- **Raw block contents.** Typst splits them into one `Text` per line after computing a
+  common dedent. We model the block as delimiters, an optional language tag and one content
+  span — enough for injections, and the dedent is a presentation decision rather than
+  syntax.
+
+- **Unmatched opening delimiters in math.** `$(a$` wraps everything from the `(` to the end
+  of the equation in a `Math` node in typst; we leave the bracket as a loose symbol. Adding
+  the rule works, but an opener that may never close is ambiguous against nearly every math
+  rule, and each declared conflict revealed another. Not worth the parse cost for seven
+  files, all of them torture tests.
+
+- **Single-element math arguments.** Typst puts a lone `MathText` straight into `MathArgs`
+  and only wraps a run of several in `Math`. Modelling that gains half a point on the suite
+  but costs a corpus file its parse, on a deeply nested unmatched-bracket case. Validity
+  wins.
 
 ## Version pinning
 
