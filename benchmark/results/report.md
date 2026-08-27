@@ -20,7 +20,7 @@ The independent corpus remains the primary accuracy result; upstream-owned tests
 
 | Parser | Clean oracle-valid files | Clean valid bytes | Structural macro F1 | Structural micro F1 | Natural invalid | Mutated invalid | Incremental = full | Timeouts |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Local (xiea-edu) | 1366/1366 (100.000%) | 6,432,570/6,432,570 (100.000%) | 0.9792 | 0.9915 | 37/37 | 935/936 | 220/220 | 0 |
+| Local (xiea-edu) | 1363/1366 (99.780%) | 6,416,257/6,432,570 (99.746%) | 0.9785 | 0.9915 | 37/37 | 935/936 | 220/220 | 0 |
 | uben0 | 1353/1366 (99.048%) | 6,254,736/6,432,570 (97.235%) | 0.8814 | 0.8314 | 30/37 | 935/936 | 220/220 | 0 |
 | SeniorMars | 1309/1366 (95.827%) | 5,889,953/6,432,570 (91.565%) | 0.9356 | 0.8302 | 32/37 | 930/936 | 220/220 | 0 |
 
@@ -32,33 +32,33 @@ These rows make home-field effects visible rather than blending them into the in
 
 | Corpus stratum | Parser | Clean oracle-valid files | Clean valid bytes | Structural macro F1 | Structural micro F1 | Natural invalid |
 |---|---|---:|---:|---:|---:|---:|
-| uben0 tests | Local (xiea-edu) | 2774/2794 (99.284%) | 479,600/482,844 (99.328%) | 0.9761 | 0.9518 | 117/139 |
+| uben0 tests | Local (xiea-edu) | 2751/2794 (98.461%) | 479,308/482,844 (99.268%) | 0.9696 | 0.9501 | 115/139 |
 | uben0 tests | uben0 | 2788/2794 (99.785%) | 482,094/482,844 (99.845%) | 0.9049 | 0.7836 | 75/139 |
 | uben0 tests | SeniorMars | 2754/2794 (98.568%) | 477,426/482,844 (98.878%) | 0.9290 | 0.7967 | 106/139 |
-| SeniorMars tests | Local (xiea-edu) | 208/215 (96.744%) | 23,486/23,980 (97.940%) | 0.9698 | 0.9784 | 53/67 |
+| SeniorMars tests | Local (xiea-edu) | 214/215 (99.535%) | 23,892/23,980 (99.633%) | 0.9727 | 0.9804 | 52/67 |
 | SeniorMars tests | uben0 | 210/215 (97.674%) | 23,866/23,980 (99.525%) | 0.8282 | 0.7850 | 44/67 |
 | SeniorMars tests | SeniorMars | 211/215 (98.140%) | 23,808/23,980 (99.283%) | 0.9215 | 0.8033 | 29/67 |
 
 ## Speed on the common-clean cohort
 
-The speed cohort contains 61 deterministically selected independent files (391,637 bytes) from the 1,297 independent files parsed cleanly by all three parsers. Results are medians of 30 interleaved blocks after 5 warm-up blocks on logical processor 1.
+The speed cohort contains 61 deterministically selected independent files (391,637 bytes) from the 1,294 independent files parsed cleanly by all three parsers. Results are medians of 30 interleaved blocks after 5 warm-up blocks on logical processor 1.
 
 | Parser | Full parse median | Incremental median per edit |
 |---|---:|---:|
-| Local (xiea-edu) | 7.59 MiB/s | 47.64 µs |
-| uben0 | 5.70 MiB/s | 105.49 µs |
-| SeniorMars | 5.78 MiB/s | 55.62 µs |
+| Local (xiea-edu) | 7.16 MiB/s | 50.65 µs |
+| uben0 | 5.45 MiB/s | 106.86 µs |
+| SeniorMars | 5.52 MiB/s | 56.52 µs |
 
 Pairwise ratios below are `left ÷ right`; values above 1 mean the left parser is faster. Intervals are paired 95% bootstrap confidence intervals over measurement blocks.
 
 | Workload | Comparison | Ratio | 95% CI |
 |---|---|---:|---:|
-| Full | Local (xiea-edu) / uben0 | 1.331× | [1.319, 1.345] |
-| Full | Local (xiea-edu) / SeniorMars | 1.314× | [1.304, 1.327] |
-| Full | uben0 / SeniorMars | 0.987× | [0.976, 1.000] |
-| Incremental | Local (xiea-edu) / uben0 | 2.214× | [2.202, 2.233] |
-| Incremental | Local (xiea-edu) / SeniorMars | 1.168× | [1.160, 1.174] |
-| Incremental | uben0 / SeniorMars | 0.527× | [0.523, 0.529] |
+| Full | Local (xiea-edu) / uben0 | 1.313× | [1.282, 1.345] |
+| Full | Local (xiea-edu) / SeniorMars | 1.296× | [1.270, 1.325] |
+| Full | uben0 / SeniorMars | 0.987× | [0.968, 1.003] |
+| Incremental | Local (xiea-edu) / uben0 | 2.109× | [2.078, 2.153] |
+| Incremental | Local (xiea-edu) / SeniorMars | 1.116× | [1.101, 1.135] |
+| Incremental | uben0 / SeniorMars | 0.529× | [0.517, 0.539] |
 
 ## Environment
 

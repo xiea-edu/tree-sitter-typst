@@ -20,6 +20,10 @@ pub struct CorpusFile {
 #[derive(Debug, Clone, Deserialize)]
 pub struct Provenance {
     pub origin: String,
+    pub path: Option<String>,
+    pub case: Option<String>,
+    pub case_index: Option<usize>,
+    pub expected_recovery: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
@@ -70,6 +74,27 @@ pub struct StratumAccuracy {
     pub natural_invalid_detected: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpstreamCaseFailure {
+    pub id: String,
+    pub path: Option<String>,
+    pub case: Option<String>,
+    pub case_index: Option<usize>,
+    pub expected_recovery: bool,
+    pub parser_clean: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UpstreamCompatibility {
+    pub cases: u64,
+    pub passed: u64,
+    pub expected_clean: u64,
+    pub clean_passed: u64,
+    pub expected_recovery: u64,
+    pub recovery_passed: u64,
+    pub failures: Vec<UpstreamCaseFailure>,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ParserAccuracy {
     pub parse_attempts: u64,
@@ -88,6 +113,7 @@ pub struct ParserAccuracy {
     pub incremental: Counts,
     pub incremental_failure_cases: Vec<String>,
     pub strata: BTreeMap<String, StratumAccuracy>,
+    pub upstream: BTreeMap<String, UpstreamCompatibility>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

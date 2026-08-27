@@ -1,4 +1,6 @@
-use crate::model::{AccuracyOutput, CorpusFile, Manifest, ParserAccuracy};
+use crate::model::{
+    AccuracyOutput, CorpusFile, Manifest, ParserAccuracy, UpstreamCaseFailure,
+};
 use crate::parsers::PARSERS;
 use crate::util::{
     StructuralAccumulator, invalid_candidates, nearest_error_distance, oracle_data, parser_data,
@@ -78,6 +80,7 @@ pub fn run(manifest_path: &Path, corpus_root: &Path, output: &Path) -> Result<()
             }
             let Some(tree) = parse_limited(&mut working.parser, source.as_bytes(), None) else {
                 working.summary.parse_none_or_timeout += 1;
+                record_upstream(&mut working.summary, file, None);
                 if oracle_valid {
                     working.summary.valid_failure_ids.push(file.id.clone());
                 }
@@ -86,6 +89,7 @@ pub fn run(manifest_path: &Path, corpus_root: &Path, output: &Path) -> Result<()
             };
             let (events, errors, missing) = parser_data(&tree, working.name);
             let clean = errors.is_empty() && missing == 0;
+            record_upstream(&mut working.summary, file, Some(clean));
             if oracle_valid {
                 working.summary.valid_files += 1;
                 working.summary.valid_bytes += source.len() as u64;
@@ -192,6 +196,43 @@ fn file_strata(file: &CorpusFile) -> Vec<String> {
         strata.push("seniormars-tests".to_owned());
     }
     strata
+}
+
+fn record_upstream(summary: &mut ParserAccuracy, file: &CorpusFile, parser_clean: Option<bool>) {
+    for provenance in &file.provenances {
+        let Some(expected_recovery) = provenance.expected_recovery else {
+            continue;
+        };
+        let upstream = summary
+            .upstream
+            .entry(provenance.origin.clone())
+            .or_default();
+        upstream.cases += 1;
+        if expected_recovery {
+            upstream.expected_recovery += 1;
+        } else {
+            upstream.expected_clean += 1;
+        }
+
+        let passed = parser_clean.is_some_and(|clean| clean == !expected_recovery);
+        if passed {
+            upstream.passed += 1;
+            if expected_recovery {
+                upstream.recovery_passed += 1;
+            } else {
+                upstream.clean_passed += 1;
+            }
+        } else {
+            upstream.failures.push(UpstreamCaseFailure {
+                id: file.id.clone(),
+                path: provenance.path.clone(),
+                case: provenance.case.clone(),
+                case_index: provenance.case_index,
+                expected_recovery,
+                parser_clean,
+            });
+        }
+    }
 }
 
 fn run_invalid_mutations(

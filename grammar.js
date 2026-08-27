@@ -74,6 +74,7 @@ module.exports = grammar({
     $.shorthand,        // `~ ... --- -- -?`, and `-` before a digit
     $._star,            // `*` only outside a word
     $._underscore,      // `_` only outside a word
+    $.unpaired_delimiter, // `*`/`_` at end of input falls back to text
     $.heading_marker,   // `=`+ at line start, followed by a space
     $.list_marker,      // `-` at line start, followed by a space
     $.enum_marker,      // `+` or `1.` at line start, followed by a space
@@ -83,6 +84,8 @@ module.exports = grammar({
     $.raw_content,      // everything between the fences, whitespace included
     $._atomic_end,      // an embedded value ends unless `.`, `(` or `[` follows
     $._stmt_end,        // an embedded statement ends at the newline
+    $._bare_return,     // zero-width: `return` has no value before its terminator
+    $._not_in_comment,  // `not /* trivia */ in` as one comparison operator
     $._heading_end,     // a heading ends at the newline, or at a label
     $._line_end,        // a heading or list item ends at the newline
     $._code_sep,        // zero-width: a line break separates two code expressions
@@ -108,6 +111,7 @@ module.exports = grammar({
     $._linebreak,       // `\` at the end of a line
     $._adjacent_prime,  // zero-width: a `'` follows immediately, so it attaches
     $.link,             // a bare URL, with `[]` and `()` balanced
+    $.math_named_ident, // a code identifier followed by `:` inside math arguments
     $._non_ascii_space, // whitespace outside markup, where typst skips it as trivia
     $._error_sentinel,  // never matched; signals error recovery to the scanner
   ],
@@ -127,6 +131,7 @@ module.exports = grammar({
     // `(a, b)` — array of values, or a pattern binding two names? And `(a: b)` is a
     // dictionary, a parameter list or a destructuring pattern depending on where it sits.
     [$.array, $.dict],
+    [$.array, $._empty_destructuring],
     [$.array, $.dict, $.destructuring],
     [$.array, $.dict, $.params, $.destructuring],
     [$.params, $.destructuring],
@@ -138,6 +143,7 @@ module.exports = grammar({
     // `(a.b, c)` — a field access as a destructuring target, against the same text read
     // as an array element. Only the `=` after the group settles it.
     [$._postfixable, $.destructuring],
+    [$._postfixable, $._destructuring_named],
 
     // `()` — an empty array, or an empty destructuring pattern?
 
@@ -393,7 +399,7 @@ module.exports = grammar({
     // already produced a math token for `size`, and a second token cannot be chosen for
     // the same characters. Typst reports the node as `Ident`, so that is what we call it.
     _math_named_arg: $ => prec.dynamic(2, seq(
-      field('name', alias(choice($.math_ident, mathText($)), $.ident)),
+      field('name', alias(choice($.math_named_ident, $.math_ident, mathText($)), $.ident)),
       ':',
       optional($.math),
     )),
@@ -659,8 +665,6 @@ module.exports = grammar({
       $.show_rule,
       $.module_import,
       $.module_include,
-      $.loop_break,
-      $.loop_continue,
       $.func_return,
       // `destructuring` is deliberately absent: typst only ever produces it as the
       // left side of a destructuring assignment or as a `let` pattern, never as a
@@ -814,7 +818,7 @@ module.exports = grammar({
         [PREC.cmp, choice('==', '!=', '<', '<=', '>', '>=', 'in',
                           // Exactly one space: typst's lexer does `eat_if(" in")`, so a
                           // newline between the two words is an error, not an operator.
-                          'not in')],
+                          'not in', alias($._not_in_comment, 'not in'))],
         [PREC.and, 'and'],
         [PREC.or, 'or'],
       ];
@@ -823,7 +827,18 @@ module.exports = grammar({
       ];
       return choice(
         ...left.map(([p, op]) => prec.left(p, seq(
-          field('lhs', $._value), field('operator', op), field('rhs', $._value),
+          field('lhs', $._value), field('operator', op), field('rhs', choice(
+            $._value,
+            $.let_binding,
+            $.set_rule,
+            $.show_rule,
+            $.module_import,
+            $.module_include,
+            $.loop_break,
+            $.loop_continue,
+            $.func_return,
+            $.destruct_assignment,
+          )),
         ))),
         ...right.map(([p, op]) => prec.right(p, seq(
           field('lhs', $._value), field('operator', op), field('rhs', $._value),
@@ -860,6 +875,8 @@ module.exports = grammar({
       $.conditional,
       $.while_loop,
       $.for_loop,
+      $.loop_break,
+      $.loop_continue,
     ),
 
     field_access: $ => prec.left(PREC_ACCESS, seq(
@@ -895,12 +912,14 @@ module.exports = grammar({
     // deliberately absent: `k: v` is a `named` argument, which typst keeps distinct.
     keyed: $ => seq(
       field('key', choice(
-        $.str,
+        $._literal,
         $.parenthesized,
         $.func_call,
         $.field_access,
         $.array,
         $.dict,
+        $.binary,
+        $.contextual,
       )),
       ':',
       field('value', $._expr),
@@ -972,12 +991,15 @@ module.exports = grammar({
     // `Destructuring` for groups that actually destructure.
     _pattern: $ => choice(
       $.ident, $.underscore, $.destructuring,
+      alias($._empty_destructuring, $.destructuring),
       // Its own rule rather than `parenthesized`, whose contents are an expression:
       // `for ((_)) in o {}` nests a pattern, and `_` is not an expression anywhere.
       alias($._parenthesized_pattern, $.parenthesized),
     ),
 
     _parenthesized_pattern: $ => seq('(', $._pattern, ')'),
+
+    _empty_destructuring: _ => seq('(', ')'),
 
     underscore: _ => '_',
 
@@ -1007,7 +1029,7 @@ module.exports = grammar({
     _destructuring_named: $ => seq(
       field('name', $.ident),
       ':',
-      field('pattern', $._pattern),
+      field('pattern', choice($._pattern, $.field_access, $.func_call)),
     ),
 
     // `_ = f()` discards a result, and typst models it as a destructuring assignment
@@ -1096,7 +1118,10 @@ module.exports = grammar({
 
     loop_break: _ => 'break',
     loop_continue: _ => 'continue',
-    func_return: $ => prec.right(seq('return', optional(field('value', $._expr)))),
+    func_return: $ => prec.right(seq(
+      'return',
+      choice(field('value', $._expr), $._bare_return),
+    )),
 
     // ---- modules ----------------------------------------------------------
 
@@ -1104,13 +1129,13 @@ module.exports = grammar({
       'import',
       field('source', $._expr),
       optional(seq('as', field('alias', $.ident))),
-      optional(seq(':', field('items', choice(
-        '*',
-        $.import_items,
-        // Parenthesized lists let an import span several lines. The parentheses are
-        // siblings of `import_items` rather than wrapping it, matching typst.
-        seq('(', optional($.import_items), ')'),
-      )))),
+      optional(seq(':', optional(field('items', choice(
+          '*',
+          $.import_items,
+          // Parenthesized lists let an import span several lines. The parentheses are
+          // siblings of `import_items` rather than wrapping it, matching typst.
+          seq('(', optional($.import_items), ')'),
+        ))))),
     )),
 
     // The trailing comma belongs *inside* the item list: typst ends `ImportItems` after
@@ -1183,6 +1208,7 @@ function markupExpr($, { label, strong = true, emph = true }) {
     $._bracket_text,
     // A bare colon is plain text; `term_item` claims it as a separator where one fits.
     alias(':', $.text),
+    alias($.unpaired_delimiter, $.text),
   );
 }
 
@@ -1272,6 +1298,7 @@ function destructuringItem($) {
     // `let` or `for` binding cannot target one, and offering it everywhere made every
     // `a.b` in the language a possible pattern and cost 2341 files their parse.
     $.field_access,
+    $.func_call,
     $._pattern,
   );
 }

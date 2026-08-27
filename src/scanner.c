@@ -26,6 +26,7 @@ enum TokenType {
   SHORTHAND,
   STAR,
   UNDERSCORE_TOK,
+  UNPAIRED_DELIMITER,
   HEADING_MARKER,
   LIST_MARKER,
   ENUM_MARKER,
@@ -35,6 +36,8 @@ enum TokenType {
   RAW_CONTENT,
   ATOMIC_END,
   STMT_END,
+  BARE_RETURN,
+  NOT_IN_COMMENT,
   HEADING_END,
   LINE_END,
   CODE_SEP,
@@ -53,6 +56,7 @@ enum TokenType {
   LINEBREAK,
   ADJACENT_PRIME,
   LINK,
+  MATH_NAMED_IDENT,
   NON_ASCII_SPACE,
   ERROR_SENTINEL,
 };
@@ -812,6 +816,7 @@ static bool scan_link_body(TSLexer *lexer) {
 
   uint8_t stack[32];
   unsigned depth = 0;
+  bool mismatched_closer = false;
 
   for (;;) {
     int32_t c = lexer->lookahead;
@@ -832,10 +837,12 @@ static bool scan_link_body(TSLexer *lexer) {
           break;
         case ']':
           ok = depth > 0 && stack[depth - 1] == '[';
+          if (!ok && depth > 0) mismatched_closer = true;
           if (ok) depth--;
           break;
         case ')':
           ok = depth > 0 && stack[depth - 1] == '(';
+          if (!ok && depth > 0) mismatched_closer = true;
           if (ok) depth--;
           break;
         default:
@@ -851,7 +858,13 @@ static bool scan_link_body(TSLexer *lexer) {
     }
   }
 
-  // Typst reports unbalanced brackets as an error; declining lets the parser do the same.
+  // Keep a URL-shaped run with an unmatched opener as markup text. Otherwise the `//`
+  // already consumed above is reinterpreted as a line comment when external scanning
+  // declines, even though Typst keeps this malformed-looking run in markup.
+  if (depth != 0 && mismatched_closer) {
+    lexer->result_symbol = TEXT;
+    return true;
+  }
   if (depth != 0) return false;
 
   lexer->result_symbol = LINK;
@@ -1414,6 +1427,24 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     return false;
   }
 
+  // `return` without a value is legal only when its next significant character is a
+  // statement terminator. Making that decision here removes the empty/value ambiguity
+  // that otherwise reduces before `#return 1` can shift its operand.
+  if (valid_symbols[BARE_RETURN]) {
+    lexer->mark_end(lexer);
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t' ||
+           lexer->lookahead == '\r') {
+      skip(lexer);
+    }
+    if (lexer->eof(lexer) || lexer->lookahead == '\n' || lexer->lookahead == ';' ||
+        lexer->lookahead == ']' || lexer->lookahead == '}') {
+      lexer->result_symbol = BARE_RETURN;
+      return true;
+    }
+    // A value follows. Continue dispatching from its first character so an external
+    // number token still gets its turn; returning here would starve NUMBER_INT.
+  }
+
   /*
    * All three zero-width terminators are decided HERE, before any whitespace is skipped.
    *
@@ -1590,6 +1621,52 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     if (lexer->lookahead == '\n') saw_newline = true;
     saw_space = true;
     skip(lexer);
+  }
+
+  // Typst treats `not /* comment */ in` as the single `not in` operator. The ordinary
+  // anonymous token covers the one-space spelling; this external form preserves nested
+  // block-comment trivia without permitting a newline between the words.
+  if (valid_symbols[NOT_IN_COMMENT] && lexer->lookahead == 'n') {
+    if (!eat_str(lexer, "not") || is_id_continue(lexer->lookahead)) return false;
+    bool saw_comment = false;
+    for (;;) {
+      while (is_space(lexer->lookahead)) {
+        skip(lexer);
+      }
+      if (lexer->lookahead != '/') break;
+      advance(lexer);
+      if (lexer->lookahead != '*') return false;
+      advance(lexer);
+      scan_block_comment_body(lexer);
+      saw_comment = true;
+    }
+    if (!saw_comment || !eat_str(lexer, "in") || is_id_continue(lexer->lookahead)) {
+      return false;
+    }
+    lexer->mark_end(lexer);
+    lexer->result_symbol = NOT_IN_COMMENT;
+    return true;
+  }
+
+  /*
+   * Named math arguments use code identifier rules. Scan the complete identifier only
+   * when a colon follows so `_my`, `my-body`, and `a--c` stay intact without changing
+   * ordinary math symbol tokenization.
+   */
+  if (valid_symbols[MATH_NAMED_IDENT] &&
+      (lexer->lookahead == '_' || is_alpha(lexer->lookahead))) {
+    advance(lexer);
+    while (is_id_continue(lexer->lookahead)) advance(lexer);
+    lexer->mark_end(lexer);
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t' ||
+           lexer->lookahead == '\r') {
+      skip(lexer);
+    }
+    if (lexer->lookahead == ':') {
+      lexer->result_symbol = MATH_NAMED_IDENT;
+      return true;
+    }
+    return false;
   }
 
   /*
@@ -1772,9 +1849,19 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
    */
   // A text run absorbs an in-word `*`/`_` itself (see scan_text), so reaching here means
   // this one really is a delimiter.
-  if ((valid_symbols[STAR] && c == '*') || (valid_symbols[UNDERSCORE_TOK] && c == '_')) {
+  if ((valid_symbols[STAR] && c == '*') || (valid_symbols[UNDERSCORE_TOK] && c == '_') ||
+      (valid_symbols[UNPAIRED_DELIMITER] && (c == '*' || c == '_'))) {
     advance(lexer);
     lexer->mark_end(lexer);
+    if (valid_symbols[UNPAIRED_DELIMITER]) {
+      while (is_space(lexer->lookahead)) skip(lexer);
+      if (lexer->eof(lexer)) {
+        lexer->result_symbol = UNPAIRED_DELIMITER;
+        return true;
+      }
+    }
+    if (c == '*' && !valid_symbols[STAR]) return false;
+    if (c == '_' && !valid_symbols[UNDERSCORE_TOK]) return false;
     lexer->result_symbol = (c == '*') ? STAR : UNDERSCORE_TOK;
     return true;
   }

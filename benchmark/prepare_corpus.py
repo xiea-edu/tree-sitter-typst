@@ -136,10 +136,10 @@ def add_bytes(
     }
 
 
-def parse_tree_sitter_corpus(path: Path) -> list[tuple[str, str]]:
-    """Extract test names and source text, ignoring parser-specific expected trees."""
+def parse_tree_sitter_corpus(path: Path) -> list[tuple[str, str, str]]:
+    """Extract test names, source text, and expected tree text."""
     lines = path.read_text(encoding="utf-8").splitlines()
-    cases: list[tuple[str, str]] = []
+    cases: list[tuple[str, str, str]] = []
     index = 0
     divider = re.compile(r"^={3,}\s*$")
     separator = re.compile(r"^-{3,}\s*$")
@@ -170,9 +170,14 @@ def parse_tree_sitter_corpus(path: Path) -> list[tuple[str, str]]:
             source_lines = source_lines[1:]
         if source_lines and not source_lines[-1]:
             source_lines = source_lines[:-1]
+        expected_start = source_end + 1
+        expected_end = expected_start
+        while expected_end < len(lines) and not divider.fullmatch(lines[expected_end]):
+            expected_end += 1
+
         title = " ".join(line.strip() for line in lines[title_start:title_end]).strip()
-        cases.append((title, "\n".join(source_lines)))
-        index = source_end + 1
+        cases.append((title, "\n".join(source_lines), "\n".join(lines[expected_start:expected_end])))
+        index = expected_end
 
     expected = sum(1 for line in lines if separator.fullmatch(line))
     if len(cases) != expected:
@@ -193,7 +198,12 @@ def add_parser_tests(
     extracted_cases = 0
     for corpus_file in corpus_files:
         relative = corpus_file.relative_to(repo).as_posix()
-        for case_index, (case_name, source) in enumerate(parse_tree_sitter_corpus(corpus_file)):
+        for case_index, (case_name, source, expected_tree) in enumerate(
+            parse_tree_sitter_corpus(corpus_file)
+        ):
+            expected_recovery = bool(
+                re.search(r"\((?:ERROR|MISSING|malformed_[A-Za-z0-9_]*)\b", expected_tree)
+            )
             add_bytes(
                 source.encode("utf-8"),
                 {
@@ -203,6 +213,7 @@ def add_parser_tests(
                     "case": case_name,
                     "case_index": case_index,
                     "format": "tree-sitter-corpus",
+                    "expected_recovery": expected_recovery,
                 },
                 output_files,
                 records,
@@ -219,6 +230,10 @@ def add_parser_tests(
                 "revision": revision,
                 "path": fixture.relative_to(repo).as_posix(),
                 "format": "typst-fixture",
+                "expected_recovery": (
+                    "invalid" in fixture.relative_to(repo).parts
+                    or "malformed" in fixture.name.lower()
+                ),
             },
             output_files,
             records,
