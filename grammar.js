@@ -46,8 +46,12 @@ const PREC_MATH = {
 
 // Delimiter pairs in math. Typst also accepts any Unicode character whose math class is
 // Opening or Closing; these are the ones that occur in practice.
-const MATH_OPEN = choice('(', '[', '{', '⟨', '⌊', '⌈', '|', '‖', '[|');
-const MATH_CLOSE = choice(')', ']', '}', '⟩', '⌋', '⌉', '|', '‖', '|]');
+//
+// The bars are deliberately absent. `|` and `‖` do not group in typst — `$|a|^2$` is two
+// loose bars with the attachment hanging off the closing one, not a delimited group raised
+// to a power. Only `[|` and `|]`, which are unambiguous, pair up.
+const MATH_OPEN = choice('(', '[', '{', '⟨', '⌊', '⌈', '[|');
+const MATH_CLOSE = choice(')', ']', '}', '⟩', '⌋', '⌉', '|]');
 
 module.exports = grammar({
   name: 'typst',
@@ -1155,7 +1159,9 @@ function mathExpr($, { operators }) {
     // shorthands, and longest-match already prefers those.
     // A closing delimiter with no opener is a symbol, not a syntax error: `lr(}, ..)`
     // passes a brace as an argument. Typst converts these back to math text too.
-    alias(choice('.', ',', ';', '!', '=', '+', '<', '>', ':'), $.math_text),
+    // `|` sits here rather than among the delimiters: it never groups, so it is only ever
+    // a symbol. The `math_text` character class excludes it, hence the explicit entry.
+    alias(choice('.', ',', ';', '!', '=', '+', '<', '>', ':', '|'), $.math_text),
 
     // An unmatched delimiter is a symbol, not an error: `$<($` and `$=)$` are both valid
     // Typst, because `math_delimited` falls back to a plain sequence when it finds no
