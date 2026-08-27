@@ -4035,6 +4035,10 @@
                     },
                     {
                       "type": "SYMBOL",
+                      "name": "field_access"
+                    },
+                    {
+                      "type": "SYMBOL",
                       "name": "_pattern"
                     }
                   ]
@@ -4070,6 +4074,10 @@
                                 },
                                 {
                                   "type": "SYMBOL",
+                                  "name": "field_access"
+                                },
+                                {
+                                  "type": "SYMBOL",
                                   "name": "_pattern"
                                 }
                               ]
@@ -4098,6 +4106,10 @@
                                       {
                                         "type": "SYMBOL",
                                         "name": "spread"
+                                      },
+                                      {
+                                        "type": "SYMBOL",
+                                        "name": "field_access"
                                       },
                                       {
                                         "type": "SYMBOL",
@@ -4945,6 +4957,10 @@
     [
       "_postfixable",
       "_pattern"
+    ],
+    [
+      "_postfixable",
+      "destructuring"
     ],
     [
       "import_items"

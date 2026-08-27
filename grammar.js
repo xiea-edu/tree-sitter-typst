@@ -135,6 +135,9 @@ module.exports = grammar({
 
     // An identifier is a value in an expression and a binding site in a pattern.
     [$._postfixable, $._pattern],
+    // `(a.b, c)` — a field access as a destructuring target, against the same text read
+    // as an array element. Only the `=` after the group settles it.
+    [$._postfixable, $.destructuring],
 
     // `()` — an empty array, or an empty destructuring pattern?
 
@@ -1205,5 +1208,14 @@ function mathText($) {
  * GLR started wrapping a closure's inner group in a second `params` node.
  */
 function destructuringItem($) {
-  return choice(alias($._destructuring_named, $.named), $.spread, $._pattern);
+  return choice(
+    alias($._destructuring_named, $.named),
+    $.spread,
+    // A destructuring target may be a place rather than a fresh name: `(a, b.c) = d`
+    // assigns through the field access. Only *here*, not in `_pattern` at large — a
+    // `let` or `for` binding cannot target one, and offering it everywhere made every
+    // `a.b` in the language a possible pattern and cost 2341 files their parse.
+    $.field_access,
+    $._pattern,
+  );
 }

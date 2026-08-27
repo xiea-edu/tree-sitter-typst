@@ -1464,6 +1464,10 @@
           "named": true
         },
         {
+          "type": "field_access",
+          "named": true
+        },
+        {
           "type": "ident",
           "named": true
         },
