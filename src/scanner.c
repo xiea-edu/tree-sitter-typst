@@ -45,6 +45,10 @@ enum TokenType {
   BLOCK_COMMENT,
   MATH_DOT,
   MATH_ADJACENT,
+  HEADING_MARKER_START,
+  LIST_MARKER_START,
+  ENUM_MARKER_START,
+  TERM_MARKER_START,
   ESCAPE,
   LINEBREAK,
   ADJACENT_PRIME,
@@ -449,23 +453,35 @@ static bool scan_text(TSLexer *lexer, bool started) {
  */
 static bool scan_text(TSLexer *lexer, bool started);
 static bool at_space_or_end(TSLexer *lexer);
-static bool emit_marker_or_text(TSLexer *lexer, unsigned marker,
+static bool emit_marker_or_text(TSLexer *lexer, unsigned marker, unsigned start_marker,
                                 const bool *valid_symbols, bool at_line_start,
                                 Scanner *scanner, uint32_t column);
 
 static bool slash_tail(TSLexer *lexer, const bool *valid_symbols) {
   if (at_space_or_end(lexer)) {
     // Never at the start of a line here, so this is a text node rather than a term marker.
-    return emit_marker_or_text(lexer, TERM_MARKER, valid_symbols, false, NULL, 0);
+    return emit_marker_or_text(lexer, TERM_MARKER, 0, valid_symbols, false, NULL, 0);
   }
   if (!valid_symbols[TEXT]) return false;
   return scan_text(lexer, true);
 }
 
-static bool emit_marker_or_text(TSLexer *lexer, unsigned marker,
+static bool emit_marker_or_text(TSLexer *lexer, unsigned marker, unsigned start_marker,
                                 const bool *valid_symbols, bool at_line_start,
                                 Scanner *scanner, uint32_t column) {
   lexer->mark_end(lexer);
+
+  /*
+   * The block-start variant needs no column test at all. The grammar offers it in exactly
+   * one place — the first position inside a content block — so being asked for it *is*
+   * the evidence that a fresh markup context starts here, which no amount of looking at
+   * the current column could establish.
+   */
+  if (start_marker && valid_symbols[start_marker]) {
+    if (scanner && start_marker != HEADING_MARKER_START) push_item_column(scanner, column);
+    lexer->result_symbol = start_marker;
+    return true;
+  }
 
   if (at_line_start && valid_symbols[marker]) {
     // An item marker opens a body that may run past this line, so its column is recorded
@@ -1405,6 +1421,11 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     }
     if (at_space_or_end(lexer)) {
       lexer->mark_end(lexer);
+      if (valid_symbols[LIST_MARKER_START]) {
+        push_item_column(scanner, column);
+        lexer->result_symbol = LIST_MARKER_START;
+        return true;
+      }
       if (at_line_start && valid_symbols[LIST_MARKER]) {
         push_item_column(scanner, column);
         lexer->result_symbol = LIST_MARKER;
@@ -1445,7 +1466,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
   if (c == '=') {
     while (lexer->lookahead == '=') advance(lexer);
     if (at_space_or_end(lexer)) {
-      return emit_marker_or_text(lexer, HEADING_MARKER, valid_symbols,
+      return emit_marker_or_text(lexer, HEADING_MARKER, HEADING_MARKER_START, valid_symbols,
                                  at_line_start, scanner, column);
     }
     if (!valid_symbols[TEXT]) return false;
@@ -1455,7 +1476,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
   if (c == '+') {
     advance(lexer);
     if (at_space_or_end(lexer)) {
-      return emit_marker_or_text(lexer, ENUM_MARKER, valid_symbols,
+      return emit_marker_or_text(lexer, ENUM_MARKER, ENUM_MARKER_START, valid_symbols,
                                  at_line_start, scanner, column);
     }
     if (!valid_symbols[TEXT]) return false;
@@ -1468,7 +1489,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     if (lexer->lookahead == '.') {
       advance(lexer);
       if (at_space_or_end(lexer)) {
-        return emit_marker_or_text(lexer, ENUM_MARKER, valid_symbols,
+        return emit_marker_or_text(lexer, ENUM_MARKER, ENUM_MARKER_START, valid_symbols,
                                  at_line_start, scanner, column);
       }
     }
@@ -1501,7 +1522,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     // returning false discards what we consumed either way.
     if (lexer->lookahead == '/') return false;
     if (at_space_or_end(lexer)) {
-      return emit_marker_or_text(lexer, TERM_MARKER, valid_symbols,
+      return emit_marker_or_text(lexer, TERM_MARKER, TERM_MARKER_START, valid_symbols,
                                  at_line_start, scanner, column);
     }
     if (!valid_symbols[TEXT]) return false;

@@ -93,6 +93,12 @@ module.exports = grammar({
     $._block_comment,   // `/* ... */`, which nests
     $._math_dot,        // the `.` of a math field access: a name must follow it
     $._math_adjacent,   // zero-width: a delimiter follows immediately, so it is a call
+    // The same four markers again, valid only as the first thing in a content block,
+    // where the column test cannot apply — see `content_block`.
+    $._heading_marker_start,
+    $._list_marker_start,
+    $._enum_marker_start,
+    $._term_marker_start,
     $._escape,          // `\x`, or `\u{...}` with a codepoint that is a real character
     $._linebreak,       // `\` at the end of a line
     $._adjacent_prime,  // zero-width: a `'` follows immediately, so it attaches
@@ -147,6 +153,9 @@ module.exports = grammar({
 
     // A run of markup can always be extended or closed.
     [$.markup],
+    // A content block's first element may be a term item whose marker needs no column, or
+    // ordinary markup that happens to contain a colon. Only the colon settles it.
+    [$._markup_expr, $._block_term_item],
 
     // `let f • (` again, now that the function form builds a closure.
     [$._let_closure],
@@ -587,7 +596,57 @@ module.exports = grammar({
      */
     code: $ => repeat1(seq($._expr, choice(';', $._code_sep))),
 
-    content_block: $ => seq('[', optional($.markup), ']'),
+    /*
+     * A content block starts a fresh markup context, so its first character counts as the
+     * start of a line: typst reads `f([= H])` as a Heading, not as text. The markers are
+     * gated on column elsewhere, and no column test can see that — but the *grammar* knows
+     * exactly where a block begins, so the scanner is offered a separate set of marker
+     * tokens that are only valid in that one position and ignore the column entirely.
+     */
+    content_block: $ => seq('[', optional(alias($._block_markup, $.markup)), ']'),
+
+    _block_markup: $ => choice(
+      seq($._block_first, repeat($._markup_expr)),
+      repeat1($._markup_expr),
+    ),
+
+    /*
+     * The item forms again, for the one position where a marker needs no column. Each
+     * mirrors its ordinary counterpart exactly; only the marker token differs, and every
+     * node is aliased back to the usual name so the tree is indistinguishable.
+     *
+     * Real rules rather than inline sequences: `alias` renames a rule, it does not wrap
+     * one — aliasing a bare `seq` yields an empty node with the children hoisted beside
+     * it, which is what happened first time round.
+     */
+    _block_first: $ => choice(
+      alias($._block_heading, $.heading),
+      alias($._block_list_item, $.list_item),
+      alias($._block_enum_item, $.enum_item),
+      alias($._block_term_item, $.term_item),
+    ),
+
+    _block_heading: $ => seq(
+      alias($._heading_marker_start, $.heading_marker),
+      optional(alias($._markup_unlabelled, $.markup)),
+      $._heading_end,
+    ),
+
+    _block_list_item: $ => seq(
+      alias($._list_marker_start, $.list_marker), optional($.markup), $._line_end,
+    ),
+
+    _block_enum_item: $ => seq(
+      alias($._enum_marker_start, $.enum_marker), optional($.markup), $._line_end,
+    ),
+
+    _block_term_item: $ => seq(
+      alias($._term_marker_start, $.term_marker),
+      field("term", optional($.markup)),
+      ":",
+      field("description", optional($.markup)),
+      $._line_end,
+    ),
 
     // A content block only counts as an argument when it is *immediately* adjacent to
     // what precedes it: `f[x]` is a call, `f [x]` is an identifier followed by a

@@ -2320,8 +2320,13 @@
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "markup"
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_block_markup"
+              },
+              "named": true,
+              "value": "markup"
             },
             {
               "type": "BLANK"
@@ -2331,6 +2336,224 @@
         {
           "type": "STRING",
           "value": "]"
+        }
+      ]
+    },
+    "_block_markup": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "_block_first"
+            },
+            {
+              "type": "REPEAT",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_markup_expr"
+              }
+            }
+          ]
+        },
+        {
+          "type": "REPEAT1",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_markup_expr"
+          }
+        }
+      ]
+    },
+    "_block_first": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_block_heading"
+          },
+          "named": true,
+          "value": "heading"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_block_list_item"
+          },
+          "named": true,
+          "value": "list_item"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_block_enum_item"
+          },
+          "named": true,
+          "value": "enum_item"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_block_term_item"
+          },
+          "named": true,
+          "value": "term_item"
+        }
+      ]
+    },
+    "_block_heading": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_heading_marker_start"
+          },
+          "named": true,
+          "value": "heading_marker"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_markup_unlabelled"
+              },
+              "named": true,
+              "value": "markup"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_heading_end"
+        }
+      ]
+    },
+    "_block_list_item": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_list_marker_start"
+          },
+          "named": true,
+          "value": "list_marker"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "markup"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_line_end"
+        }
+      ]
+    },
+    "_block_enum_item": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_enum_marker_start"
+          },
+          "named": true,
+          "value": "enum_marker"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "markup"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_line_end"
+        }
+      ]
+    },
+    "_block_term_item": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_term_marker_start"
+          },
+          "named": true,
+          "value": "term_marker"
+        },
+        {
+          "type": "FIELD",
+          "name": "term",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "markup"
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          }
+        },
+        {
+          "type": "STRING",
+          "value": ":"
+        },
+        {
+          "type": "FIELD",
+          "name": "description",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "markup"
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_line_end"
         }
       ]
     },
@@ -4609,6 +4832,10 @@
       "markup"
     ],
     [
+      "_markup_expr",
+      "_block_term_item"
+    ],
+    [
       "_let_closure"
     ],
     [
@@ -4744,6 +4971,22 @@
     {
       "type": "SYMBOL",
       "name": "_math_adjacent"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_heading_marker_start"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_list_marker_start"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_enum_marker_start"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_term_marker_start"
     },
     {
       "type": "SYMBOL",
