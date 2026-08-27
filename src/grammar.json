@@ -1728,11 +1728,41 @@
                 "value": "math"
               },
               {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_primed"
+                },
+                "named": true,
+                "value": "math_attach"
+              },
+              {
                 "type": "SYMBOL",
                 "name": "_math_operand"
               }
             ]
           }
+        }
+      ]
+    },
+    "_math_primed": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "FIELD",
+          "name": "base",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_math_operand"
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_adjacent_prime"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "math_primes"
         }
       ]
     },

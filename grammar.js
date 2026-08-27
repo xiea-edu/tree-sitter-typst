@@ -425,7 +425,17 @@ module.exports = grammar({
 
     _math_script: $ => seq(
       field('operator', choice('^', '_')),
-      field('attachment', choice(alias($._math_group, $.math), $._math_operand)),
+      field('attachment', choice(
+        alias($._math_group, $.math),
+        // A script may itself carry primes: typst nests `$c^2'$` as an attachment whose
+        // attachment is another attachment, rather than chaining the two side by side.
+        alias($._math_primed, $.math_attach),
+        $._math_operand,
+      )),
+    ),
+
+    _math_primed: $ => seq(
+      field('base', $._math_operand), $._adjacent_prime, $.math_primes,
     ),
 
     /*

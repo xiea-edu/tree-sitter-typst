@@ -3235,6 +3235,10 @@
             "named": true
           },
           {
+            "type": "math_attach",
+            "named": true
+          },
+          {
             "type": "math_call",
             "named": true
           },
