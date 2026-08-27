@@ -93,6 +93,7 @@ module.exports = grammar({
     $._block_comment,   // `/* ... */`, which nests
     $._math_dot,        // the `.` of a math field access: a name must follow it
     $._math_adjacent,   // zero-width: a delimiter follows immediately, so it is a call
+    $._math_bang,       // zero-width: a `!` follows immediately, so it is a factorial
     // The same four markers again, valid only as the first thing in a content block,
     // where the column test cannot apply — see `content_block`.
     $._heading_marker_start,
@@ -179,6 +180,7 @@ module.exports = grammar({
     [$._math_spread_arg],
 
     [$._math_operand, $._math_args],
+
   ],
 
   rules: {
@@ -449,6 +451,17 @@ module.exports = grammar({
      * whitespace, so "nothing in between" is simply whether the next character opens a
      * group — the same trick as the prime in `a'`.
      */
+    /*
+     * `$n!$` — a factorial. Typst wraps the operand and the `!` in a `Math` node, and
+     * only when they are adjacent: `$n !$` is two siblings. Unlike the implicit call
+     * above, the operand may be anything, digits included — `$2!$` wraps too.
+     */
+    math_factorial: $ => prec.left(PREC_MATH.attach, seq(
+      field('base', $._math_operand),
+      $._math_bang,
+      alias('!', $.math_text),
+    )),
+
     math_implicit_call: $ => prec.left(PREC_MATH.func, seq(
       alias($._math_letter, $.math_text),
       $._math_adjacent,
@@ -1116,6 +1129,7 @@ function mathExpr($, { operators }) {
     $.math_primes,
     $.math_delimited,
     alias($.math_implicit_call, $.math),
+    alias($.math_factorial, $.math),
     $.math_root,
     $.math_call,
     $.str,

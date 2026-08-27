@@ -806,6 +806,15 @@
           "value": "math"
         },
         {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "math_factorial"
+          },
+          "named": true,
+          "value": "math"
+        },
+        {
           "type": "SYMBOL",
           "name": "math_root"
         },
@@ -1036,6 +1045,15 @@
           "content": {
             "type": "SYMBOL",
             "name": "math_implicit_call"
+          },
+          "named": true,
+          "value": "math"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "math_factorial"
           },
           "named": true,
           "value": "math"
@@ -1743,6 +1761,36 @@
           {
             "type": "STRING",
             "value": ")"
+          }
+        ]
+      }
+    },
+    "math_factorial": {
+      "type": "PREC_LEFT",
+      "value": 2,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "FIELD",
+            "name": "base",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_math_operand"
+            }
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_math_bang"
+          },
+          {
+            "type": "ALIAS",
+            "content": {
+              "type": "STRING",
+              "value": "!"
+            },
+            "named": true,
+            "value": "math_text"
           }
         ]
       }
@@ -5065,6 +5113,10 @@
     {
       "type": "SYMBOL",
       "name": "_math_adjacent"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_math_bang"
     },
     {
       "type": "SYMBOL",

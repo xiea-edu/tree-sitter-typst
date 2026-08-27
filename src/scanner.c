@@ -45,6 +45,7 @@ enum TokenType {
   BLOCK_COMMENT,
   MATH_DOT,
   MATH_ADJACENT,
+  MATH_BANG,
   HEADING_MARKER_START,
   LIST_MARKER_START,
   ENUM_MARKER_START,
@@ -1058,6 +1059,18 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
    * Falls through rather than declining, since nothing has been consumed — the delimiter
    * itself still has to be lexed by whoever comes next.
    */
+  /*
+   * The postfix `!` joins the same way, and gets a marker of its own rather than sharing
+   * the one above: a letter can begin either an implicit call or a factorial, and with a
+   * single marker the parser committed to the call and lost `$n!$` outright. Separate
+   * markers mean the character itself decides, before the two readings ever meet.
+   */
+  if (valid_symbols[MATH_BANG] && !lexer->eof(lexer) && lexer->lookahead == '!') {
+    lexer->mark_end(lexer);
+    lexer->result_symbol = MATH_BANG;
+    return true;
+  }
+
   if (valid_symbols[MATH_ADJACENT] && !lexer->eof(lexer)) {
     int32_t c = lexer->lookahead;
     // The bars are deliberately absent. `|` and `‖` open *and* close a group, so after a
