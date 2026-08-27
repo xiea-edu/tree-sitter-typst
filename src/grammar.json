@@ -2060,8 +2060,17 @@
               "name": "_postfixable"
             },
             {
-              "type": "SYMBOL",
-              "name": "_atomic_end"
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": ";"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "_atomic_end"
+                }
+              ]
             }
           ]
         },
@@ -2077,8 +2086,17 @@
               "name": "_hash_value"
             },
             {
-              "type": "SYMBOL",
-              "name": "_atomic_end"
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": ";"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "_atomic_end"
+                }
+              ]
             }
           ]
         },

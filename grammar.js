@@ -500,8 +500,11 @@ module.exports = grammar({
     // required, which is what keeps markup from resuming in the middle of a code
     // expression.
     _hash_expr: $ => choice(
-      seq('#', $._postfixable, $._atomic_end),
-      seq('#', $._hash_value, $._atomic_end),
+      // A directly adjacent `;` ends the expression, exactly as it does for a statement:
+      // typst reads `a#f;b` as three markup children with the semicolon its own token,
+      // while `a #f ;b` — with a space — leaves `;b` as ordinary text.
+      seq('#', $._postfixable, choice(';', $._atomic_end)),
+      seq('#', $._hash_value, choice(';', $._atomic_end)),
       seq('#', $._hash_statement, choice(';', $._stmt_end)),
     ),
 

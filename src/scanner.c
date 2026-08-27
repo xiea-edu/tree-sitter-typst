@@ -1192,6 +1192,9 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     // Postfix only binds when directly adjacent: `#f(x)` is a call, `#f (x)` is not.
     if (!lexer->eof(lexer) && !is_space(next)) {
       if (next == '(' || next == '[') return false;
+      // A semicolon right here terminates the expression instead, so leave it to the
+      // grammar's own token — declining is safe, since that token is not external.
+      if (next == ';') return false;
       if (next == '.') {
         // Only a field access continues the expression. A sentence-ending period does
         // not: in `#it.prefix().]` the final `.` is markup text, and typst likewise
