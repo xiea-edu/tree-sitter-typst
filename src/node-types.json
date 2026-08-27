@@ -1457,7 +1457,7 @@
     "fields": {},
     "children": {
       "multiple": true,
-      "required": false,
+      "required": true,
       "types": [
         {
           "type": "destructuring",
@@ -1469,6 +1469,10 @@
         },
         {
           "type": "named",
+          "named": true
+        },
+        {
+          "type": "parenthesized",
           "named": true
         },
         {
@@ -1835,6 +1839,10 @@
           },
           {
             "type": "ident",
+            "named": true
+          },
+          {
+            "type": "parenthesized",
             "named": true
           },
           {
@@ -2344,6 +2352,10 @@
           },
           {
             "type": "ident",
+            "named": true
+          },
+          {
+            "type": "parenthesized",
             "named": true
           },
           {
@@ -4340,6 +4352,10 @@
             "named": true
           },
           {
+            "type": "parenthesized",
+            "named": true
+          },
+          {
             "type": "underscore",
             "named": true
           }
@@ -4520,6 +4536,10 @@
           "named": true
         },
         {
+          "type": "parenthesized",
+          "named": true
+        },
+        {
           "type": "spread",
           "named": true
         },
@@ -4576,6 +4596,10 @@
         },
         {
           "type": "destruct_assignment",
+          "named": true
+        },
+        {
+          "type": "destructuring",
           "named": true
         },
         {
@@ -4668,6 +4692,10 @@
         },
         {
           "type": "unary",
+          "named": true
+        },
+        {
+          "type": "underscore",
           "named": true
         },
         {

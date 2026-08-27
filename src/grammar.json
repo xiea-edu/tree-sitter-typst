@@ -3906,6 +3906,32 @@
         {
           "type": "SYMBOL",
           "name": "destructuring"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_parenthesized_pattern"
+          },
+          "named": true,
+          "value": "parenthesized"
+        }
+      ]
+    },
+    "_parenthesized_pattern": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "("
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_pattern"
+        },
+        {
+          "type": "STRING",
+          "value": ")"
         }
       ]
     },
@@ -3949,55 +3975,109 @@
                   ]
                 },
                 {
-                  "type": "REPEAT",
-                  "content": {
-                    "type": "SEQ",
-                    "members": [
-                      {
-                        "type": "STRING",
-                        "value": ","
-                      },
-                      {
-                        "type": "CHOICE",
-                        "members": [
-                          {
-                            "type": "ALIAS",
-                            "content": {
-                              "type": "SYMBOL",
-                              "name": "_destructuring_named"
+                  "type": "STRING",
+                  "value": ","
+                },
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "SEQ",
+                      "members": [
+                        {
+                          "type": "SEQ",
+                          "members": [
+                            {
+                              "type": "CHOICE",
+                              "members": [
+                                {
+                                  "type": "ALIAS",
+                                  "content": {
+                                    "type": "SYMBOL",
+                                    "name": "_destructuring_named"
+                                  },
+                                  "named": true,
+                                  "value": "named"
+                                },
+                                {
+                                  "type": "SYMBOL",
+                                  "name": "spread"
+                                },
+                                {
+                                  "type": "SYMBOL",
+                                  "name": "_pattern"
+                                }
+                              ]
                             },
-                            "named": true,
-                            "value": "named"
-                          },
-                          {
-                            "type": "SYMBOL",
-                            "name": "spread"
-                          },
-                          {
-                            "type": "SYMBOL",
-                            "name": "_pattern"
-                          }
-                        ]
-                      }
-                    ]
-                  }
+                            {
+                              "type": "REPEAT",
+                              "content": {
+                                "type": "SEQ",
+                                "members": [
+                                  {
+                                    "type": "STRING",
+                                    "value": ","
+                                  },
+                                  {
+                                    "type": "CHOICE",
+                                    "members": [
+                                      {
+                                        "type": "ALIAS",
+                                        "content": {
+                                          "type": "SYMBOL",
+                                          "name": "_destructuring_named"
+                                        },
+                                        "named": true,
+                                        "value": "named"
+                                      },
+                                      {
+                                        "type": "SYMBOL",
+                                        "name": "spread"
+                                      },
+                                      {
+                                        "type": "SYMBOL",
+                                        "name": "_pattern"
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "CHOICE",
+                          "members": [
+                            {
+                              "type": "STRING",
+                              "value": ","
+                            },
+                            {
+                              "type": "BLANK"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
                 }
               ]
             },
             {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "STRING",
-              "value": ","
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_destructuring_named"
+              },
+              "named": true,
+              "value": "named"
             },
             {
-              "type": "BLANK"
+              "type": "SYMBOL",
+              "name": "spread"
             }
           ]
         },
@@ -4781,29 +4861,25 @@
     [
       "array",
       "dict",
-      "params"
+      "params",
+      "destructuring"
     ],
     [
-      "dict",
-      "params"
+      "params",
+      "destructuring"
     ],
     [
       "array",
       "dict",
-      "params",
-      "destructuring"
+      "params"
     ],
     [
-      "params",
-      "destructuring"
+      "dict",
+      "params"
     ],
     [
       "_postfixable",
       "_pattern"
-    ],
-    [
-      "array",
-      "destructuring"
     ],
     [
       "import_items"

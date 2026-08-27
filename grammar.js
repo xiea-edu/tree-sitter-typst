@@ -123,16 +123,15 @@ module.exports = grammar({
     // dictionary, a parameter list or a destructuring pattern depending on where it sits.
     [$.array, $.dict],
     [$.array, $.dict, $.destructuring],
-    [$.array, $.dict, $.params],
-    [$.dict, $.params],
     [$.array, $.dict, $.params, $.destructuring],
     [$.params, $.destructuring],
+    [$.array, $.dict, $.params],
+    [$.dict, $.params],
 
     // An identifier is a value in an expression and a binding site in a pattern.
     [$._postfixable, $._pattern],
 
     // `()` — an empty array, or an empty destructuring pattern?
-    [$.array, $.destructuring],
 
     // `import "m": a.b • as c` — is `a.b` the whole item, or the path of a rename?
     [$.import_items],
@@ -877,16 +876,39 @@ module.exports = grammar({
 
     // ---- patterns ---------------------------------------------------------
 
-    _pattern: $ => choice($.ident, $.underscore, $.destructuring),
+    // `parenthesized` is a pattern too, now that a lone name in parentheses is one:
+    // typst reads `let (a) = b` and `for (a) in b` as `Parenthesized`, keeping
+    // `Destructuring` for groups that actually destructure.
+    _pattern: $ => choice(
+      $.ident, $.underscore, $.destructuring,
+      // Its own rule rather than `parenthesized`, whose contents are an expression:
+      // `for ((_)) in o {}` nests a pattern, and `_` is not an expression anywhere.
+      alias($._parenthesized_pattern, $.parenthesized),
+    ),
+
+    _parenthesized_pattern: $ => seq('(', $._pattern, ')'),
 
     underscore: _ => '_',
 
+    /*
+     * A parenthesized group is a destructuring only if something inside says so: a comma,
+     * a named entry, or a spread. A lone name in parentheses is just parenthesized — typst
+     * reads `let (a) = b` and `for (a) in b` as `Parenthesized`, and only `(a,)` with the
+     * trailing comma as a one-element `Destructuring`.
+     */
     destructuring: $ => seq(
       '(',
-      sepBy(',', choice(alias($._destructuring_named, $.named), $.spread, $._pattern)),
-      optional(','),
+      choice(
+        // A comma somewhere: `(a,)`, `(a, b)`, `(a, b,)`.
+        seq(destructuringItem($), ',',
+            optional(seq(sepBy1(',', destructuringItem($)), optional(',')))),
+        // Or a single entry that could not be a plain parenthesized expression anyway.
+        alias($._destructuring_named, $.named),
+        $.spread,
+      ),
       ')',
     ),
+
 
     // The value of a named entry in a destructuring pattern is itself a PATTERN, not an
     // expression: `let (drawables: _) = f()` discards that field, and `_` is not an
@@ -1138,4 +1160,15 @@ function dictItems($) {
  */
 function mathText($) {
   return choice(alias($._math_letter, $.math_text), alias($._math_other, $.math_text));
+}
+
+/**
+ * One entry of a destructuring pattern.
+ *
+ * A function rather than a rule so it inlines at both use sites. As a rule it introduced
+ * a fresh set of `array`/`dict`/`params` ambiguities for the conflict list to carry, and
+ * GLR started wrapping a closure's inner group in a second `params` node.
+ */
+function destructuringItem($) {
+  return choice(alias($._destructuring_named, $.named), $.spread, $._pattern);
 }
