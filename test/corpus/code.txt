@@ -740,3 +740,83 @@ return in a function
         (code
           (func_return
             (int)))))))
+
+================================================================================
+an unmatched trailing underscore is text
+================================================================================
+
+#a._ b _
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (field_access
+    (ident)
+    (ident))
+  (text)
+  (text))
+
+================================================================================
+bare return as a spread argument
+================================================================================
+
+#{ f(..return, 1) }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (code_block
+    (code
+      (func_call
+        (ident)
+        (args
+          (spread
+            (func_return))
+          (int))))))
+
+================================================================================
+empty nested list ends before the content block bracket
+================================================================================
+
+#[
+-
+ - ]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (content_block
+    (markup
+      (list_item
+        (list_marker)
+        (markup
+          (list_item
+            (list_marker)))))))
+
+================================================================================
+block comments separate control values from content bodies
+================================================================================
+
+#if condition/* c */[body]
+#while condition/* c */[body]
+#for item in items/* c */[body]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (conditional
+    (ident)
+    (content_block
+      (markup
+        (text))))
+  (while_loop
+    (ident)
+    (content_block
+      (markup
+        (text))))
+  (for_loop
+    (ident)
+    (ident)
+    (content_block
+      (markup
+        (text)))))

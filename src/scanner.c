@@ -26,7 +26,6 @@ enum TokenType {
   SHORTHAND,
   STAR,
   UNDERSCORE_TOK,
-  UNPAIRED_DELIMITER,
   HEADING_MARKER,
   LIST_MARKER,
   ENUM_MARKER,
@@ -57,6 +56,8 @@ enum TokenType {
   ADJACENT_PRIME,
   LINK,
   MATH_NAMED_IDENT,
+  MATH_ATTACH_NAMED_SEPARATOR,
+  MATH_FRAC_SEPARATOR,
   NON_ASCII_SPACE,
   ERROR_SENTINEL,
 };
@@ -1437,6 +1438,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
       skip(lexer);
     }
     if (lexer->eof(lexer) || lexer->lookahead == '\n' || lexer->lookahead == ';' ||
+        lexer->lookahead == ',' || lexer->lookahead == ')' ||
         lexer->lookahead == ']' || lexer->lookahead == '}') {
       lexer->result_symbol = BARE_RETURN;
       return true;
@@ -1496,6 +1498,11 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     if (lexer->lookahead != '\n') {
       t = at_line_trailer_or_comment(lexer);
       if (t == TRAILER_ATE_SLASH) return slash_tail(lexer, valid_symbols);
+      if (lexer->lookahead == ']') {
+        if (scanner->depth) scanner->depth--;
+        lexer->result_symbol = LINE_END;
+        return true;
+      }
     }
 
     if (t == TRAILER_ENDS) {
@@ -1667,6 +1674,34 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
       return true;
     }
     return false;
+  }
+
+  // A distinct separator exists only when the next argument is named. Looking through
+  // whitespace here lets the parser choose the named-argument path at the comma instead
+  // of carrying the comma-as-math-text alternative all the way to the later colon.
+  if (valid_symbols[MATH_ATTACH_NAMED_SEPARATOR] &&
+      (lexer->lookahead == ',' || lexer->lookahead == ';')) {
+    advance(lexer);
+    lexer->mark_end(lexer);
+    while (is_space(lexer->lookahead)) skip(lexer);
+    if (lexer->lookahead != '_' && !is_alpha(lexer->lookahead)) return false;
+    advance(lexer);
+    while (is_id_continue(lexer->lookahead)) advance(lexer);
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t' ||
+           lexer->lookahead == '\r') {
+      skip(lexer);
+    }
+    if (lexer->lookahead != ':') return false;
+    lexer->result_symbol = MATH_ATTACH_NAMED_SEPARATOR;
+    return true;
+  }
+
+  if (valid_symbols[MATH_FRAC_SEPARATOR] &&
+      (lexer->lookahead == ',' || lexer->lookahead == ';')) {
+    advance(lexer);
+    lexer->mark_end(lexer);
+    lexer->result_symbol = MATH_FRAC_SEPARATOR;
+    return true;
   }
 
   /*
@@ -1849,19 +1884,9 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
    */
   // A text run absorbs an in-word `*`/`_` itself (see scan_text), so reaching here means
   // this one really is a delimiter.
-  if ((valid_symbols[STAR] && c == '*') || (valid_symbols[UNDERSCORE_TOK] && c == '_') ||
-      (valid_symbols[UNPAIRED_DELIMITER] && (c == '*' || c == '_'))) {
+  if ((valid_symbols[STAR] && c == '*') || (valid_symbols[UNDERSCORE_TOK] && c == '_')) {
     advance(lexer);
     lexer->mark_end(lexer);
-    if (valid_symbols[UNPAIRED_DELIMITER]) {
-      while (is_space(lexer->lookahead)) skip(lexer);
-      if (lexer->eof(lexer)) {
-        lexer->result_symbol = UNPAIRED_DELIMITER;
-        return true;
-      }
-    }
-    if (c == '*' && !valid_symbols[STAR]) return false;
-    if (c == '_' && !valid_symbols[UNDERSCORE_TOK]) return false;
     lexer->result_symbol = (c == '*') ? STAR : UNDERSCORE_TOK;
     return true;
   }

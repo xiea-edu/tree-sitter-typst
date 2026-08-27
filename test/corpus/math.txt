@@ -280,3 +280,74 @@ $√x$
     (math
       (math_root
         (math_text)))))
+
+================================================================================
+multiline calls keep nested named math arguments separate
+================================================================================
+
+$ frac(
+  attach(V, b: attach(2, b: 3)),
+  attach(V, t: attach(2, t: 3))) $
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (equation
+    (math
+      (math_call
+        (math_ident)
+        (math_args
+          (math
+            (math_call
+              (math_ident)
+              (math_args
+                (math
+                  (math_text))
+                (named
+                  (ident)
+                  (math
+                    (math_call
+                      (math_ident)
+                      (math_args
+                        (math
+                          (math_text))
+                        (named
+                          (ident)
+                          (math
+                            (math_text))))))))))
+          (math
+            (math_call
+              (math_ident)
+              (math_args
+                (math
+                  (math_text))
+                (named
+                  (ident)
+                  (math
+                    (math_call
+                      (math_ident)
+                      (math_args
+                        (math
+                          (math_text))
+                        (named
+                          (ident)
+                          (math
+                            (math_text)))))))))))))))
+
+================================================================================
+an unmatched opener may be a script value but not an attachment base
+================================================================================
+
+$2^[4 * 2$
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (equation
+    (math
+      (math_attach
+        (math_text)
+        (math_text))
+      (math_text)
+      (math_shorthand)
+      (math_text))))

@@ -74,7 +74,6 @@ module.exports = grammar({
     $.shorthand,        // `~ ... --- -- -?`, and `-` before a digit
     $._star,            // `*` only outside a word
     $._underscore,      // `_` only outside a word
-    $.unpaired_delimiter, // `*`/`_` at end of input falls back to text
     $.heading_marker,   // `=`+ at line start, followed by a space
     $.list_marker,      // `-` at line start, followed by a space
     $.enum_marker,      // `+` or `1.` at line start, followed by a space
@@ -112,6 +111,8 @@ module.exports = grammar({
     $._adjacent_prime,  // zero-width: a `'` follows immediately, so it attaches
     $.link,             // a bare URL, with `[]` and `()` balanced
     $.math_named_ident, // a code identifier followed by `:` inside math arguments
+    $._math_attach_named_separator, // separator before a named `attach` argument
+    $._math_frac_separator, // the single separator in `frac(numerator, denominator)`
     $._non_ascii_space, // whitespace outside markup, where typst skips it as trivia
     $._error_sentinel,  // never matched; signals error recovery to the scanner
   ],
@@ -178,9 +179,11 @@ module.exports = grammar({
     // of math is finished or still open is likewise undecidable until the closer appears.
     [$._math_expr, $.math_delimited],
     [$._math_operand, $.math_delimited],
+    [$._math_base_operand, $.math_delimited],
     // `x^(a)` — grouping parens in a script slot, against the same parens read as a
     // delimited group. Only the position tells them apart.
     [$._math_operand, $.math_delimited, $._math_group],
+    [$._math_base_operand, $.math_delimited, $._math_group],
     [$._math_expr, $.math_delimited, $._math_group],
     [$.math_delimited, $._math_group],
     [$.math],
@@ -188,11 +191,14 @@ module.exports = grammar({
     // `f(size: 2)` — is `size` the start of a math expression, or the name of an
     // argument? Only the colon says, and it comes later.
     [$._math_expr, $._math_args],
-    [$._math_expr, $._math_named_arg],
     [$._math_named_arg],
+    [$._math_attach_named_arg],
     [$._math_spread_arg],
 
     [$._math_operand, $._math_args],
+    [$._math_base_operand, $._math_args],
+    [$._math_operand, $._math_base_operand],
+
 
 
   ],
@@ -323,7 +329,8 @@ module.exports = grammar({
     // What an attachment may take as base or script. Excluding the operators is what
     // keeps `x_i^2` a single flat attachment with both scripts, as typst produces,
     // rather than a subscript whose script is itself a superscript.
-    _math_operand: $ => mathExpr($, { operators: false }),
+    _math_operand: $ => mathExpr($, { operators: false, looseOpen: true }),
+    _math_base_operand: $ => mathExpr($, { operators: false, looseOpen: false }),
 
     // A run of two or more characters names a symbol (`sum`, `alpha`); a single
     // character is a variable. That is why `$sum$` is the summation sign but `$s u m$`
@@ -393,13 +400,86 @@ module.exports = grammar({
       $.math,
     ),
 
+    // `attach` is a Typst built-in with one positional base followed by side-specific
+    // named arguments. Parsing that signature directly keeps deeply nested attachment
+    // matrices deterministic without adding a named-separator terminal to every math
+    // call (which would overflow Tree-sitter's bounded GLR versions on ordinary formulas).
+    _math_attach_call: $ => prec.dynamic(100, seq(
+      field('item', alias('attach', $.math_ident)),
+      field('args', alias($._math_attach_args, $.math_args)),
+    )),
+
+    _math_attach_args: $ => prec(1, seq(
+      token.immediate('('),
+      optional($.math),
+      repeat(seq(
+        $._math_attach_named_separator,
+        alias($._math_attach_named_arg, $.named),
+      )),
+      optional(prec.dynamic(30, choice(',', ';'))),
+      ')',
+    )),
+
+    _math_attach_named_arg: $ => prec.dynamic(20, seq(
+      field('name', alias($.math_named_ident, $.ident)),
+      ':',
+      optional(alias($._math_attach_value_expr, $.math)),
+    )),
+
+    _math_attach_value_expr: $ => repeat1($._math_attach_value),
+
+    // This operand set intentionally excludes a loose closing delimiter. A closing `)`
+    // after the last side value belongs to the surrounding `attach` call; offering it as
+    // the value itself makes deeply nested chains consume one closer too many.
+    _math_attach_value: $ => choice(
+      mathText($),
+      $.math_ident,
+      $.math_field_access,
+      $.math_shorthand,
+      $.math_align_point,
+      $.math_primes,
+      $.math_delimited,
+      alias($.math_implicit_call, $.math),
+      alias($.math_factorial, $.math),
+      $.math_root,
+      alias($._math_frac_call, $.math_call),
+      alias($._math_attach_call, $.math_call),
+      $.math_call,
+      $.math_attach,
+      $.math_frac,
+      $.str,
+      $.escape,
+      $.linebreak,
+      $._hash_expr,
+      alias(choice('.', '!', '=', '+', '<', '>', ':', '|'), $.math_text),
+    ),
+
+    // The `frac` built-in has exactly two positional math arguments. Its dedicated
+    // separator removes comma-as-math-text ambiguity around large numerator and
+    // denominator expressions without affecting any other call.
+    _math_frac_call: $ => prec.dynamic(100, seq(
+      field('item', alias('frac', $.math_ident)),
+      field('args', alias(choice($._math_frac_args, $._math_args), $.math_args)),
+    )),
+
+    _math_frac_args: $ => prec(1, seq(
+      token.immediate('('),
+      alias($._math_operand, $.math),
+      $._math_frac_separator,
+      $.math,
+      optional(prec.dynamic(30, choice(',', ';'))),
+      ')',
+    )),
+
     // The name is a code identifier rather than a math one — typst lexes it with
     // `maybe_math_named_arg`, which is why `size` here is not a math symbol.
     // The name is aliased rather than parsed as a code `ident`: in math the lexer has
     // already produced a math token for `size`, and a second token cannot be chosen for
-    // the same characters. Typst reports the node as `Ident`, so that is what we call it.
+    // the same characters. The scanner emits this token only when the following colon
+    // proves that the run is a name, keeping ordinary math identifiers out of this path.
+    // Typst reports the node as `Ident`, so that is what we call it.
     _math_named_arg: $ => prec.dynamic(2, seq(
-      field('name', alias(choice($.math_named_ident, $.math_ident, mathText($)), $.ident)),
+      field('name', alias($.math_named_ident, $.ident)),
       ':',
       optional($.math),
     )),
@@ -430,7 +510,7 @@ module.exports = grammar({
      * and the immediate one never matches.
      */
     math_attach: $ => prec.left(PREC_MATH.attach, seq(
-      field('base', $._math_operand),
+      field('base', $._math_base_operand),
       choice(
         seq($._adjacent_prime, $.math_primes, optional($._math_scripts)),
         $._math_scripts,
@@ -470,7 +550,7 @@ module.exports = grammar({
     ))),
 
     _math_any_rebased: $ => prec.left(PREC_MATH.attach,
-      seq(field('base', $._math_operand), $._math_scripts)),
+      seq(field('base', $._math_base_operand), $._math_scripts)),
 
     /*
      * A script's operand re-bases when the *same* kind of script follows it, because the
@@ -497,12 +577,12 @@ module.exports = grammar({
     ))),
 
     _math_sub_rebased: $ => prec.left(PREC_MATH.attach,
-      seq(field('base', $._math_operand), $._math_sub)),
+      seq(field('base', $._math_base_operand), $._math_sub)),
     _math_sup_rebased: $ => prec.left(PREC_MATH.attach,
-      seq(field('base', $._math_operand), $._math_sup)),
+      seq(field('base', $._math_base_operand), $._math_sup)),
 
     _math_primed: $ => prec.left(PREC_MATH.attach, seq(
-      field('base', $._math_operand), $._adjacent_prime, $.math_primes,
+      field('base', $._math_base_operand), $._adjacent_prime, $.math_primes,
       optional($._math_scripts),
     )),
 
@@ -535,7 +615,7 @@ module.exports = grammar({
      * above, the operand may be anything, digits included — `$2!$` wraps too.
      */
     math_factorial: $ => prec.left(PREC_MATH.attach, seq(
-      field('base', $._math_operand),
+      field('base', $._math_base_operand),
       $._math_bang,
       alias('!', $.math_text),
     )),
@@ -1094,26 +1174,42 @@ module.exports = grammar({
      */
     _block: $ => choice($.code_block, $.content_block),
 
-    conditional: $ => prec.right(seq(
-      'if',
-      field('condition', $._expr),
-      field('then', $._block),
-      // `else if` chains, so the else branch takes another conditional as well as a block.
-      optional(seq('else', field('else', choice($._block, $.conditional)))),
+    conditional: $ => prec.right(choice(
+      seq(
+        'if',
+        field('condition', $._expr),
+        field('then', $._block),
+        // `else if` chains, so the else branch takes another conditional as well as a block.
+        optional(seq('else', field('else', choice($._block, $.conditional)))),
+      ),
+      // A comment makes an immediately following content block the control body, not a
+      // trailing argument on the condition. Match the hidden external comment token
+      // directly so the named extra cannot steal the condition field.
+      prec.dynamic(10, seq(
+        'if',
+        field('condition', $._expr),
+        repeat1($._block_comment),
+        field('then', $._block),
+        optional(seq('else', field('else', choice($._block, $.conditional)))),
+      )),
     )),
 
-    while_loop: $ => prec.right(seq(
-      'while',
-      field('condition', $._expr),
-      field('body', $._block),
+    while_loop: $ => prec.right(choice(
+      seq('while', field('condition', $._expr), field('body', $._block)),
+      prec.dynamic(10, seq(
+        'while', field('condition', $._expr), repeat1($._block_comment), field('body', $._block),
+      )),
     )),
 
-    for_loop: $ => prec.right(seq(
-      'for',
-      field('pattern', $._pattern),
-      'in',
-      field('iterable', $._expr),
-      field('body', $._block),
+    for_loop: $ => prec.right(choice(
+      seq(
+        'for', field('pattern', $._pattern), 'in',
+        field('iterable', $._expr), field('body', $._block),
+      ),
+      prec.dynamic(10, seq(
+        'for', field('pattern', $._pattern), 'in',
+        field('iterable', $._expr), repeat1($._block_comment), field('body', $._block),
+      )),
     )),
 
     loop_break: _ => 'break',
@@ -1208,7 +1304,7 @@ function markupExpr($, { label, strong = true, emph = true }) {
     $._bracket_text,
     // A bare colon is plain text; `term_item` claims it as a separator where one fits.
     alias(':', $.text),
-    alias($.unpaired_delimiter, $.text),
+    alias(prec(-1, $._underscore), $.text),
   );
 }
 
@@ -1220,7 +1316,7 @@ function markupExpr($, { label, strong = true, emph = true }) {
  * Dropping the operators from the operand rule expresses the same thing, which is what
  * keeps `x_i^2` one flat attachment carrying both scripts.
  */
-function mathExpr($, { operators }) {
+function mathExpr($, { operators, looseOpen = true }) {
   return choice(
     mathText($),
     $.math_ident,
@@ -1232,12 +1328,25 @@ function mathExpr($, { operators }) {
     alias($.math_implicit_call, $.math),
     alias($.math_factorial, $.math),
     $.math_root,
+    alias($._math_frac_call, $.math_call),
+    alias($._math_attach_call, $.math_call),
     $.math_call,
     $.str,
     $.escape,
     $.linebreak,
     $._hash_expr,
-    ...(operators ? [$.math_attach, $.math_frac] : []),
+    ...(operators ? [
+      $.math_attach,
+      $.math_frac,
+      alias(prec.dynamic(-20, choice(MATH_OPEN, MATH_CLOSE)), $.math_text),
+    ] : [
+      // A loose closing delimiter can carry an attachment (`]_1`), while an opener
+      // starts a group and cannot be reinterpreted as the base in `(_ c)`.
+      alias(
+        prec.dynamic(-20, looseOpen ? choice(MATH_OPEN, MATH_CLOSE) : MATH_CLOSE),
+        $.math_text,
+      ),
+    ]),
     // Typst lexes these as punctuation or as the start of a shorthand, then falls
     // through to math text when no shorthand matched. `=`, `+`, `<`, `>` and `|` are
     // ordinary symbols in math; only multi-character forms like `<=` or `|->` are
@@ -1256,7 +1365,6 @@ function mathExpr($, { operators }) {
     // parses of the same tokens, so the choice happens at runtime; a static `prec(-1)`
     // resolves conflicts at generation time instead and cost validity both times it was
     // tried here.
-    alias(prec.dynamic(-20, choice(MATH_OPEN, MATH_CLOSE)), $.math_text),
   );
 }
 
