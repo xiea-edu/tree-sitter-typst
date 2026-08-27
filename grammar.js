@@ -473,7 +473,9 @@ module.exports = grammar({
     )),
 
     math_implicit_call: $ => prec.left(PREC_MATH.func, seq(
-      alias($._math_letter, $.math_text),
+      // A string continues too — `$"child"(y)$` wraps, while a delimited group or an
+      // attachment before the parentheses does not.
+      choice(alias($._math_letter, $.math_text), $.str),
       $._math_adjacent,
       $.math_delimited,
     )),

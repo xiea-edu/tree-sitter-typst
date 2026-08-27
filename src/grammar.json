@@ -1832,13 +1832,22 @@
         "type": "SEQ",
         "members": [
           {
-            "type": "ALIAS",
-            "content": {
-              "type": "SYMBOL",
-              "name": "_math_letter"
-            },
-            "named": true,
-            "value": "math_text"
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_letter"
+                },
+                "named": true,
+                "value": "math_text"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "str"
+              }
+            ]
           },
           {
             "type": "SYMBOL",
