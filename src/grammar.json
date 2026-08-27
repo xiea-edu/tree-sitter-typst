@@ -2636,8 +2636,13 @@
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "markup"
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_block_markup"
+              },
+              "named": true,
+              "value": "markup"
             },
             {
               "type": "BLANK"

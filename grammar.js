@@ -687,7 +687,8 @@ module.exports = grammar({
     // separate content block. Aliased so both spellings surface as `content_block`.
     _content_block_immediate: $ => seq(
       token.immediate('['),
-      optional($.markup),
+      // The same fresh-context markup as `content_block`: `#f[= B]` is a heading too.
+      optional(alias($._block_markup, $.markup)),
       ']',
     ),
 
