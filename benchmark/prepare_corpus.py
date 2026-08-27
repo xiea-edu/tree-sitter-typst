@@ -7,7 +7,9 @@ import re
 import subprocess
 from pathlib import Path
 
-LOCAL_SHA = "604f05fdfd679ff515a5226ecf314b65aa1c5c4f"
+LOCAL_SHA = "e07381c630fb883f81f0289562fdc13a4861d31c"
+# Keep the package sample stable when only the parser-under-test advances.
+SELECTION_SEED_LOCAL_SHA = "604f05fdfd679ff515a5226ecf314b65aa1c5c4f"
 UBEN0_SHA = "46cf4ded12ee974a70bf8457263b67ad7ee0379d"
 SENIORMARS_SHA = "1acd48c90d260bc9f8a99f903d3e2a8031bc7aae"
 TYPST_SHA = "9dfd3a08500b7896045f907433cf7b4b02434fad"
@@ -18,7 +20,7 @@ MAX_FILE_BYTES = 1024 * 1024
 SEED_TEXT = "\n".join(
     [
         "tree-sitter-typst-benchmark-v1",
-        LOCAL_SHA,
+        SELECTION_SEED_LOCAL_SHA,
         UBEN0_SHA,
         SENIORMARS_SHA,
         TYPST_SHA,

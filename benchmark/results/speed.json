@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "revisions": {
-    "local": "604f05fdfd679ff515a5226ecf314b65aa1c5c4f",
+    "local": "e07381c630fb883f81f0289562fdc13a4861d31c",
     "packages": "df365225e63a0de72e6cbfb4704efd26e2f5c3bb",
     "seniormars": "1acd48c90d260bc9f8a99f903d3e2a8031bc7aae",
     "typst": "9dfd3a08500b7896045f907433cf7b4b02434fad",
@@ -77,187 +77,187 @@
   "warmup_blocks": 5,
   "measurement_blocks": 30,
   "full_repeats": 3,
-  "incremental_repeats": 24,
+  "incremental_repeats": 26,
   "incremental_cases": 112,
   "full_parse": {
     "local": [
       {
         "block": 0,
-        "elapsed_ns": 151946000,
+        "elapsed_ns": 147751000,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 1,
-        "elapsed_ns": 165467800,
+        "elapsed_ns": 149669500,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 2,
-        "elapsed_ns": 159549500,
+        "elapsed_ns": 175666300,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 3,
-        "elapsed_ns": 168916400,
+        "elapsed_ns": 156030200,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 4,
-        "elapsed_ns": 153018300,
+        "elapsed_ns": 166988600,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 5,
-        "elapsed_ns": 151896100,
+        "elapsed_ns": 167950200,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 6,
-        "elapsed_ns": 154283800,
+        "elapsed_ns": 170256800,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 7,
-        "elapsed_ns": 156259600,
+        "elapsed_ns": 152754500,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 8,
-        "elapsed_ns": 151899200,
+        "elapsed_ns": 148780400,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 9,
-        "elapsed_ns": 160125500,
+        "elapsed_ns": 146590800,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 10,
-        "elapsed_ns": 167130800,
+        "elapsed_ns": 147369300,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 11,
-        "elapsed_ns": 159005400,
+        "elapsed_ns": 151403800,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 12,
-        "elapsed_ns": 151952300,
+        "elapsed_ns": 150051900,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 13,
-        "elapsed_ns": 152959900,
+        "elapsed_ns": 147046500,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 14,
-        "elapsed_ns": 154584400,
+        "elapsed_ns": 146628400,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 15,
-        "elapsed_ns": 183162200,
+        "elapsed_ns": 149268500,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 16,
-        "elapsed_ns": 167268400,
+        "elapsed_ns": 146455900,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 17,
-        "elapsed_ns": 154835100,
+        "elapsed_ns": 186757700,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 18,
-        "elapsed_ns": 154256200,
+        "elapsed_ns": 188636600,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 19,
-        "elapsed_ns": 151653100,
+        "elapsed_ns": 146996100,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 20,
-        "elapsed_ns": 158928800,
+        "elapsed_ns": 148877000,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 21,
-        "elapsed_ns": 178419900,
+        "elapsed_ns": 150281600,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 22,
-        "elapsed_ns": 160798300,
+        "elapsed_ns": 148806200,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 23,
-        "elapsed_ns": 179050400,
+        "elapsed_ns": 146379200,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 24,
-        "elapsed_ns": 167232000,
+        "elapsed_ns": 151698900,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 25,
-        "elapsed_ns": 156652100,
+        "elapsed_ns": 148586700,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 26,
-        "elapsed_ns": 156525600,
+        "elapsed_ns": 176578300,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 27,
-        "elapsed_ns": 152805200,
+        "elapsed_ns": 149360800,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 28,
-        "elapsed_ns": 155899300,
+        "elapsed_ns": 152128400,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 29,
-        "elapsed_ns": 158225300,
+        "elapsed_ns": 165638500,
         "operations": 183,
         "bytes": 1174911
       }
@@ -265,181 +265,181 @@
     "seniormars": [
       {
         "block": 0,
-        "elapsed_ns": 198747900,
+        "elapsed_ns": 195999200,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 1,
-        "elapsed_ns": 203653400,
+        "elapsed_ns": 197687800,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 2,
-        "elapsed_ns": 205263800,
+        "elapsed_ns": 208259700,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 3,
-        "elapsed_ns": 202323300,
+        "elapsed_ns": 249385600,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 4,
-        "elapsed_ns": 199918800,
+        "elapsed_ns": 227266100,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 5,
-        "elapsed_ns": 204594800,
+        "elapsed_ns": 200102700,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 6,
-        "elapsed_ns": 198485000,
+        "elapsed_ns": 212105400,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 7,
-        "elapsed_ns": 201411800,
+        "elapsed_ns": 214112200,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 8,
-        "elapsed_ns": 197300500,
+        "elapsed_ns": 197367700,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 9,
-        "elapsed_ns": 197215200,
+        "elapsed_ns": 199938000,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 10,
-        "elapsed_ns": 216053800,
+        "elapsed_ns": 196155900,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 11,
-        "elapsed_ns": 197990500,
+        "elapsed_ns": 197224400,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 12,
-        "elapsed_ns": 215101600,
+        "elapsed_ns": 197892000,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 13,
-        "elapsed_ns": 208239900,
+        "elapsed_ns": 195275000,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 14,
-        "elapsed_ns": 202226500,
+        "elapsed_ns": 196923400,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 15,
-        "elapsed_ns": 213171600,
+        "elapsed_ns": 195323700,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 16,
-        "elapsed_ns": 204340300,
+        "elapsed_ns": 197331500,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 17,
-        "elapsed_ns": 202001000,
+        "elapsed_ns": 196032900,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 18,
-        "elapsed_ns": 198900900,
+        "elapsed_ns": 195688500,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 19,
-        "elapsed_ns": 230379600,
+        "elapsed_ns": 193987300,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 20,
-        "elapsed_ns": 211735000,
+        "elapsed_ns": 195331700,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 21,
-        "elapsed_ns": 199842700,
+        "elapsed_ns": 196004600,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 22,
-        "elapsed_ns": 266740300,
+        "elapsed_ns": 197749400,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 23,
-        "elapsed_ns": 231724100,
+        "elapsed_ns": 193292300,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 24,
-        "elapsed_ns": 204950500,
+        "elapsed_ns": 192800600,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 25,
-        "elapsed_ns": 201854500,
+        "elapsed_ns": 193330600,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 26,
-        "elapsed_ns": 207571200,
+        "elapsed_ns": 216547600,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 27,
-        "elapsed_ns": 212406200,
+        "elapsed_ns": 196857100,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 28,
-        "elapsed_ns": 202080600,
+        "elapsed_ns": 232680400,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 29,
-        "elapsed_ns": 199971400,
+        "elapsed_ns": 203479800,
         "operations": 183,
         "bytes": 1174911
       }
@@ -447,181 +447,181 @@
     "uben0": [
       {
         "block": 0,
-        "elapsed_ns": 200647200,
+        "elapsed_ns": 198170200,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 1,
-        "elapsed_ns": 203913300,
+        "elapsed_ns": 198867300,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 2,
-        "elapsed_ns": 206570900,
+        "elapsed_ns": 200017600,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 3,
-        "elapsed_ns": 200880200,
+        "elapsed_ns": 228660400,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 4,
-        "elapsed_ns": 209593100,
+        "elapsed_ns": 208871500,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 5,
-        "elapsed_ns": 207027700,
+        "elapsed_ns": 202853800,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 6,
-        "elapsed_ns": 200493800,
+        "elapsed_ns": 225076500,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 7,
-        "elapsed_ns": 203662800,
+        "elapsed_ns": 202776500,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 8,
-        "elapsed_ns": 206081700,
+        "elapsed_ns": 205816300,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 9,
-        "elapsed_ns": 217408800,
+        "elapsed_ns": 200105100,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 10,
-        "elapsed_ns": 211361300,
+        "elapsed_ns": 198368500,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 11,
-        "elapsed_ns": 203996900,
+        "elapsed_ns": 210138100,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 12,
-        "elapsed_ns": 230427900,
+        "elapsed_ns": 263223000,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 13,
-        "elapsed_ns": 225039000,
+        "elapsed_ns": 198073200,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 14,
-        "elapsed_ns": 215155800,
+        "elapsed_ns": 197015900,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 15,
-        "elapsed_ns": 203885600,
+        "elapsed_ns": 196399600,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 16,
-        "elapsed_ns": 197215700,
+        "elapsed_ns": 198025600,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 17,
-        "elapsed_ns": 198188400,
+        "elapsed_ns": 200816000,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 18,
-        "elapsed_ns": 195790300,
+        "elapsed_ns": 271178100,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 19,
-        "elapsed_ns": 211827300,
+        "elapsed_ns": 194871400,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 20,
-        "elapsed_ns": 205276100,
+        "elapsed_ns": 198385800,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 21,
-        "elapsed_ns": 211536600,
+        "elapsed_ns": 201177200,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 22,
-        "elapsed_ns": 243155100,
+        "elapsed_ns": 199893400,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 23,
-        "elapsed_ns": 217319400,
+        "elapsed_ns": 200437600,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 24,
-        "elapsed_ns": 214308200,
+        "elapsed_ns": 198683700,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 25,
-        "elapsed_ns": 203875200,
+        "elapsed_ns": 194832100,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 26,
-        "elapsed_ns": 198912900,
+        "elapsed_ns": 202348000,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 27,
-        "elapsed_ns": 207616200,
+        "elapsed_ns": 200695100,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 28,
-        "elapsed_ns": 197747600,
+        "elapsed_ns": 224668400,
         "operations": 183,
         "bytes": 1174911
       },
       {
         "block": 29,
-        "elapsed_ns": 204210700,
+        "elapsed_ns": 224858000,
         "operations": 183,
         "bytes": 1174911
       }
@@ -631,547 +631,547 @@
     "local": [
       {
         "block": 0,
-        "elapsed_ns": 148572100,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 154540300,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 1,
-        "elapsed_ns": 138330300,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 181156100,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 2,
-        "elapsed_ns": 136730300,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 171550700,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 3,
-        "elapsed_ns": 137199800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 156512800,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 4,
-        "elapsed_ns": 144143200,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 148064500,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 5,
-        "elapsed_ns": 134527800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 161888000,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 6,
-        "elapsed_ns": 132908200,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 164804900,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 7,
-        "elapsed_ns": 133170200,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 173901300,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 8,
-        "elapsed_ns": 137794500,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 145297500,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 9,
-        "elapsed_ns": 135616500,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 145429600,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 10,
-        "elapsed_ns": 141384600,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 144443000,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 11,
-        "elapsed_ns": 136586200,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 145033100,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 12,
-        "elapsed_ns": 133183600,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 146214900,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 13,
-        "elapsed_ns": 134114900,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 171689400,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 14,
-        "elapsed_ns": 138930300,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 146628300,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 15,
-        "elapsed_ns": 132614800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 147501400,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 16,
-        "elapsed_ns": 132799100,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 157509800,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 17,
-        "elapsed_ns": 135154700,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 145656200,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 18,
-        "elapsed_ns": 132611100,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 170027900,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 19,
-        "elapsed_ns": 136428400,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 144275300,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 20,
-        "elapsed_ns": 134443400,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 149405200,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 21,
-        "elapsed_ns": 131854900,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 190631300,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 22,
-        "elapsed_ns": 134952800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 185507600,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 23,
-        "elapsed_ns": 135487800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 146880800,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 24,
-        "elapsed_ns": 163540200,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 145780200,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 25,
-        "elapsed_ns": 152629200,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 144950700,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 26,
-        "elapsed_ns": 151993700,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 148434500,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 27,
-        "elapsed_ns": 139731900,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 148692400,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 28,
-        "elapsed_ns": 137831400,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 145573100,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 29,
-        "elapsed_ns": 135887800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 171077100,
+        "operations": 2912,
+        "bytes": 16746938
       }
     ],
     "seniormars": [
       {
         "block": 0,
-        "elapsed_ns": 152643900,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 191863800,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 1,
-        "elapsed_ns": 152199200,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 195931900,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 2,
-        "elapsed_ns": 153937800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 167314700,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 3,
-        "elapsed_ns": 164045300,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 166351600,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 4,
-        "elapsed_ns": 157453200,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 163597500,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 5,
-        "elapsed_ns": 161987300,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 162882500,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 6,
-        "elapsed_ns": 151639800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 178145200,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 7,
-        "elapsed_ns": 146770800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 178173200,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 8,
-        "elapsed_ns": 157074500,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 166805700,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 9,
-        "elapsed_ns": 150171900,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 161113700,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 10,
-        "elapsed_ns": 172529500,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 173150900,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 11,
-        "elapsed_ns": 192606700,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 161144200,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 12,
-        "elapsed_ns": 153956800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 187363800,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 13,
-        "elapsed_ns": 148405000,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 162870700,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 14,
-        "elapsed_ns": 147765900,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 167455800,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 15,
-        "elapsed_ns": 147291400,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 162122600,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 16,
-        "elapsed_ns": 148221700,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 161760800,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 17,
-        "elapsed_ns": 152202800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 163144600,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 18,
-        "elapsed_ns": 150881800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 163510500,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 19,
-        "elapsed_ns": 149032800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 188907300,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 20,
-        "elapsed_ns": 148654000,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 164659800,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 21,
-        "elapsed_ns": 146262100,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 163006300,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 22,
-        "elapsed_ns": 158996500,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 188185200,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 23,
-        "elapsed_ns": 149309100,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 165743400,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 24,
-        "elapsed_ns": 157438800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 165564600,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 25,
-        "elapsed_ns": 159761400,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 163307900,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 26,
-        "elapsed_ns": 151184600,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 166207700,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 27,
-        "elapsed_ns": 151524200,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 162527100,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 28,
-        "elapsed_ns": 154749000,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 176083200,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 29,
-        "elapsed_ns": 148347200,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 164122400,
+        "operations": 2912,
+        "bytes": 16746938
       }
     ],
     "uben0": [
       {
         "block": 0,
-        "elapsed_ns": 283299800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 329057400,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 1,
-        "elapsed_ns": 298509200,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 335216400,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 2,
-        "elapsed_ns": 300321800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 319971300,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 3,
-        "elapsed_ns": 294157900,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 340777300,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 4,
-        "elapsed_ns": 291126400,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 318415600,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 5,
-        "elapsed_ns": 286179100,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 316690400,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 6,
-        "elapsed_ns": 282143700,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 326440100,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 7,
-        "elapsed_ns": 280729000,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 348156000,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 8,
-        "elapsed_ns": 284208500,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 355823700,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 9,
-        "elapsed_ns": 303839100,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 309486000,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 10,
-        "elapsed_ns": 305031600,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 339178100,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 11,
-        "elapsed_ns": 298082200,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 307920800,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 12,
-        "elapsed_ns": 289220400,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 306517600,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 13,
-        "elapsed_ns": 282746800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 317378100,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 14,
-        "elapsed_ns": 280814800,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 330594200,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 15,
-        "elapsed_ns": 283505200,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 318390700,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 16,
-        "elapsed_ns": 288452700,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 339067800,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 17,
-        "elapsed_ns": 281037300,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 312182300,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 18,
-        "elapsed_ns": 282572200,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 342717900,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 19,
-        "elapsed_ns": 284313100,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 326568800,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 20,
-        "elapsed_ns": 283450700,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 317850500,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 21,
-        "elapsed_ns": 294857000,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 347764900,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 22,
-        "elapsed_ns": 284526200,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 342578900,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 23,
-        "elapsed_ns": 283762900,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 324376900,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 24,
-        "elapsed_ns": 297988500,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 312717700,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 25,
-        "elapsed_ns": 317423600,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 310654000,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 26,
-        "elapsed_ns": 294235100,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 318269100,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 27,
-        "elapsed_ns": 288274300,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 314043800,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 28,
-        "elapsed_ns": 304855700,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 369262400,
+        "operations": 2912,
+        "bytes": 16746938
       },
       {
         "block": 29,
-        "elapsed_ns": 283671100,
-        "operations": 2688,
-        "bytes": 15458712
+        "elapsed_ns": 357639900,
+        "operations": 2912,
+        "bytes": 16746938
       }
     ]
   }

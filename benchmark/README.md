@@ -12,7 +12,7 @@ measurement schedule.
 
 ## Pinned inputs
 
-- Local: `604f05fdfd679ff515a5226ecf314b65aa1c5c4f`
+- Local: `e07381c630fb883f81f0289562fdc13a4861d31c`
 - uben0: `46cf4ded12ee974a70bf8457263b67ad7ee0379d`
 - SeniorMars: `1acd48c90d260bc9f8a99f903d3e2a8031bc7aae`
 - Typst syntax oracle: `9dfd3a08500b7896045f907433cf7b4b02434fad` (v0.15.1)
