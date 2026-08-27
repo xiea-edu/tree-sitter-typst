@@ -188,6 +188,7 @@ module.exports = grammar({
 
     [$._math_operand, $._math_args],
 
+
   ],
 
   rules: {
@@ -425,25 +426,79 @@ module.exports = grammar({
     math_attach: $ => prec.left(PREC_MATH.attach, seq(
       field('base', $._math_operand),
       choice(
-        seq($._adjacent_prime, $.math_primes, repeat($._math_script)),
-        repeat1($._math_script),
+        seq($._adjacent_prime, $.math_primes, optional($._math_scripts)),
+        $._math_scripts,
       ),
     )),
 
-    _math_script: $ => seq(
-      field('operator', choice('^', '_')),
-      field('attachment', choice(
-        alias($._math_group, $.math),
-        // A script may itself carry primes: typst nests `$c^2'$` as an attachment whose
-        // attachment is another attachment, rather than chaining the two side by side.
-        alias($._math_primed, $.math_attach),
-        $._math_operand,
-      )),
-    ),
+    /*
+     * At most one subscript and one superscript, in either order.
+     *
+     * That limit is what shapes a chain: `$a_b'^c'^d'$` puts `_b'` and `^c'` on the same
+     * attachment, and the *second* `^` cannot join it, so it re-bases onto `c'` instead.
+     * With an unbounded repeat every script flattened into the outermost node.
+     */
+    _math_scripts: $ => prec.left(PREC_MATH.attach, choice(
+      seq($._math_sub, optional($._math_sup_last)),
+      seq($._math_sup, optional($._math_sub_last)),
+    )),
 
-    _math_primed: $ => seq(
+    /*
+     * The second script's operand may re-base a script of *either* kind, because by then
+     * the enclosing attachment holds one of each and has no room left: `$l_0^e_a$` nests
+     * the trailing `_a` onto `e`. The first script's operand re-bases only a repeat of
+     * its own kind, since the enclosing node can still take the other one.
+     */
+    _math_sub_last: $ => seq(field('operator', '_'), field('attachment', choice(
+      alias($._math_group, $.math),
+      alias($._math_primed, $.math_attach),
+      alias($._math_any_rebased, $.math_attach),
+      $._math_operand,
+    ))),
+
+    _math_sup_last: $ => seq(field('operator', '^'), field('attachment', choice(
+      alias($._math_group, $.math),
+      alias($._math_primed, $.math_attach),
+      alias($._math_any_rebased, $.math_attach),
+      $._math_operand,
+    ))),
+
+    _math_any_rebased: $ => prec.left(PREC_MATH.attach,
+      seq(field('base', $._math_operand), $._math_scripts)),
+
+    /*
+     * A script's operand re-bases when the *same* kind of script follows it, because the
+     * enclosing attachment already holds one and has no room for another: `$2^2^x$` nests
+     * rightwards. A script of the other kind does not re-base — the enclosing node can
+     * still hold it, so `$a_b^c$` stays a single attachment carrying both.
+     *
+     * Spelling that out per kind is what makes it exact. Allowing any attachment as an
+     * operand instead left the two readings genuinely ambiguous, and no precedence
+     * separated them.
+     */
+    _math_sub: $ => seq(field('operator', '_'), field('attachment', choice(
+      alias($._math_group, $.math),
+      alias($._math_primed, $.math_attach),
+      alias($._math_sub_rebased, $.math_attach),
+      $._math_operand,
+    ))),
+
+    _math_sup: $ => seq(field('operator', '^'), field('attachment', choice(
+      alias($._math_group, $.math),
+      alias($._math_primed, $.math_attach),
+      alias($._math_sup_rebased, $.math_attach),
+      $._math_operand,
+    ))),
+
+    _math_sub_rebased: $ => prec.left(PREC_MATH.attach,
+      seq(field('base', $._math_operand), $._math_sub)),
+    _math_sup_rebased: $ => prec.left(PREC_MATH.attach,
+      seq(field('base', $._math_operand), $._math_sup)),
+
+    _math_primed: $ => prec.left(PREC_MATH.attach, seq(
       field('base', $._math_operand), $._adjacent_prime, $.math_primes,
-    ),
+      optional($._math_scripts),
+    )),
 
     /*
      * Round parens in an attachment slot are *grouping*, not a delimited group: typst

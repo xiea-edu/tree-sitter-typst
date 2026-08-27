@@ -1632,44 +1632,88 @@
                     "name": "math_primes"
                   },
                   {
-                    "type": "REPEAT",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "_math_script"
-                    }
+                    "type": "CHOICE",
+                    "members": [
+                      {
+                        "type": "SYMBOL",
+                        "name": "_math_scripts"
+                      },
+                      {
+                        "type": "BLANK"
+                      }
+                    ]
                   }
                 ]
               },
               {
-                "type": "REPEAT1",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_math_script"
-                }
+                "type": "SYMBOL",
+                "name": "_math_scripts"
               }
             ]
           }
         ]
       }
     },
-    "_math_script": {
+    "_math_scripts": {
+      "type": "PREC_LEFT",
+      "value": 2,
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "_math_sub"
+              },
+              {
+                "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "SYMBOL",
+                    "name": "_math_sup_last"
+                  },
+                  {
+                    "type": "BLANK"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "_math_sup"
+              },
+              {
+                "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "SYMBOL",
+                    "name": "_math_sub_last"
+                  },
+                  {
+                    "type": "BLANK"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "_math_sub_last": {
       "type": "SEQ",
       "members": [
         {
           "type": "FIELD",
           "name": "operator",
           "content": {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "STRING",
-                "value": "^"
-              },
-              {
-                "type": "STRING",
-                "value": "_"
-              }
-            ]
+            "type": "STRING",
+            "value": "_"
           }
         },
         {
@@ -1697,6 +1741,15 @@
                 "value": "math_attach"
               },
               {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_any_rebased"
+                },
+                "named": true,
+                "value": "math_attach"
+              },
+              {
                 "type": "SYMBOL",
                 "name": "_math_operand"
               }
@@ -1705,26 +1758,264 @@
         }
       ]
     },
-    "_math_primed": {
+    "_math_sup_last": {
       "type": "SEQ",
       "members": [
         {
           "type": "FIELD",
-          "name": "base",
+          "name": "operator",
           "content": {
-            "type": "SYMBOL",
-            "name": "_math_operand"
+            "type": "STRING",
+            "value": "^"
           }
         },
         {
-          "type": "SYMBOL",
-          "name": "_adjacent_prime"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "math_primes"
+          "type": "FIELD",
+          "name": "attachment",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_group"
+                },
+                "named": true,
+                "value": "math"
+              },
+              {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_primed"
+                },
+                "named": true,
+                "value": "math_attach"
+              },
+              {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_any_rebased"
+                },
+                "named": true,
+                "value": "math_attach"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "_math_operand"
+              }
+            ]
+          }
         }
       ]
+    },
+    "_math_any_rebased": {
+      "type": "PREC_LEFT",
+      "value": 2,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "FIELD",
+            "name": "base",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_math_operand"
+            }
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_math_scripts"
+          }
+        ]
+      }
+    },
+    "_math_sub": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "FIELD",
+          "name": "operator",
+          "content": {
+            "type": "STRING",
+            "value": "_"
+          }
+        },
+        {
+          "type": "FIELD",
+          "name": "attachment",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_group"
+                },
+                "named": true,
+                "value": "math"
+              },
+              {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_primed"
+                },
+                "named": true,
+                "value": "math_attach"
+              },
+              {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_sub_rebased"
+                },
+                "named": true,
+                "value": "math_attach"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "_math_operand"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "_math_sup": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "FIELD",
+          "name": "operator",
+          "content": {
+            "type": "STRING",
+            "value": "^"
+          }
+        },
+        {
+          "type": "FIELD",
+          "name": "attachment",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_group"
+                },
+                "named": true,
+                "value": "math"
+              },
+              {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_primed"
+                },
+                "named": true,
+                "value": "math_attach"
+              },
+              {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_sup_rebased"
+                },
+                "named": true,
+                "value": "math_attach"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "_math_operand"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "_math_sub_rebased": {
+      "type": "PREC_LEFT",
+      "value": 2,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "FIELD",
+            "name": "base",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_math_operand"
+            }
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_math_sub"
+          }
+        ]
+      }
+    },
+    "_math_sup_rebased": {
+      "type": "PREC_LEFT",
+      "value": 2,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "FIELD",
+            "name": "base",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_math_operand"
+            }
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_math_sup"
+          }
+        ]
+      }
+    },
+    "_math_primed": {
+      "type": "PREC_LEFT",
+      "value": 2,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "FIELD",
+            "name": "base",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_math_operand"
+            }
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_adjacent_prime"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "math_primes"
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "_math_scripts"
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          }
+        ]
+      }
     },
     "_math_group": {
       "type": "PREC_DYNAMIC",
