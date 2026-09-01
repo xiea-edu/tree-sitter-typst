@@ -173,10 +173,37 @@ export function tsBatchSummary(files) {
 }
 
 /** Parse one file with our parser, returning the raw S-expression text. */
+/**
+ * Thrown when a single-file parse exceeds {@link PARSE_TIMEOUT_MS}.
+ *
+ * Distinguished from an ordinary nonzero exit so callers can report a hang as a hang.
+ * Without this a timeout surfaces as a *partial* tree, which the incremental tier then
+ * reports as a span divergence — blaming the grammar for what is actually a hung CLI.
+ */
+export class ParseTimeout extends Error {
+  constructor(file) {
+    super(`parse exceeded ${PARSE_TIMEOUT_MS}ms: ${file}`);
+    this.name = 'ParseTimeout';
+    this.file = file;
+  }
+}
+
+/**
+ * Ceiling for one single-file parse. Generous — the slowest file in the corpus parses in
+ * well under a second — so this only fires on a genuine hang, never on a slow machine.
+ *
+ * This exists because CI hung for over an hour in the incremental tier with no output:
+ * `execFileSync` has no default timeout, so a CLI that never returns blocks the suite
+ * until the runner's own limit. The batch paths are deliberately not covered, since they
+ * stream the whole corpus through one process and legitimately run for minutes.
+ */
+export const PARSE_TIMEOUT_MS = 60_000;
+
 export function tsParseSexp(file, extraArgs = []) {
   try {
-    return treeSitter(['parse', file, ...extraArgs]);
+    return treeSitter(['parse', file, ...extraArgs], { timeout: PARSE_TIMEOUT_MS });
   } catch (e) {
+    if (e.killed || e.code === 'ETIMEDOUT') throw new ParseTimeout(file);
     // Nonzero exit just means the tree contains ERROR nodes; the tree is still printed.
     return e.stdout ?? '';
   }

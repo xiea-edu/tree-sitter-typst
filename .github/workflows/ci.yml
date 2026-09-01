@@ -8,6 +8,10 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    # A full run takes about two minutes. Without this the default is six hours, and a
+    # single hung parse burns that on all three runners at once — which is exactly what
+    # happened before the parse timeout in the harness was added.
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:

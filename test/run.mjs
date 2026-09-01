@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   ROOT, corpusGroups, oracleBatch, oracleParseText, tsBatchSummary, tsParseSexp,
-  tsParseNodes, parseSexpNodes, color, pct, rel, TS_BIN,
+  tsParseNodes, parseSexpNodes, color, pct, rel, TS_BIN, ParseTimeout,
 } from './lib/harness.mjs';
 import { KIND_MAP, UNMAPPED_OK } from './lib/kind-map.mjs';
 
@@ -451,6 +451,7 @@ function tierIncremental() {
   const base = path.join(ROOT, '.tmp', 'inc-base.typ');
   const edited = path.join(ROOT, '.tmp', 'inc-edited.typ');
   const bad = [];
+  const hangs = [];
   let checked = 0;
 
   for (let i = 0; i < ROUNDS && i < files.length; i++) {
@@ -489,9 +490,21 @@ function tierIncremental() {
     fs.writeFileSync(edited, afterBuf);
 
     // Incremental: parse the original, then apply the edit.
-    const incremental = tsParseSexp(base, ['--edits', `${offset} 0 ${insert}`]);
     // Ground truth: parse the edited text from scratch.
-    const fresh = tsParseSexp(edited);
+    //
+    // A hang is reported as its own failure rather than being allowed to block the run.
+    // The input is recorded because the seed alone will not reproduce it: the file is
+    // chosen by index into the corpus, so a corpus of a different size picks different
+    // files — which is why an hour-long CI hang did not reproduce locally.
+    let incremental, fresh;
+    try {
+      incremental = tsParseSexp(base, ['--edits', `${offset} 0 ${insert}`]);
+      fresh = tsParseSexp(edited);
+    } catch (e) {
+      if (!(e instanceof ParseTimeout)) throw e;
+      hangs.push({ file, offset, insert });
+      continue;
+    }
 
     checked++;
     if (normalizeTree(incremental) === normalizeTree(fresh)) continue;
@@ -510,12 +523,19 @@ function tierIncremental() {
   const real = bad.filter((b) => b.clean);
   const recovery = bad.length - real.length;
 
+  if (hangs.length) {
+    fail(`${hangs.length} parse(s) hung and were killed (seed ${SEED})`);
+    for (const h of hangs.slice(0, SHOW)) {
+      console.log(color.dim(`    ${rel(h.file)} inserting ${JSON.stringify(h.insert)} at byte ${h.offset}`));
+    }
+  }
+
   if (real.length) {
     fail(`${real.length}/${checked} incremental reparses of VALID documents diverged (seed ${SEED})`);
     for (const b of real.slice(0, SHOW)) {
       console.log(color.dim(`    ${rel(b.file)} inserting ${JSON.stringify(b.insert)} at byte ${b.offset}`));
     }
-  } else {
+  } else if (checked) {
     pass(`${checked} edits reparsed identically to a full parse (seed ${SEED})`);
   }
   if (recovery) {
