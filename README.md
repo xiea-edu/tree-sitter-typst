@@ -56,12 +56,58 @@ Against the reference parser, on the full 3,831-file corpus:
 Span agreement splits by group: 98.69% on the 3,519 package files, 100% on the pinned
 set, and 88.59% on Typst's own test suite — which is adversarial by design.
 
-**Known gap.** The remaining disagreements are almost entirely math-mode delimiter
-grouping. Typst opens a nested `Math` scope at any opening delimiter and closes it at the
-end of the equation if the closer never arrives; `math_delimited` here requires a matched
-pair, so an unmatched `<` or `[` produces a flat run where the reference nests. This is
-why the adversarial suite scores lower than real documents. It does not affect which
-tokens receive which capture, so highlighting, folding and indentation are unaffected.
+### Known gaps
+
+Both of the following come from the same place: how math tells an argument list apart
+from a delimited group.
+
+**Delimiter grouping.** The remaining span disagreements are almost entirely math-mode
+delimiter grouping. Typst opens a nested `Math` scope at any opening delimiter and closes
+it at the end of the equation if the closer never arrives; `math_delimited` here requires
+a matched pair, so an unmatched `<` or `[` produces a flat run where the reference nests.
+This is why the adversarial suite scores lower than real documents. It does not affect
+which tokens receive which capture, so highlighting, folding and indentation are
+unaffected.
+
+**Exponential parse on repeated named calls in math.** A run of `name: call(...),` inside
+an equation costs roughly 1.9× per repetition:
+
+```typst
+$
+    name: rgb(abc),     // ×35
+$
+```
+
+| repetitions | parse time |
+| --- | --- |
+| 20 | 29 ms |
+| 25 | 274 ms |
+| 30 | 6.8 s |
+| 35 | does not finish |
+
+All three parts are needed — an identifier, a colon, and a **call** followed by a comma.
+Any one removed and the same input parses in ~16 ms. Closing the equation does not help.
+
+The cause is two ambiguities that sustain each other. `rgb(` may open a call's argument
+list or an identifier followed by a delimited group, and nothing local decides which. The
+scanner emits `math_named_ident` only when `valid_symbols` says an argument list is open,
+so the *only* reason `name:` can be read as a named argument is that the first ambiguity
+is keeping an "inside arguments" parse alive. Neither can be pruned locally, so live
+parses multiply.
+
+This is reachable from real documents: a package with seventeen colour themes of eighteen
+`black: rgb("#000000"),` entries hangs the parser outright once an equation opens above
+them. Editors reparse on every keystroke, so typing `$` above a large dictionary is enough.
+
+A dynamic precedence on `math_call` — the remedy already used for the separators in
+`_math_args` — was tried and reverted: it barely moved the exponent (6.8 s to 5.4 s at
+30 repetitions) and introduced a false reject on `typst-suite/math/root.typ`, taking
+validity agreement from 100% to 99.55%. A real fix means making the call-versus-group
+decision authoritative rather than forked, which is surgery on the rules the validity
+figure rests on.
+
+The test harness caps any single-file parse at 60 seconds and reports the offending input,
+so this degrades to a test failure rather than a hang.
 
 ### Compared with other Typst grammars
 
