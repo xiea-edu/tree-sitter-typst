@@ -1,14 +1,8 @@
 {
   "name": "tree-sitter-typst",
   "version": "0.1.0",
-  "description": "Tree-sitter grammar for the Typst markup language, differential-tested against the real Typst parser",
+  "description": "Tree-sitter grammar for the Typst markup language",
   "license": "MIT",
-  "keywords": [
-    "parser",
-    "lexer",
-    "tree-sitter",
-    "typst"
-  ],
   "files": [
     "grammar.js",
     "tree-sitter.json",
@@ -28,7 +22,6 @@
     "test:queries": "node test/run.mjs queries",
     "oracle:build": "cargo build --release --manifest-path tools/oracle/Cargo.toml",
     "corpus:fetch": "node scripts/fetch-corpus.mjs",
-    "compare": "node scripts/compare-parsers.mjs",
     "parse": "tree-sitter parse"
   },
   "devDependencies": {

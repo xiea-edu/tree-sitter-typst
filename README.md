@@ -1,164 +1,38 @@
 # tree-sitter-typst
 
-A [tree-sitter](https://tree-sitter.github.io) grammar for [Typst](https://typst.app),
-covering all three syntax modes — markup, code and math.
+Tree-sitter grammar for Typst markup, code, and math. The reference parser for
+development is `typst-syntax` 0.15.1.
 
-## Why this is hard
+## Source
 
-Typst resists the usual approach of writing a grammar from the documentation and eyeballing
-the result. Three syntax modes nest into one another arbitrarily (`$#{ [*x*] }$` is valid).
-A token's meaning depends entirely on mode: `*` is bold in markup, multiplication in code,
-and a symbol in math. List nesting is indentation-sensitive. Even within markup the lexing
-is subtle — a text run absorbs a *single* space but stops at two, `/` continues the run
-unless it opens a comment, and `*` is a delimiter between non-word characters but literal
-text inside a word, so `a*b` is text while `*b*` is bold.
-
-Hand-written expectations encode the author's belief about these rules. That belief is
-usually wrong somewhere, and the wrongness is invisible.
-
-## Approach
-
-`typst-syntax` — the parser from the real Typst compiler, pinned to `=0.15.1` — is wired in
-as a **test oracle**. The grammar is checked continuously against the reference
-implementation rather than against expectations written by hand.
-
-Every non-obvious rule in `grammar.js` and `src/scanner.c` carries a comment naming the
-`typst-syntax` function it was transcribed from, so each decision is traceable to the
-reference rather than to a guess.
-
-Testing is tiered, weakest to strongest:
-
-1. **Validity agreement** — does this grammar accept exactly the files the reference
-   accepts? Requires no knowledge of node names, so it ports unchanged to any Typst
-   grammar. Measured in both directions: false rejects *and* false accepts.
-2. **Span agreement** — does every node land on the same byte range as the reference's?
-   Uses an explicit `SyntaxKind` → node-name map (`test/lib/kind-map.mjs`).
-3. **Kind coverage** — every one of the reference parser's kinds must appear in that map
-   or in an explicit "deliberately not modelled" list, so gaps are reported rather than
-   silently passing.
-
-The corpus is 3,831 real documents: 600 packages from Typst Universe plus Typst's own test
-suite, which matters because it includes deliberately-broken files that a correct parser
-must **reject**. Fuzzing and incremental-reparse checks run on top.
-
-## Results
-
-Against the reference parser, on the full 3,831-file corpus:
-
-| | |
-| --- | --- |
-| Validity agreement | **100%** — 0 false rejects, 0 false accepts |
-| Span agreement | 98.87% of files structurally identical (3,751 / 3,794) |
-| `SyntaxKind` coverage | 130 / 130 kinds the corpus produces |
-| Golden tests | 73, all passing |
-| Fuzz / incremental | clean |
-
-Span agreement is 99.15% on the 3,519 package files, 100% on the pinned set, and
-92.93% on the 184 valid files in Typst's own test suite.
-
-An unmatched math opener wraps the rest of its equation in a nested `math` node.
-In `$[ (x ] y$`, the `]` closes the inner `(` to form a `math_delimited` node.
-The outer `[` and the final `y` share the unmatched group. ASCII `<` and `>`
-are ordinary math symbols.
-
-### Known gaps
-
-The remaining 43 files with span differences include markup text, lists, and math
-attachments. For example, the reference wraps `a'!` in a `Math` node covering
-the primed expression and its factorial.
-
-### Repeated calls in equations
-
-Inserting `$` above the color entries in the `ansi-render` package used to hang an
-editor. At each `rgb(...)`, the parser could consume the closing parenthesis as
-argument text and keep the call open across the next entry. The argument grammar
-now follows the stop tokens in Typst’s `math_arg`. A top-level comma or semicolon
-separates arguments, and a right parenthesis closes the call. Nested delimited
-groups keep their own punctuation.
-
-Each row measures a closed equation containing repeated lines of `name: rgb(abc),`
-on Windows. Times are the median of five completed Tree-sitter CLI parses. Each
-process had a five-second timeout.
-
-| Entries | Before | After |
-| ---: | ---: | ---: |
-| 20 | 11.35 ms | 0.15 ms |
-| 25 | 280.52 ms | 0.17 ms |
-| 30 | timed out | 0.20 ms |
-| 35 | timed out | 0.22 ms |
-| 100 | timed out | 0.53 ms |
-| 306 | timed out | 1.43 ms |
-
-On the original package file, inserting the opening dollar at byte 7,493 took
-4.79 ms to reparse incrementally. The old parser exceeded the five-second cap.
-`npm run test:incremental` exercises the edit on a generated 96-entry dictionary
-and compares the completed equation with a fresh parse.
-
-### Compared with other Typst grammars
-
-Validity agreement, same 3,831 files, via `npm run compare`:
-
-| grammar | overall | typst's own suite | false rejects | false accepts |
-| --- | --- | --- | --- | --- |
-| **this grammar** | **100.00%** | **100.00%** | **0** | **0** |
-| [uben0](https://github.com/uben0/tree-sitter-typst) `46cf4ded` | 98.43% | 95.48% | 53 | 7 |
-| [SeniorMars](https://github.com/SeniorMars/tree-sitter-typst) `1acd48c9` | 97.26% | 92.76% | 100 | 5 |
-
-Structural fidelity, on a 150-file sample of the same corpus. This compares **byte spans
-only**, with punctuation and keywords excluded (tree-sitter models those as anonymous
-tokens), so it applies the same rule to every grammar and needs no per-grammar kind map:
-
-| grammar | span agreement | files matching exactly | nodes not in the reference tree |
-| --- | --- | --- | --- |
-| **this grammar** | **99.70%** | **85 / 147** | 3,665 |
-| SeniorMars | 98.10% | 28 / 147 | 27,134 |
-| uben0 | 97.38% | 17 / 147 | 22,156 |
-
-The last column is the clearest separator. Both other grammars introduce a document
-hierarchy the reference parser does not have — headings become containers nesting their
-following content, and paragraph breaks become named nodes — which is a reasonable choice
-for folding and section text objects, but means their trees cannot be checked against
-`typst-syntax` at all.
-
-Reproduce with:
-
-```sh
-npm run corpus:fetch
-npm run oracle:build
-npm run compare -- ../tree-sitter-typst-uben0 ../tree-sitter-typst-seniormars
-```
-
-### Caveats
-
-- The other grammars may target a different Typst version than the pinned 0.15.1 oracle,
-  and constructs newer than their target count against them unfairly.
-- They may have different goals. A grammar aiming only at highlighting can reasonably
-  accept more than the language does.
-- "False accept" is measured against files the real parser rejects, and a corpus of real
-  documents contains few of those — so it is a weaker signal than the false-reject count.
-- The structural table uses a 150-file sample and a metric that works across grammars.
-  The full-corpus span agreement above uses the Typst kind map.
-
-## Usage
-
-Generated `src/parser.c`, `src/grammar.json`, `src/node-types.json` and `src/tree_sitter/`
-are committed, so consumers compile the C directly without running the tree-sitter CLI.
-
-Queries live in `queries/` — `highlights`, `injections`, `locals`, `folds`, `indents`.
+Edit `grammar.js` for syntax rules and `src/scanner.c` for context-sensitive
+tokens. Regenerate the parser after changing the grammar and commit the generated
+files under `src/` with the change. Editors can compile `src/parser.c` and
+`src/scanner.c` directly. Editor queries live in `queries/`.
 
 ## Development
 
+From the repository root, with Node.js, Rust, and a C compiler installed:
+
 ```sh
-npm run build          # tree-sitter generate && tree-sitter build
-npm test               # full suite
-npm run test:valid     # validity agreement only
-npm run test:diff      # span agreement only
-npm run coverage       # SyntaxKind coverage ledger
-node scripts/why.mjs <file.typ>   # explain one file's disagreement
+npm ci
+npm run build
+npm run test:corpus
 ```
 
-Bumping the target Typst version means bumping the `typst-syntax` pin in
-`tools/oracle/Cargo.toml` and re-baselining.
+For differential and incremental checks, build the pinned oracle and fetch the
+test corpus once:
+
+```sh
+npm run oracle:build
+npm run corpus:fetch
+npm test
+```
+
+Use `npm run test:valid` to compare acceptance, `npm run test:diff` to compare
+mapped node spans, and `npm run test:incremental` to compare edited and fresh
+trees. The node mapping is in `test/lib/kind-map.mjs`. To inspect a disagreement
+in one file, run `node scripts/why.mjs <file.typ>`.
 
 ## License
 
