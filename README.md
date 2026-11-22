@@ -30,7 +30,7 @@ npm test
 ```
 
 Use `npm run test:valid` to compare acceptance, `npm run test:diff` to compare
-mapped node spans, and `npm run test:incremental` to compare edited and fresh
+mapped node counts, byte spans, and parents, and `npm run test:incremental` to compare edited and fresh
 trees. The node mapping is in `test/lib/kind-map.mjs`. To inspect a disagreement
 in one file, run `node scripts/why.mjs <file.typ>`.
 

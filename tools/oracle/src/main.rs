@@ -10,20 +10,21 @@ struct Flat {
     start: usize,
     end: usize,
     kind: String,
+    depth: usize,
 }
 
-/// Flatten `n` into pre-order `(start, end, kind)` triples, skipping trivia.
+/// Flatten `n` into pre-order `(start, end, kind, depth)` records, skipping trivia.
 ///
 /// Typst's tree is lossless (every byte is covered by some leaf) but nodes don't carry
 /// absolute offsets, so we thread a running offset through the walk using `len()`.
-fn flatten(n: &SyntaxNode, offset: usize, out: &mut Vec<Flat>) {
+fn flatten(n: &SyntaxNode, offset: usize, depth: usize, out: &mut Vec<Flat>) {
     let kind = n.kind();
     if !kind.is_trivia() {
-        out.push(Flat { start: offset, end: offset + n.len(), kind: format!("{kind:?}") });
+        out.push(Flat { start: offset, end: offset + n.len(), kind: format!("{kind:?}"), depth });
     }
     let mut off = offset;
     for c in n.children() {
-        flatten(c, off, out);
+        flatten(c, off, depth + 1, out);
         off += c.len();
     }
 }
@@ -67,10 +68,10 @@ fn analyze(src: &str) -> (bool, serde_json::Value, serde_json::Value, serde_json
     };
 
     let mut flat = Vec::new();
-    flatten(&root, 0, &mut flat);
+    flatten(&root, 0, 0, &mut flat);
     let nodes: Vec<serde_json::Value> = flat
         .iter()
-        .map(|f| serde_json::json!([f.start, f.end, &f.kind]))
+        .map(|f| serde_json::json!([f.start, f.end, &f.kind, f.depth]))
         .collect();
 
     (errs.is_empty(), to_json(&errs), to_json(&warns), nodes.into())

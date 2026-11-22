@@ -6,6 +6,7 @@
 # Generated parser artifacts: committed (consumers build from these directly) but not
 # worth showing in diffs or counting toward language stats.
 src/parser.c linguist-generated=true
+src/math_unicode.h linguist-generated=true
 src/grammar.json linguist-generated=true
 src/node-types.json linguist-generated=true
 src/tree_sitter/* linguist-vendored=true

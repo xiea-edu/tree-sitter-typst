@@ -111,8 +111,7 @@ $sqrt(2)$
       (math_call
         (math_ident)
         (math_args
-          (math
-            (math_text)))))))
+          (math_text))))))
 
 ================================================================================
 delimited group
@@ -297,42 +296,32 @@ $ frac(
       (math_call
         (math_ident)
         (math_args
-          (math
-            (math_call
-              (math_ident)
-              (math_args
-                (math
-                  (math_text))
-                (named
-                  (ident)
-                  (math
-                    (math_call
-                      (math_ident)
-                      (math_args
-                        (math
-                          (math_text))
-                        (named
-                          (ident)
-                          (math
-                            (math_text))))))))))
-          (math
-            (math_call
-              (math_ident)
-              (math_args
-                (math
-                  (math_text))
-                (named
-                  (ident)
-                  (math
-                    (math_call
-                      (math_ident)
-                      (math_args
-                        (math
-                          (math_text))
-                        (named
-                          (ident)
-                          (math
-                            (math_text)))))))))))))))
+          (math_call
+            (math_ident)
+            (math_args
+              (math_text)
+              (named
+                (ident)
+                (math_call
+                  (math_ident)
+                  (math_args
+                    (math_text)
+                    (named
+                      (ident)
+                      (math_text)))))))
+          (math_call
+            (math_ident)
+            (math_args
+              (math_text)
+              (named
+                (ident)
+                (math_call
+                  (math_ident)
+                  (math_args
+                    (math_text)
+                    (named
+                      (ident)
+                      (math_text))))))))))))
 
 ================================================================================
 only top-level argument punctuation separates and closes a call
@@ -348,21 +337,18 @@ $rgb((a,b); name: x, ..rest), rgb (y)$
       (math_call
         (math_ident)
         (math_args
-          (math
-            (math_delimited
+          (math_delimited
+            (math_text)
+            (math
               (math_text)
-              (math
-                (math_text)
-                (math_text)
-                (math_text))
-              (math_text)))
+              (math_text)
+              (math_text))
+            (math_text))
           (named
             (ident)
-            (math
-              (math_text)))
+            (math_text))
           (spread
-            (math
-              (math_ident)))))
+            (math_ident))))
       (math_text)
       (math_ident)
       (math_delimited
@@ -472,7 +458,10 @@ $(x, cal(A), y)$
         (math
           (math_text)
           (math_text)
-          (math_call (math_ident) (math_args (math (math_text))))
+          (math_call
+            (math_ident)
+            (math_args
+              (math_text)))
           (math_text)
           (math_text))
         (math_text)))))

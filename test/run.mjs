@@ -16,8 +16,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   ROOT, corpusGroups, oracleBatch, oracleParseText, tsBatchSummary, tsParseSexp,
-  tsParseNodes, parseSexpNodes, color, pct, rel, TS_BIN, ParseTimeout,
+  spanTrees, parseSexpNodes, color, pct, rel, TS_BIN, ParseTimeout,
 } from './lib/harness.mjs';
+import { compareSpans } from './lib/spans.mjs';
 import { KIND_MAP, UNMAPPED_OK } from './lib/kind-map.mjs';
 
 /*
@@ -197,16 +198,10 @@ function tierDiff() {
     const ours = tsBatchSummary(g.files);
     let compared = 0, matching = 0;
 
-    for (const file of g.files) {
-      const key = path.resolve(file);
-      const o = oracle.get(key), t = ours.get(key);
-      if (!o || !t || !o.ok || !t.ok) continue;
-
+    const validFiles = g.files.filter(file => oracle.get(file)?.ok && ours.get(file)?.ok);
+    for (const [file, tree] of spanTrees(validFiles)) {
       const buf = fs.readFileSync(file);
-      const mine = tsParseNodes(file, buf);
-      const theirs = o.nodes;
-
-      const diff = compareSpans(theirs, mine, buf);
+      const diff = compareSpans(oracle.get(file).nodes, parseSexpNodes(tree, buf), buf);
       filesCompared++;
       compared++;
       if (diff.length === 0) { filesMatching++; matching++; }
@@ -255,103 +250,6 @@ function tierDiff() {
     checkThreshold('pinned span agreement', pinned.matching / pinned.compared,
                    THRESHOLDS.pinnedSpanAgreement);
   }
-}
-
-/**
- * Compare two flat node lists. Returns human-readable difference descriptions.
- * Kinds typst produces that we deliberately do not model are listed in UNMAPPED_OK.
- */
-/**
- * Container kinds whose extent includes surrounding trivia in typst but not in ours.
- *
- * Typst's CST is lossless, so the `Markup` inside `[With ]` covers the trailing space
- * and the one inside `[\n  body\n]` covers both newlines. tree-sitter derives a node's
- * extent from its child tokens and leaves `extras` outside, so ours starts and ends at
- * the content. The structure is identical; only trivia ownership differs, so these are
- * compared against the whitespace-trimmed span as well as the literal one.
- */
-const TRIVIA_OWNING = new Set(['Markup', 'Code']);
-
-function compareSpans(theirs, mine, buf) {
-  /*
-   * The root is normalized to the whole file before comparing.
-   *
-   * tree-sitter's root node begins at its first child, and leading *whitespace* is never
-   * a child — a leading comment is, being a named node, but blank lines are not. So a
-   * file starting with a newline gets a `source_file` that begins at byte 1 while typst's
-   * `Markup` begins at 0. No grammar can change that; it is a property of the tree format.
-   * Requiring the two to agree would be measuring something unrepresentable rather than
-   * anything about this grammar, so the root alone is compared on the file's full extent.
-   */
-  const have = new Set(mine.map((n) =>
-    n.kind === 'source_file' ? `0:${buf.length}:source_file`
-                             : `${n.start}:${n.end}:${n.kind}`));
-  const out = [];
-
-  /** True when no non-trivia node of typst's own lies inside this span. */
-  const holdsOnlyTrivia = (start, end) =>
-    !theirs.some(([s, e]) => s >= start && e <= end && !(s === start && e === end));
-
-  /*
-   * Typst splits a raw block's contents into one `Text` per line, after working out a
-   * common dedent and emitting `RawTrimmed` nodes for the whitespace it removed. That is
-   * a presentation decision about how the block will be laid out, not syntax an editor
-   * needs, so we model the block as delimiters, an optional language tag and one content
-   * span — and exclude typst's inner segmentation here rather than chase it.
-   */
-  const rawRanges = theirs.filter(([, , k]) => k === 'Raw').map(([s, e]) => [s, e]);
-  const insideRaw = (start, end) =>
-    rawRanges.some(([s, e]) => start >= s && end <= e && !(start === s && end === e));
-
-  /**
-   * The extent of a container's actual content, taken from typst's own children.
-   *
-   * Trimming whitespace off the reported span is not enough, because a content block may
-   * open with comments: in `[\n  // note\n  #f()\n]` typst's `Markup` starts at the
-   * newline while ours starts at `#f()`. The oracle has already dropped trivia — spaces
-   * and comments alike — so the span covered by the remaining children is precisely what
-   * our node should cover.
-   */
-  const innerExtent = (start, end) => {
-    let s = Infinity, e = -Infinity;
-    for (const [a, b] of theirs) {
-      if (a >= start && b <= end && !(a === start && b === end)) {
-        if (a < s) s = a;
-        if (b > e) e = b;
-      }
-    }
-    return s <= e ? [s, e] : null;
-  };
-
-  for (const [start, end, kind] of theirs) {
-    const mapped = KIND_MAP[kind];
-    if (mapped === null || mapped === undefined || UNMAPPED_OK.has(kind)) continue;
-
-    // Typst's CST is lossless, so it wraps positions that hold nothing but trivia: an
-    // empty content block still contains a zero-width `Markup`, and `[ ]` contains a
-    // `Markup` around just the space. tree-sitter models neither, and not modelling them
-    // is correct rather than a structural difference.
-    if (start === end) continue;
-    if (kind === 'Markup' && holdsOnlyTrivia(start, end)) continue;
-    if (insideRaw(start, end)) continue;
-
-    // An array of names means "any one of these is acceptable at this span" — used where
-    // one typst kind legitimately corresponds to more than one of our nodes, e.g.
-    // `Markup` is our `source_file` at the root and our `markup` when nested.
-    const names = [].concat(mapped);
-    const hit = (s, e) => names.some((name) => have.has(`${s}:${e}:${name}`));
-
-    if (hit(start, end)) continue;
-
-    // Only if the literal span misses is the trivia-adjusted one worth computing.
-    if (TRIVIA_OWNING.has(kind)) {
-      const inner = innerExtent(start, end);
-      if (inner && hit(inner[0], inner[1])) continue;
-    }
-
-    out.push(`${kind} at ${start}..${end} -> expected ${names.join('|')}`);
-  }
-  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -753,6 +651,7 @@ switch (cmd) {
     generate();
     tierQueries();
     tierGolden();
+    execFileSync(process.execPath, ['--test', 'test/regressions.mjs'], { cwd: ROOT, stdio: 'inherit' });
     tierValid();
     tierDiff();
     tierFuzz();

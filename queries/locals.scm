@@ -25,7 +25,7 @@
 (for_loop pattern: (destructuring (ident) @local.definition.var))
 
 ; Imported names become bindings in the importing file.
-(import_item_path (ident) @local.definition.import)
+(import_items (import_item_path (ident) @local.definition.import .))
 (renamed_import_item new_name: (ident) @local.definition.import)
 (module_import alias: (ident) @local.definition.import)
 

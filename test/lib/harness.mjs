@@ -7,8 +7,8 @@
  *
  * Neither native node bindings nor a WASM build are available on this machine (no MSVC
  * toolchain for node-gyp, no emcc/docker for wasm), so we drive the tree-sitter CLI and
- * parse its output. The CLI batches via `--paths`, so this costs two processes for the
- * whole corpus rather than two per file.
+ * parse its output. The CLI batches via `--paths`, so this costs two processes per group for the
+ * validity check. Span checks read bounded batches of named trees.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -77,7 +77,7 @@ export function ensureOracle() {
 
 /**
  * Run the reference parser over `files`.
- * @returns {Map<string, {ok: boolean, len: number, errors: any[], nodes: [number,number,string][]}>}
+ * @returns {Map<string, {ok: boolean, len: number, errors: any[], nodes: [number,number,string,number][]}>}
  */
 export function oracleBatch(files) {
   ensureOracle();
@@ -209,6 +209,68 @@ export function tsParseSexp(file, extraArgs = [], timeout = PARSE_TIMEOUT_MS) {
   }
 }
 
+// A successful parse prints one named node per line and no source literals.
+// Check the nesting before accepting output that might end partway through a tree.
+function completeTree(tree) {
+  let open = 0;
+  for (let i = 0; i < tree.length; i++) {
+    if (tree[i] === '(') open++;
+    if (tree[i] === ')' && --open === 0) return i === tree.length - 1;
+  }
+  return false;
+}
+
+/** Decode the CLI's --time records. Each tree ends with the path that produced it. */
+export function decodeSpanBatch(stdout, files) {
+  const trees = new Map();
+  const footer = /^([^\r\n]+?) *\tParse:[^\r\n]*\r?$/gm;
+  let start = 0;
+  for (const match of stdout.matchAll(footer)) {
+    const file = files[trees.size];
+    const tree = stdout.slice(start, match.index).trim();
+    if (!file || path.resolve(match[1]) !== path.resolve(file) ||
+        !tree.startsWith('(source_file [') || !completeTree(tree)) {
+      throw new Error('unexpected tree or path in span batch at ' + file);
+    }
+    trees.set(file, tree);
+    start = match.index + match[0].length;
+  }
+  if (trees.size !== files.length || stdout.slice(start).trim()) {
+    throw new Error('incomplete span batch');
+  }
+  return trees;
+}
+
+function parseSpanBatch(files) {
+  const list = path.join(TMP, 'span-paths-' + process.pid + '.txt');
+  fs.writeFileSync(list, files.join('\n'));
+  try {
+    return decodeSpanBatch(treeSitter(['parse', '--time', '--paths', list], {
+      timeout: PARSE_TIMEOUT_MS, maxBuffer: 32 * 1024 * 1024,
+    }), files);
+  } finally {
+    fs.rmSync(list, { force: true });
+  }
+}
+
+/** Split failed batches until a failing input can be identified by path. */
+export function* spanTrees(files, parse = parseSpanBatch) {
+  function* read(batch) {
+    let result;
+    try {
+      result = parse(batch);
+    } catch (cause) {
+      if (batch.length === 1) throw new Error('could not read span tree for ' + batch[0], { cause });
+      const mid = Math.floor(batch.length / 2);
+      yield* read(batch.slice(0, mid));
+      yield* read(batch.slice(mid));
+      return;
+    }
+    yield* result;
+  }
+  for (let i = 0; i < files.length; i += 32) yield* read(files.slice(i, i + 32));
+}
+
 /** Parse one file and return its nodes as flat pre-order records with byte offsets. */
 export function tsParseNodes(file, sourceBuf) {
   return parseSexpNodes(tsParseSexp(file), sourceBuf);
@@ -253,13 +315,14 @@ export function parseSexpNodes(text, sourceBuf) {
   const toByte = makeLineIndex(sourceBuf);
   const nodes = [];
   // (name [r, c] - [r, c]
-  const re = /\(([A-Za-z_][A-Za-z0-9_]*|ERROR|MISSING|UNEXPECTED)\s+\[(\d+),\s*(\d+)\]\s*-\s*\[(\d+),\s*(\d+)\]/g;
+  const re = /^( *)(?:[a-z_]+: )?\(([A-Za-z_][A-Za-z0-9_]*|ERROR|MISSING|UNEXPECTED)\s+\[(\d+),\s*(\d+)\]\s*-\s*\[(\d+),\s*(\d+)\]/gm;
   let m;
   while ((m = re.exec(text)) !== null) {
     nodes.push({
-      kind: m[1],
-      start: toByte(+m[2], +m[3]),
-      end: toByte(+m[4], +m[5]),
+      depth: m[1].length / 2,
+      kind: m[2],
+      start: toByte(+m[3], +m[4]),
+      end: toByte(+m[5], +m[6]),
     });
   }
   return nodes;

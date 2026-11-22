@@ -36,14 +36,14 @@ enum TokenType {
   ATOMIC_END,
   STMT_END,
   BARE_RETURN,
-  NOT_IN_COMMENT,
+  NOT_IN,
   HEADING_END,
   LINE_END,
   CODE_SEP,
   NUMBER_INT,
   NUMBER_FLOAT,
   NUMBER_NUMERIC,
-  BLOCK_COMMENT,
+  BLOCK_COMMENT_BODY,
   MATH_DOT,
   MATH_ADJACENT,
   MATH_BANG,
@@ -56,6 +56,12 @@ enum TokenType {
   ADJACENT_PRIME,
   LINK,
   MATH_NAMED_IDENT,
+  MATH_SPREAD_DOTS,
+  MATH_NAME_HEAD,
+  MATH_ALPHA_CLUSTER,
+  MATH_OTHER_CLUSTER,
+  SHEBANG,
+  LET_NAME_AHEAD,
   NON_ASCII_SPACE,
   MATH_ADJACENT_BRACE,
   ERROR_SENTINEL,
@@ -449,11 +455,43 @@ static bool is_wordy(int32_t c) {
   return true;
 }
 
-/* Typst identifiers continue on XID_Continue, `_` and `-`. `is_alnum` is a practical
- * stand-in for XID_Continue here; the exact Unicode tables only matter for identifiers
- * in code mode, which the grammar handles with a real property escape. */
+enum GraphemeCategory {
+  GC_Any, GC_CR, GC_Control, GC_Extend, GC_Extended_Pictographic, GC_InCB_Consonant,
+  GC_L, GC_LF, GC_LV, GC_LVT, GC_Prepend, GC_Regional_Indicator, GC_SpacingMark,
+  GC_T, GC_V, GC_ZWJ,
+};
+
+typedef struct {
+  uint32_t start;
+  uint8_t category, flags;
+} MathCharRange;
+enum { XID_START = 1, XID_CONTINUE = 2, INCB_EXTEND = 4, INCB_LINKER = 8 };
+
+#include "math_unicode.h"
+
+static MathCharRange math_char(int32_t c) {
+  if (c < 128) {
+    unsigned flags = 0;
+    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) flags = XID_START | XID_CONTINUE;
+    else if ((c >= '0' && c <= '9') || c == '_') flags = XID_CONTINUE;
+    return (MathCharRange){0, (c < 32 || c == 127) ? GC_Control : GC_Any, flags};
+  }
+  size_t lo = 0, hi = sizeof(MATH_CHAR_RANGES) / sizeof(MATH_CHAR_RANGES[0]);
+  while (lo + 1 < hi) {
+    size_t mid = lo + (hi - lo) / 2;
+    if ((uint32_t)c < MATH_CHAR_RANGES[mid].start) hi = mid;
+    else lo = mid;
+  }
+  return MATH_CHAR_RANGES[lo];
+}
+
+static bool is_newline(int32_t c) {
+  return c == '\n' || c == '\r' || c == 0x0b || c == 0x0c ||
+         c == 0x85 || c == 0x2028 || c == 0x2029;
+}
+
 static inline bool is_id_continue(int32_t c) {
-  return is_alnum(c) || c == '_' || c == '-';
+  return c == '-' || (math_char(c).flags & XID_CONTINUE);
 }
 
 /* Valid inside `<label>` and after `@`: identifier characters plus `:` and `.`. */
@@ -518,8 +556,8 @@ static void scan_block_comment_body(TSLexer *lexer);
  *
  * That is typst's `AtNewline::RequireColumn`: an item's body runs on while following
  * lines stay indented past the marker, so a continuation line and a nested list both end
- * up inside the item rather than beside it. A blank line ends it regardless — a parbreak
- * closes every item — and so does running out of file.
+ * up inside the item rather than beside it. Blank lines defer the indentation decision
+ * until the next content line.
  *
  * Consumes nothing the caller keeps: every caller marks its end first.
  */
@@ -547,14 +585,14 @@ static bool next_line_continues_item(TSLexer *lexer, const Scanner *scanner) {
   if (scanner->depth == 0) return false;
   const uint8_t marker_column = scanner->columns[scanner->depth - 1];
 
-  // Step over the break itself. A second one is a parbreak, which ends every open item.
+  // Blank lines belong to the item when the next content line is indented.
   if (lexer->lookahead != 0x0A) return false;
   skip(lexer);
 
   uint32_t indent = 0;
   for (;;) {
     if (lexer->eof(lexer)) return false;
-    if (lexer->lookahead == 0x0A) return false;  // blank line: parbreak
+    if (lexer->lookahead == 0x0A) { indent = 0; skip(lexer); continue; }
     if (lexer->lookahead == 0x20) { indent++; skip(lexer); continue; }
     if (lexer->lookahead == 0x09) { indent += 2; skip(lexer); continue; }
     if (lexer->lookahead == 0x0D) { skip(lexer); continue; }
@@ -573,7 +611,7 @@ static bool next_line_continues_item(TSLexer *lexer, const Scanner *scanner) {
  *
  * Only for terminators that mark their end first. A caller that might *decline* after
  * this has consumed a comment would throw the comment away with its own progress — see
- * `emit_block_comment` for that case.
+ * the built-in comment opener for that case.
  */
 typedef enum {
   TRAILER_ENDS,       // only blanks and comments remain on this line
@@ -581,7 +619,7 @@ typedef enum {
   TRAILER_ATE_SLASH,  // the line continues, but a `/` was eaten to find that out
 } Trailer;
 
-static Trailer at_line_trailer_or_comment(TSLexer *lexer) {
+static Trailer at_line_trailer_or_comment(TSLexer *lexer, bool *saw_comment) {
   for (;;) {
     if (at_line_trailer(lexer)) return TRAILER_ENDS;
     if (lexer->lookahead != '/') return TRAILER_CLEAN;
@@ -592,20 +630,26 @@ static Trailer at_line_trailer_or_comment(TSLexer *lexer) {
     // throwing the slash away.
     advance(lexer);
     if (lexer->lookahead == '/') {
+      *saw_comment = true;
       while (!lexer->eof(lexer) && lexer->lookahead != '\n') advance(lexer);
       return TRAILER_ENDS;  // a line comment runs to the break, so the line ends here
     }
     if (lexer->lookahead != '*') return TRAILER_ATE_SLASH;
     advance(lexer);
     scan_block_comment_body(lexer);
+    *saw_comment = true;
   }
 }
 
 /* Typst's `space_or_end`: end of file, whitespace, or the start of a comment. */
 static bool at_space_or_end(TSLexer *lexer) {
-  if (lexer->eof(lexer)) return true;
-  if (is_space(lexer->lookahead)) return true;
-  return lexer->lookahead == '/';  // `//` or `/*`; either way the marker ends here
+  // Keep the token boundary before any lookahead into a comment.
+  lexer->mark_end(lexer);
+  if (lexer->eof(lexer) || is_space(lexer->lookahead) ||
+      is_non_ascii_space(lexer->lookahead)) return true;
+  if (lexer->lookahead != '/') return false;
+  advance(lexer);
+  return lexer->lookahead == '/' || lexer->lookahead == '*';
 }
 
 // ---------------------------------------------------------------------------
@@ -772,7 +816,6 @@ static bool slash_tail(TSLexer *lexer, const bool *valid_symbols) {
 static bool emit_marker_or_text(TSLexer *lexer, unsigned marker, unsigned start_marker,
                                 const bool *valid_symbols, bool at_line_start,
                                 Scanner *scanner, uint32_t column) {
-  lexer->mark_end(lexer);
 
   /*
    * The block-start variant needs no column test at all. The grammar offers it in exactly
@@ -885,49 +928,33 @@ static bool scan_link_body(TSLexer *lexer) {
  * Returns the token kind through `*kind_out`; the caller sets `result_symbol`.
  */
 static bool scan_number(TSLexer *lexer, int32_t first, unsigned *kind_out) {
-  char buf[64];
-  unsigned len = 0;
-  bool overflow = false;
-
-/*
- * Both buffers are bytes, but the run they collect is alphanumeric in the Unicode
- * sense, so a code point above ASCII would be truncated into one — and truncation
- * aliases: `(char)0x130` is `0x30`, which would let `0xİ` validate as the hex
- * digit `0`, accepting a number typst rejects. Non-ASCII is folded to DEL instead,
- * which is neither a hex digit nor a character in any unit, so the run still reaches
- * validation at its true length and still fails there.
- */
-#define BYTE(c) ((char)((c) > 127 ? 0x7F : (c)))
-#define PUSH(c) do { if (len < sizeof(buf) - 1) buf[len++] = BYTE(c); else overflow = true; } while (0)
-
   unsigned base = 10;
-
-  // `first` has already been consumed by the caller.
-  PUSH(first);
-
   if (first == '0') {
     switch (lexer->lookahead) {
       case 'b': base = 2; break;
       case 'o': base = 8; break;
       case 'x': base = 16; break;
-      default: break;
     }
-    if (base != 10) {
-      PUSH(lexer->lookahead);
-      advance(lexer);
-    }
+    if (base != 10) advance(lexer);
   }
 
-  // Digits. Hex takes any alphanumeric so that a bad digit lands inside the number and
-  // is reported, rather than being split off as a separate identifier.
-  if (base == 16) {
-    while (is_alnum(lexer->lookahead)) { PUSH(lexer->lookahead); advance(lexer); }
-  } else {
-    while (lexer->lookahead >= '0' && lexer->lookahead <= '9') {
-      PUSH(lexer->lookahead);
-      advance(lexer);
-    }
+  uint64_t value = first == '.' ? 0 : (uint64_t)(first - '0');
+  bool out_of_range = false;
+  bool has_digit = base == 10;
+  for (;;) {
+    int32_t c = lexer->lookahead;
+    unsigned digit;
+    if (c >= '0' && c <= '9') digit = (unsigned)(c - '0');
+    else if (base == 16 && c >= 'A' && c <= 'F') digit = (unsigned)(c - 'A' + 10);
+    else if (base == 16 && c >= 'a' && c <= 'f') digit = (unsigned)(c - 'a' + 10);
+    else break;
+    if (digit >= base) return false;
+    if (value > ((uint64_t)INT64_MAX - digit) / base) out_of_range = true;
+    else value = value * base + digit;
+    advance(lexer);
+    has_digit = true;
   }
+  if (!has_digit || (base != 10 && out_of_range)) return false;
 
   bool is_float = (first == '.');
   bool exponent_digits = true;
@@ -954,9 +981,7 @@ static bool scan_number(TSLexer *lexer, int32_t first, unsigned *kind_out) {
         goto finish;
       }
       is_float = true;
-      PUSH('.');
       while (lexer->lookahead >= '0' && lexer->lookahead <= '9') {
-        PUSH(lexer->lookahead);
         advance(lexer);
       }
     }
@@ -972,14 +997,11 @@ static bool scan_number(TSLexer *lexer, int32_t first, unsigned *kind_out) {
         advance(lexer);
       } else {
         is_float = true;
-        PUSH(marker);
         if (lexer->lookahead == '+' || lexer->lookahead == '-') {
-          PUSH(lexer->lookahead);
           advance(lexer);
         }
         exponent_digits = false;
         while (lexer->lookahead >= '0' && lexer->lookahead <= '9') {
-          PUSH(lexer->lookahead);
           advance(lexer);
           exponent_digits = true;
         }
@@ -988,16 +1010,13 @@ static bool scan_number(TSLexer *lexer, int32_t first, unsigned *kind_out) {
   }
 
   while (is_alnum(lexer->lookahead) || lexer->lookahead == '%') {
-    if (slen < sizeof(suffix) - 1) suffix[slen++] = BYTE(lexer->lookahead);
-    else overflow = true;
+    if (slen == sizeof(suffix) - 1 || lexer->lookahead > 127) return false;
+    suffix[slen++] = (char)lexer->lookahead;
     advance(lexer);
   }
 
 finish:
   suffix[slen] = '\0';
-  buf[len] = '\0';
-
-  if (overflow) return false;
 
   // An incomplete exponent (`1e`, `2E+`) is not a number at all.
   if (!exponent_digits) return false;
@@ -1014,38 +1033,14 @@ finish:
     if (base != 10) return false;
   }
 
-  if (base != 10) {
-    // Every digit must be legal for the base, and there must be at least one.
-    if (len <= 2) return false;
-    for (unsigned i = 2; i < len; i++) {
-      unsigned d;
-      char ch = buf[i];
-      if (ch >= '0' && ch <= '9') d = (unsigned)(ch - '0');
-      else if (ch >= 'a' && ch <= 'f') d = (unsigned)(ch - 'a' + 10);
-      else if (ch >= 'A' && ch <= 'F') d = (unsigned)(ch - 'A' + 10);
-      else return false;
-      if (d >= base) return false;
-    }
-  }
-
-  // A decimal integer too large for an i64 is a float in typst, not an error.
-  if (base == 10 && !is_float && !has_suffix) {
-    unsigned i = 0;
-    while (i + 1 < len && buf[i] == '0') i++;
-    unsigned digits = len - i;
-    if (digits > 19 || (digits == 19 && strcmp(buf + i, "9223372036854775807") > 0)) {
-      is_float = true;
-    }
-  }
+  // Decimal integers outside the signed range fall back to Float.
+  if (out_of_range) is_float = true;
 
   // When the scan stopped at a dot that turned out to belong to a field access, the end
   // is already marked before it and must not be extended.
   if (!ended_early) lexer->mark_end(lexer);
   *kind_out = has_suffix ? NUMBER_NUMERIC : (is_float ? NUMBER_FLOAT : NUMBER_INT);
   return true;
-
-#undef PUSH
-#undef BYTE
 }
 
 /*
@@ -1066,32 +1061,6 @@ static void scan_block_comment_body(TSLexer *lexer) {
     else if (prev == '/' && c == '*') { depth++; prev = 0; }
     else prev = c;
   }
-}
-
-/*
- * Emit a block comment if one starts at the current position.
- *
- * The zero-width terminators have to look *past* comments to judge what follows, because
- * a comment is pure trivia: a binding whose value has a comment before the `+ 2` is still
- * a single expression, and typst ends it after the 2. Looking past one means consuming it,
- * though, and a scanner
- * that then declines throws the comment away along with its own progress — leaving the
- * built-in lexer to re-read the opener as division and multiplication. Nothing else can
- * supply the token, since `block_comment` is external.
- *
- * So the terminator emits the comment instead and is re-examined on the far side, which
- * is where the decision belonged anyway. Consumes the `/` either way; callers return
- * false on a miss, which discards it.
- */
-static bool emit_block_comment(TSLexer *lexer, const bool *valid_symbols) {
-  if (!valid_symbols[BLOCK_COMMENT] || lexer->lookahead != '/') return false;
-  advance(lexer);
-  if (lexer->lookahead != '*') return false;
-  advance(lexer);
-  scan_block_comment_body(lexer);
-  lexer->mark_end(lexer);
-  lexer->result_symbol = BLOCK_COMMENT;
-  return true;
 }
 
 /*
@@ -1118,7 +1087,6 @@ typedef enum {
   SEP_NONE,       // not a separator; only blanks consumed, so the caller may continue
   SEP_YES,        // emit the separator
   SEP_CONTINUES,  // the expression carries on; decline outright
-  SEP_COMMENT,    // a block comment came first: emit it and judge again beyond it
 } SepVerdict;
 
 static SepVerdict scan_code_sep(TSLexer *lexer) {
@@ -1149,8 +1117,7 @@ static SepVerdict scan_code_sep(TSLexer *lexer) {
         // free: starting over on the far side means the comment's own newlines never
         // count as the separator, so `{ 1 /* \n */ 2 }` stays an error.
         advance(lexer);
-        scan_block_comment_body(lexer);
-        return SEP_COMMENT;
+        return SEP_CONTINUES;
       }
       // A bare `/` is division, which continues the expression on the same line but
       // cannot reach back across a line break.
@@ -1354,6 +1321,94 @@ static bool is_math_open(int32_t c) {
   }
 }
 
+// UAX #29 extended grapheme breaks, starting at the first scalar of a math atom.
+static bool joins_cluster(unsigned prev, unsigned next, bool regional_pair,
+                          bool emoji_zwj, bool indic_linked) {
+  if (prev == GC_Control || prev == GC_CR || prev == GC_LF ||
+      next == GC_Control || next == GC_CR || next == GC_LF) return false;
+  if (prev == GC_L && (next == GC_L || next == GC_V || next == GC_LV || next == GC_LVT)) return true;
+  if ((prev == GC_LV || prev == GC_V) && (next == GC_V || next == GC_T)) return true;
+  if ((prev == GC_LVT || prev == GC_T) && next == GC_T) return true;
+  return next == GC_Extend || next == GC_ZWJ || next == GC_SpacingMark || prev == GC_Prepend ||
+         (next == GC_InCB_Consonant && indic_linked) ||
+         (next == GC_Extended_Pictographic && emoji_zwj) ||
+         (next == GC_Regional_Indicator && regional_pair);
+}
+
+// Punctuation with a dedicated lexer branch cannot begin an extended MathText.
+static bool math_cluster_start(int32_t c) {
+  if (c <= 0 || is_space(c) || is_non_ascii_space(c) || is_math_open(c)) return false;
+  if (c < 128) return !strchr("\\\"-!.',;#_$/^&()]}*~", c) && !(c >= '0' && c <= '9');
+  switch (c) {
+    case 0x221A: case 0x221B: case 0x221C:
+    case 0x2309: case 0x230B: case 0x231D: case 0x231F: case 0x23B1:
+    case 0x2773: case 0x27C6: case 0x27E7: case 0x27E9: case 0x27EB:
+    case 0x27ED: case 0x27EF: case 0x2984: case 0x2986: case 0x2988:
+    case 0x298A: case 0x298C: case 0x298E: case 0x2990: case 0x2992:
+    case 0x2994: case 0x2996: case 0x2998: case 0x29D9: case 0x29DB: case 0x29FD:
+      return false;
+    default: return !UC_IN(UC_NUMERIC, c) || (math_char(c).flags & XID_START);
+  }
+}
+
+static bool scan_math_atom(TSLexer *lexer, const bool *valid) {
+  int32_t first = lexer->lookahead;
+  MathCharRange cur = math_char(first);
+  bool can_name = valid[MATH_NAMED_IDENT] && ((cur.flags & XID_START) || first == '_');
+  bool alpha = is_alpha(first);
+  bool multi = false, indic_consonant = false, indic_linked = false;
+  bool pictographic = false, emoji_zwj = false, regional_pair = false;
+  advance(lexer);
+  MathCharRange next = math_char(lexer->lookahead);
+  // Typst first lexes an XID run. If that run is one grapheme it becomes MathText.
+  bool id_run = (cur.flags & XID_START) && (next.flags & XID_CONTINUE) && lexer->lookahead != '_';
+  for (;;) {
+    unsigned prev = cur.category;
+    regional_pair = prev == GC_Regional_Indicator && !regional_pair;
+    emoji_zwj = prev == GC_ZWJ && pictographic;
+    pictographic = prev == GC_Extended_Pictographic || (prev == GC_Extend && pictographic);
+    if (prev == GC_InCB_Consonant) {
+      indic_consonant = true;
+      indic_linked = false;
+    } else if (cur.flags & INCB_LINKER) {
+      indic_linked = indic_consonant;
+    } else if (!(cur.flags & INCB_EXTEND)) {
+      indic_consonant = indic_linked = false;
+    }
+    if (first == '_' || lexer->eof(lexer) ||
+        (id_run && (!(next.flags & XID_CONTINUE) || lexer->lookahead == '_')) ||
+        !joins_cluster(prev, next.category, regional_pair, emoji_zwj, indic_linked)) break;
+    multi = true;
+    can_name = can_name && (next.flags & XID_CONTINUE);
+    alpha = alpha && is_alpha(lexer->lookahead);
+    cur = next;
+    advance(lexer);
+    next = math_char(lexer->lookahead);
+  }
+
+  bool ident = id_run && (next.flags & XID_CONTINUE) && lexer->lookahead != '_';
+  lexer->mark_end(lexer);
+  if (can_name) {
+    // The mark preserves the first grapheme if there is no colon. A longer name
+    // uses an immediate suffix so probing the colon never changes its byte span.
+    bool has_tail = is_id_continue(lexer->lookahead);
+    while (is_id_continue(lexer->lookahead)) advance(lexer);
+    if (lexer->lookahead == ':') {
+      advance(lexer);
+      if (lexer->lookahead == ':') advance(lexer);
+      if (lexer->lookahead != '=' && (first != '_' || has_tail)) {
+        lexer->result_symbol = has_tail ? MATH_NAME_HEAD : MATH_NAMED_IDENT;
+        return true;
+      }
+    }
+  }
+
+  unsigned token = alpha ? MATH_ALPHA_CLUSTER : MATH_OTHER_CLUSTER;
+  if (!multi || ident || !valid[token]) return false;
+  lexer->result_symbol = token;
+  return true;
+}
+
 static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols);
 
 bool tree_sitter_typst_external_scanner_scan(void *payload, TSLexer *lexer,
@@ -1367,6 +1422,19 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
   // whitespace-sensitive tokens there does more harm than letting the built-in lexer
   // resynchronize.
   if (valid_symbols[ERROR_SENTINEL]) return false;
+
+  if (valid_symbols[BLOCK_COMMENT_BODY]) {
+    scan_block_comment_body(lexer);
+    lexer->result_symbol = BLOCK_COMMENT_BODY;
+    return true;
+  }
+  if (valid_symbols[SHEBANG] && lexer->get_column(lexer) == 0 && lexer->lookahead == '#') {
+    advance(lexer);
+    if (lexer->lookahead != '!') return false;
+    while (!lexer->eof(lexer) && !is_newline(lexer->lookahead)) advance(lexer);
+    lexer->result_symbol = SHEBANG;
+    return true;
+  }
 
   /*
    * Zero-width: a `'` follows with nothing in between, which is what makes it attach.
@@ -1477,12 +1545,13 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
    * keeps the label inside — so this needs its own token rather than an extra case on
    * LINE_END.
    */
+  bool saw_comment = false;
   if (valid_symbols[HEADING_END]) {
     // Mark first: the probe consumes blanks and any trailing comment, and the terminator
     // must sit at the true end of the heading — before the space preceding a label, and
     // before a `// note`, which typst leaves outside the `Heading` as trivia.
     lexer->mark_end(lexer);
-    Trailer t = at_line_trailer_or_comment(lexer);
+    Trailer t = at_line_trailer_or_comment(lexer, &saw_comment);
     if (t == TRAILER_ENDS || lexer->lookahead == ']' || lexer->lookahead == '<') {
       lexer->result_symbol = HEADING_END;
       return true;
@@ -1491,6 +1560,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     // declining, which would discard it and leave the run with no token at all — and
     // finish it the same way the main dispatch would: a spaced `/` is a text node of its
     // own, mid-line, while `a/b` keeps the run going.
+    if (saw_comment) return false;
     if (t == TRAILER_ATE_SLASH) return slash_tail(lexer, valid_symbols);
   }
 
@@ -1509,7 +1579,8 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
 
     Trailer t = TRAILER_ENDS;
     if (lexer->lookahead != '\n') {
-      t = at_line_trailer_or_comment(lexer);
+      t = at_line_trailer_or_comment(lexer, &saw_comment);
+      if (saw_comment && t != TRAILER_ENDS) return false;
       if (t == TRAILER_ATE_SLASH) return slash_tail(lexer, valid_symbols);
       if (lexer->lookahead == ']') {
         if (scanner->depth) scanner->depth--;
@@ -1533,6 +1604,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
        * the marker checks that depend on it.
        */
       if (next_line_continues_item(lexer, scanner)) {
+        if (saw_comment) return false;
         continued_item = true;
       } else {
         if (scanner->depth) scanner->depth--;
@@ -1599,11 +1671,6 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     switch (scan_code_sep(lexer)) {
       case SEP_YES:       lexer->result_symbol = CODE_SEP; return true;
       case SEP_CONTINUES: return false;
-      case SEP_COMMENT:
-        if (!valid_symbols[BLOCK_COMMENT]) return false;
-        lexer->mark_end(lexer);
-        lexer->result_symbol = BLOCK_COMMENT;
-        return true;
       case SEP_NONE:      break;  // only blanks consumed; carry on with the dispatch
     }
   }
@@ -1628,9 +1695,8 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
       lexer->result_symbol = STMT_END;
       return true;
     }
-    // A comment is trivia, so `#let a = 1 /* c */ + 2` is one expression and the statement
-    // does not end here. Emit the comment and let the terminator be judged beyond it.
-    return emit_block_comment(lexer, valid_symbols);
+    // Let the built-in lexer resume, unless the external comparison operator may follow.
+    if (next != 'n' || !valid_symbols[NOT_IN]) return false;
   }
 
   // Skip whitespace ourselves, tracking whether a line ended. Doing this here rather
@@ -1643,50 +1709,47 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     skip(lexer);
   }
 
-  // Typst treats `not /* comment */ in` as the single `not in` operator. The ordinary
-  // anonymous token covers the one-space spelling; this external form preserves nested
-  // block-comment trivia without permitting a newline between the words.
-  if (valid_symbols[NOT_IN_COMMENT] && lexer->lookahead == 'n') {
-    if (!eat_str(lexer, "not") || is_id_continue(lexer->lookahead)) return false;
-    bool saw_comment = false;
-    for (;;) {
-      while (is_space(lexer->lookahead)) {
-        skip(lexer);
-      }
-      if (lexer->lookahead != '/') break;
-      advance(lexer);
-      if (lexer->lookahead != '*') return false;
-      advance(lexer);
-      scan_block_comment_body(lexer);
-      saw_comment = true;
-    }
-    if (!saw_comment || !eat_str(lexer, "in") || is_id_continue(lexer->lookahead)) {
-      return false;
-    }
+  // Reading ahead from the name enforces adjacency even across named comment
+  // extras, after which an immediate '(' alone would again be eligible.
+  if (valid_symbols[LET_NAME_AHEAD] &&
+      ((math_char(lexer->lookahead).flags & XID_START) || lexer->lookahead == '_')) {
     lexer->mark_end(lexer);
-    lexer->result_symbol = NOT_IN_COMMENT;
+    while (is_id_continue(lexer->lookahead)) advance(lexer);
+    if (lexer->lookahead != '(') return false;
+    lexer->result_symbol = LET_NAME_AHEAD;
     return true;
   }
 
-  /*
-   * Named math arguments use code identifier rules. Scan the complete identifier only
-   * when a colon follows so `_my`, `my-body`, and `a--c` stay intact without changing
-   * ordinary math symbol tokenization.
-   */
-  if (valid_symbols[MATH_NAMED_IDENT] &&
-      (lexer->lookahead == '_' || is_alpha(lexer->lookahead))) {
-    advance(lexer);
-    while (is_id_continue(lexer->lookahead)) advance(lexer);
+  // Whitespace and nested block comments may separate the two keywords.
+  if (valid_symbols[NOT_IN] && lexer->lookahead == 'n') {
+    if (!eat_str(lexer, "not") || is_id_continue(lexer->lookahead)) return false;
+    for (;;) {
+      while (is_space(lexer->lookahead) || is_non_ascii_space(lexer->lookahead)) {
+        int32_t c = lexer->lookahead;
+        if (is_newline(c) && (valid_symbols[CODE_SEP] || valid_symbols[STMT_END])) return false;
+        advance(lexer);
+      }
+      if (lexer->lookahead != '/') break;
+      advance(lexer);
+      if (lexer->lookahead == '/') {
+        while (!lexer->eof(lexer) && !is_newline(lexer->lookahead)) advance(lexer);
+        continue;
+      }
+      if (lexer->lookahead != '*') return false;
+      advance(lexer);
+      scan_block_comment_body(lexer);
+    }
+    if (!eat_str(lexer, "in") || is_id_continue(lexer->lookahead)) return false;
     lexer->mark_end(lexer);
-    while (lexer->lookahead == ' ' || lexer->lookahead == '\t' ||
-           lexer->lookahead == '\r') {
-      skip(lexer);
-    }
-    if (lexer->lookahead == ':') {
-      lexer->result_symbol = MATH_NAMED_IDENT;
-      return true;
-    }
-    return false;
+    lexer->result_symbol = NOT_IN;
+    return true;
+  }
+
+  if ((valid_symbols[MATH_ALPHA_CLUSTER] || valid_symbols[MATH_OTHER_CLUSTER] ||
+       valid_symbols[MATH_NAMED_IDENT]) &&
+      (math_cluster_start(lexer->lookahead) ||
+       (valid_symbols[MATH_NAMED_IDENT] && lexer->lookahead == '_'))) {
+    return scan_math_atom(lexer, valid_symbols);
   }
 
   /*
@@ -1778,7 +1841,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
    * lexer cannot rewind past the first `.` to try another.
    */
   if (c == '.' && (valid_symbols[SHORTHAND] || valid_symbols[TEXT] ||
-                   valid_symbols[MATH_DOT])) {
+                   valid_symbols[MATH_DOT] || valid_symbols[MATH_SPREAD_DOTS])) {
     advance(lexer);
 
     /*
@@ -1789,8 +1852,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
      * and then finds no name to complete it. Requiring the name here is what lets a
      * sentence-ending period in math stay text.
      */
-    if (valid_symbols[MATH_DOT] && !saw_space &&
-        (is_alpha(lexer->lookahead) || lexer->lookahead == '_')) {
+    if (valid_symbols[MATH_DOT] && !saw_space && (math_char(lexer->lookahead).flags & XID_START)) {
       lexer->mark_end(lexer);
       lexer->result_symbol = MATH_DOT;
       return true;
@@ -1798,6 +1860,14 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
 
     if (lexer->lookahead == '.') {
       advance(lexer);
+      // In a math argument, two dots spread only an immediately following value.
+      if (valid_symbols[MATH_SPREAD_DOTS] && lexer->lookahead != '.' &&
+          lexer->lookahead != ',' && lexer->lookahead != ';' &&
+          lexer->lookahead != ')' && lexer->lookahead != '$') {
+        if (at_space_or_end(lexer)) return false;
+        lexer->result_symbol = MATH_SPREAD_DOTS;
+        return true;
+      }
       if (lexer->lookahead == '.') {
         advance(lexer);
         if (!valid_symbols[SHORTHAND]) return false;
@@ -1840,7 +1910,6 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
       return true;
     }
     if (at_space_or_end(lexer)) {
-      lexer->mark_end(lexer);
       if (valid_symbols[LIST_MARKER_START]) {
         push_item_column(scanner, column);
         lexer->result_symbol = LIST_MARKER_START;
@@ -1920,24 +1989,8 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
   if (c == '/') {
     advance(lexer);
 
-    /*
-     * `Lexer::block_comment`: block comments nest, so the first inner terminator does not
-     * close the outer one. Nesting is not regular, so the depth is counted here.
-     *
-     * This has to live inside the `/` dispatch rather than in a check of its own. A
-     * scanner cannot rewind, so an earlier check that consumed the `/` and then declined
-     * would leave every other `/` token — the term-item marker, division, a slash inside
-     * a text run — with no way to be produced at all.
-     */
-    if (lexer->lookahead == '*') {
-      if (!valid_symbols[BLOCK_COMMENT]) return false;
-      advance(lexer);
-      scan_block_comment_body(lexer);
-      lexer->mark_end(lexer);
-      lexer->result_symbol = BLOCK_COMMENT;
-      return true;
-    }
-
+    // The built-in opener delegates the nested comment body to the scanner.
+    if (lexer->lookahead == '*') return false;
     // `//` opens a line comment, which the built-in lexer matches. Bailing out lets it;
     // returning false discards what we consumed either way.
     if (lexer->lookahead == '/') return false;

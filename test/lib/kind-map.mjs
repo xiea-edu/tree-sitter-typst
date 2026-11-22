@@ -7,7 +7,7 @@
  *
  * Values:
  *   'node_name'            our node with the identical span
- *   ['a', 'b']             we produce several nodes covering that span; all must exist
+ *   ['a', 'b']             context selects the corresponding root or nested node
  *   null                   deliberately not modelled, and not worth listing separately
  *   undefined (absent)     NOT YET IMPLEMENTED — reported by the coverage ledger
  *
@@ -45,9 +45,6 @@ export const UNMAPPED_OK = new Set([
   'If', 'Else', 'For', 'In', 'While', 'Break', 'Continue', 'Return',
   'Import', 'Include', 'As',
 
-  // Structural markers that we fold into their parent node rather than name separately.
-  'RefMarker',
-
   // Whitespace typst strips from a raw block when computing its dedent. That is a
   // presentation decision — how the block will be laid out — not syntax, and it is the
   // reason the inner contents of a raw block are excluded from the span comparison.
@@ -84,6 +81,7 @@ export const KIND_MAP = {
   Link: 'link',
   Label: 'label',
   Ref: 'ref',
+  RefMarker: 'ref_marker',
   Heading: 'heading',
   ListItem: 'list_item',
   EnumItem: 'enum_item',

@@ -83,7 +83,7 @@ module.exports = grammar({
     $._atomic_end,      // an embedded value ends unless `.`, `(` or `[` follows
     $._stmt_end,        // an embedded statement ends at the newline
     $._bare_return,     // zero-width: `return` has no value before its terminator
-    $._not_in_comment,  // `not /* trivia */ in` as one comparison operator
+    $._not_in,          // `not /* trivia */ in` as one comparison operator
     $._heading_end,     // a heading ends at the newline, or at a label
     $._line_end,        // a heading or list item ends at the newline
     $._code_sep,        // zero-width: a line break separates two code expressions
@@ -95,7 +95,7 @@ module.exports = grammar({
     $._number_int,
     $._number_float,
     $._number_numeric,
-    $._block_comment,   // `/* ... */`, which nests
+    $._block_comment_body, // `/* ... */`, which nests
     $._math_dot,        // the `.` of a math field access: a name must follow it
     $._math_adjacent,   // zero-width: a delimiter follows immediately, so it is a call
     $._math_bang,       // zero-width: a `!` follows immediately, so it is a factorial
@@ -109,7 +109,13 @@ module.exports = grammar({
     $._linebreak,       // `\` at the end of a line
     $._adjacent_prime,  // zero-width: a `'` follows immediately, so it attaches
     $.link,             // a bare URL, with `[]` and `()` balanced
-    $.math_named_ident, // a code identifier followed by `:` inside math arguments
+    $._math_named_ident,
+    $._math_spread_dots,
+    $._math_name_head,  // first grapheme of a longer named argument
+    $._math_alpha_cluster,
+    $._math_other_cluster,
+    $.shebang,
+    $._let_name_ahead,  // the binding name touches an opening parenthesis
     $._non_ascii_space, // whitespace outside markup, where typst skips it as trivia
     $._math_adjacent_brace, // implicit call after an identifier; ( starts explicit arguments
     $._error_sentinel,  // never matched; signals error recovery to the scanner
@@ -169,17 +175,9 @@ module.exports = grammar({
     // ordinary markup that happens to contain a colon. Only the colon settles it.
     [$._markup_expr, $._block_term_item],
 
-    // `let f • (` again, now that the function form builds a closure.
-    [$._let_closure],
-
     // Round parentheses in an operand can be unwrapped by math_unparen.
     [$.math_delimited, $._math_group],
 
-    // `f(size: 2)` — is `size` the start of a math expression, or the name of an
-    // argument? Only the colon says, and it comes later.
-    [$._math_arg],
-    [$._math_named_arg],
-    [$._math_spread_arg],
   ],
 
   rules: {
@@ -190,7 +188,7 @@ module.exports = grammar({
     // Most markup tokens come from the external scanner, which reproduces typst's
     // `Lexer::markup` — see src/scanner.c for why they cannot be regexes.
 
-    source_file: $ => repeat($._markup_expr),
+    source_file: $ => seq(optional($.shebang), repeat($._markup_expr)),
 
     _markup_expr: $ => markupExpr($, { label: true }),
 
@@ -318,7 +316,7 @@ module.exports = grammar({
     // character is a variable. That is why `$sum$` is the summation sign but `$s u m$`
     // is three variables. Note there is no `_` here — unlike code identifiers, since `_`
     // is the subscript operator in math.
-    math_ident: _ => token(/[\p{XID_Start}][\p{XID_Start}\p{Mn}\p{Mc}\p{Nd}]+/u),
+    math_ident: _ => token(new RustRegex(String.raw`\p{XID_Start}[\p{XID_Continue}&&[^_]]+`)),
 
     /*
      * A single grapheme, or a number kept whole.
@@ -329,10 +327,10 @@ module.exports = grammar({
      * tokens for the same text — the trap that sinks `token.immediate` here. Both are
      * aliased back to `math_text` at every use, so the node name is unchanged.
      */
-    _math_letter: _ => token(/\p{L}/u),
+    _math_letter: _ => token(/\p{Alphabetic}/u),
     _math_other: _ => token(choice(
-      /[0-9]+(\.[0-9]+)?/,
-      /[^\s\\"\-:!.,;#_$/^&'()\[\]{}|<>=~*+\p{L}]/u,
+      /\p{N}+(\.\p{N}+)?/u,
+      /[^\s\\"\-:!.,;#_$/^&'()\[\]{}|<>=~*+\p{Alphabetic}]/u,
     )),
 
     // `a.b` — built by typst's lexer rather than its parser, so the dot is not a general
@@ -348,7 +346,7 @@ module.exports = grammar({
     math_field_access: $ => prec.left(seq(
       choice($.math_ident, $.math_field_access),
       alias($._math_dot, '.'),
-      alias(token.immediate(/[\p{XID_Start}][\p{XID_Start}\p{Mn}\p{Mc}\p{Nd}]*/u), $.math_ident),
+      alias(token.immediate(new RustRegex(String.raw`\p{XID_Start}[\p{XID_Continue}&&[^_]]*`)), $.math_ident),
     )),
 
     // `sum(x)` — a call needs the parenthesis directly adjacent, like in code.
@@ -357,8 +355,7 @@ module.exports = grammar({
       field('args', alias($._math_args, $.math_args)),
     )),
     // Math arguments are comma- or semicolon-separated, and each one may be named
-    // (`lr(}, size: #h)`) or spread. Each argument's contents are wrapped in `math`,
-    // which is what typst's `math_exprs` does per argument.
+    // (`lr(}, size: #h)`) or spread. Only multi-expression arguments need a Math wrapper.
     _math_args: $ => seq(
       token.immediate('('),
       sepBy(choice(',', ';'), optional($._math_arg)),
@@ -368,12 +365,13 @@ module.exports = grammar({
     _math_arg: $ => choice(
       alias($._math_named_arg, $.named),
       alias($._math_spread_arg, $.spread),
-      alias($._math_arg_body, $.math),
+      $._math_arg_value,
     ),
 
     // typst-syntax's math_arg stops at a comma, semicolon or right parenthesis.
     // Nested delimited groups still use ordinary math, including its punctuation.
-    _math_arg_body: $ => repeat1($._math_arg_expr),
+    _math_arg_value: $ => choice(prec(1, $._math_arg_expr), alias($._math_arg_body, $.math)),
+    _math_arg_body: $ => prec.left(seq($._math_arg_expr, repeat1($._math_arg_expr))),
     _math_arg_expr: $ => mathExpr($, { operators: true, inArgs: true }),
 
     // The name is a code identifier rather than a math one — typst lexes it with
@@ -383,12 +381,14 @@ module.exports = grammar({
     // the same characters. The scanner emits this token only when the following colon
     // proves that the run is a name, keeping ordinary math identifiers out of this path.
     // Typst reports the node as `Ident`, so that is what we call it.
+    math_named_ident: $ => choice($._math_named_ident,
+      seq($._math_name_head, token.immediate(/[-_\p{XID_Continue}]+/u))),
     _math_named_arg: $ => prec.dynamic(2, seq(
       field('name', alias($.math_named_ident, $.ident)),
       ':',
-      optional(alias($._math_arg_body, $.math)),
+      $._math_arg_value,
     )),
-    _math_spread_arg: $ => seq('..', optional(alias($._math_arg_body, $.math))),
+    _math_spread_arg: $ => seq(alias($._math_spread_dots, '..'), $._math_arg_value),
 
     // typst-syntax's math_delimited accepts the first closer, even across shapes: [(x]}.
     math_delimited: $ => seq(
@@ -822,9 +822,7 @@ module.exports = grammar({
         // commits to the binary reading and then fails. One token cannot be entered
         // without the `in` actually being there.
         [PREC.cmp, choice('==', '!=', '<', '<=', '>', '>=', 'in',
-                          // Exactly one space: typst's lexer does `eat_if(" in")`, so a
-                          // newline between the two words is an error, not an operator.
-                          'not in', alias($._not_in_comment, 'not in'))],
+                          alias($._not_in, 'not in'))],
         [PREC.and, 'and'],
         [PREC.or, 'or'],
       ];
@@ -904,8 +902,7 @@ module.exports = grammar({
     args: $ => prec.right(PREC_ARGS, choice(
       seq(
         token.immediate('('),
-        sepBy(',', choice($.named, $.spread, $._expr)),
-        optional(','),
+        optional(seq(sepBy1(',', choice($.named, $.spread, $._expr)), optional(','))),
         ')',
         optional($._content_blocks),
       ),
@@ -984,10 +981,7 @@ module.exports = grammar({
     _bare_param: $ => choice($.ident, $.underscore),
 
     params: $ => seq(
-      '(',
-      sepBy(',', choice($.named, $.spread, $._pattern)),
-      optional(','),
-      ')',
+      '(', optional(seq(sepBy1(',', choice($.named, $.spread, $._pattern)), optional(','))), ')',
     ),
 
     // ---- patterns ---------------------------------------------------------
@@ -1054,20 +1048,16 @@ module.exports = grammar({
         // `let f(x) = ...` declares a function, and typst models that as a *closure*
         // named `f` sitting inside the binding — `LetBinding(Let, Closure(Ident, Params,
         // Eq, body))` — rather than as fields of the binding itself.
-        //
-        // The branch also outranks the plain-pattern one, so that on `let f • (` the
-        // parser shifts the parameter list instead of reducing `f` to a complete pattern
-        // and ending the binding there.
         alias($._let_closure, $.closure),
         seq(field('pattern', $._pattern), optional(seq('=', field('value', $._expr)))),
       ),
     )),
 
-    _let_closure: $ => prec.dynamic(1, seq(
-      field('name', $.ident),
+    _let_closure: $ => seq(
+      $._let_name_ahead, field('name', $.ident),
       field('params', $.params),
-      optional(seq('=', field('body', $._expr))),
-    )),
+      '=', field('body', $._expr),
+    ),
 
     // The target of `set` is a dotted path, never a general expression: typst's
     // `set_rule` accepts `Ident ('.' Ident)*` and then parses the argument list itself.
@@ -1109,7 +1099,7 @@ module.exports = grammar({
         optional(seq('else', field('else', choice($._block, $.conditional)))),
       ),
       // A comment makes an immediately following content block the control body, not a
-      // trailing argument on the condition. Match the hidden external comment token
+      // trailing argument on the condition. Match the hidden comment rule
       // directly so the named extra cannot steal the condition field.
       prec.dynamic(10, seq(
         'if',
@@ -1186,7 +1176,8 @@ module.exports = grammar({
     // Typst's block comments nest — `/* /* */ */` is a single comment, and the first
     // `*/` does not end it. Nesting is not a regular language, so the scanner counts
     // the depth. See `Lexer::block_comment`.
-    block_comment: $ => $._block_comment,
+    block_comment: $ => seq('/*', $._block_comment_body),
+    _block_comment: $ => seq('/*', $._block_comment_body),
   },
 });
 
@@ -1238,7 +1229,7 @@ function mathImplicitCall($, group) {
   // math_expr_prec allows explicit arguments only after an identifier or field.
   return prec.left(PREC_MATH.func, seq(
     choice(
-      seq(choice(alias($._math_letter, $.math_text), $.str, $.math_primes, $.escape), $._math_adjacent),
+      seq(choice(mathLetter($), $.str, $.math_primes, $.escape), $._math_adjacent),
       seq(choice($.math_ident, $.math_field_access), $._math_adjacent_brace),
     ),
     group,
@@ -1336,8 +1327,13 @@ function dictItems($) {
  * inline at every use site. They are split only so the implicit-call rule can require a
  * letter when its left operand is math text.
  */
+function mathLetter($) {
+  return choice(alias($._math_letter, $.math_text), alias($._math_alpha_cluster, $.math_text));
+}
+
 function mathText($) {
-  return choice(alias($._math_letter, $.math_text), alias($._math_other, $.math_text));
+  return choice(mathLetter($),
+    alias($._math_other_cluster, $.math_text), alias($._math_other, $.math_text));
 }
 
 /**
