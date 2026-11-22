@@ -66,6 +66,7 @@ enum TokenType {
   MATH_ADJACENT_BRACE,
   MATH_SYMBOL_END,
   AFTER_LINE_COMMENTS,
+  TEXT_BEFORE_SCHEME,
   ERROR_SENTINEL,
 };
 
@@ -711,7 +712,14 @@ static bool scan_text(TSLexer *lexer, Scanner *scanner, int32_t last) {
       advance(lexer);
       if (eat_str(lexer, "ttp")) {
         if (lexer->lookahead == 's') advance(lexer);
-        if (lexer->lookahead == ':') break; // let the link scanner check the scheme
+        if (lexer->lookahead == ':') {
+          if (eat_str(lexer, "://")) break;
+          // mark_end is still before the 'h'. The grammar appends the scheme
+          // letters to this text node and leaves the colon for markup.
+          if (!any) return false;
+          lexer->result_symbol = TEXT_BEFORE_SCHEME;
+          return true;
+        }
       }
       lexer->mark_end(lexer);
       last = c; // every consumed character was a letter

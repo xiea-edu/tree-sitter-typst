@@ -119,6 +119,7 @@ module.exports = grammar({
     $._math_adjacent_brace, // implicit call after an identifier; ( starts explicit arguments
     $._math_symbol_end, // commit an identifier before trivia can separate it from a call
     $._after_line_comments, // replay leading comment extras with fresh markup context
+    $._text_before_scheme,
     $._error_sentinel,  // never matched; signals error recovery to the scanner
   ],
 
@@ -714,7 +715,13 @@ module.exports = grammar({
 
     // In restricted markup, only a possible marker causes a comment replay.
     // A digit or hyphen can still be ordinary text or shorthand after lookahead.
-    _commented_marker: $ => seq($._after_line_comments, choice($._block_first, $.text, $.shorthand)),
+    _commented_marker: $ => seq($._after_line_comments, choice($._block_first, $._markup_text, $.shorthand)),
+
+    // With only one mark_end, the scanner must keep the boundary before a
+    // possible link until it has read both slashes. Rejoin the scheme word
+    // with its prefix when the lookahead finds an ordinary markup colon.
+    _markup_text: $ => choice($.text, alias($._text_with_scheme, $.text)),
+    _text_with_scheme: $ => seq($._text_before_scheme, token.immediate(/https?/)),
 
     // Keep any leading comment outside the extent of the first body expression.
     _item_markup: $ => seq(optional($._after_line_comments), alias($._block_markup, $.markup)),
@@ -1210,7 +1217,7 @@ function sepBy(sep, rule) {
  */
 function markupExpr($, { label, strong = true, emph = true }) {
   return choice(
-    $.text,
+    $._markup_text,
     $.escape,
     $.linebreak,
     $.shorthand,

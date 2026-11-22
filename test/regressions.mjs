@@ -58,6 +58,16 @@ test('literal brackets and word punctuation preserve markup text boundaries', ()
   check('0._x', false);
 });
 
+test('only complete HTTP schemes interrupt a markup text run', () => {
+  for (const scheme of ['http', 'https']) {
+    for (const tail of [':', ':x', ':/x', ':\\/\\/example', '://example.org']) {
+      check('prefix ' + scheme + tail);
+    }
+  }
+  check('/ see https: definition');
+  check('αhttp:/x https://example.org http:');
+});
+
 test('postfix math and trailing code comments preserve the oracle tree', () => {
   for (const s of [
     "$n'!'$", "$n!'!$", "$a_n'!'^b$", '$==> =>> <==>$',
@@ -168,6 +178,7 @@ test('batched trees agree with single parses; invalid batch output cannot shift 
 test('incremental edits across scanner lookahead boundaries match fresh oracle-checked trees', () => {
   for (const [before, needle, replacement] of [
     ['a_b_', 'a', '.'], ['a _x_', ' _x_', '_x'], ['a..b', '..', '...'],
+    ['prefix https:/x', ':/', '://'], ['prefix http://x', '//', '\\/\\/'],
     ['- outer\n /**/- child', '/**/', ''], ['text\n/**/ = H', '\n', ' '],
     ["$n'!$", '!', "!'"], ['$pi.alt(x)$', '(', '/**/('],
     ['#[outer [#x]]', '#x', 'inner [x]'],
