@@ -48,18 +48,15 @@ Against the reference parser, on the full 3,831-file corpus:
 | | |
 | --- | --- |
 | Validity agreement | **100%** — 0 false rejects, 0 false accepts |
-| Span agreement | 98.23% of files structurally identical (3,727 / 3,794) |
+| Span agreement | 98.39% of files structurally identical (3,733 / 3,794) |
 | `SyntaxKind` coverage | 130 / 130 kinds the corpus produces |
-| Golden tests | 67, all passing |
+| Golden tests | 68, all passing |
 | Fuzz / incremental | clean |
 
-Span agreement splits by group: 98.69% on the 3,519 package files, 100% on the pinned
-set, and 88.59% on Typst's own test suite — which is adversarial by design.
+Span agreement is 98.81% on the 3,519 package files, 100% on the pinned set, and
+89.67% on Typst's own test suite.
 
 ### Known gaps
-
-Both of the following come from the same place: how math tells an argument list apart
-from a delimited group.
 
 **Delimiter grouping.** The remaining span disagreements are almost entirely math-mode
 delimiter grouping. Typst opens a nested `Math` scope at any opening delimiter and closes
@@ -69,45 +66,32 @@ This is why the adversarial suite scores lower than real documents. It does not 
 which tokens receive which capture, so highlighting, folding and indentation are
 unaffected.
 
-**Exponential parse on repeated named calls in math.** A run of `name: call(...),` inside
-an equation costs roughly 1.9× per repetition:
+### Repeated calls in equations
 
-```typst
-$
-    name: rgb(abc),     // ×35
-$
-```
+Inserting `$` above the color entries in the `ansi-render` package used to hang an
+editor. At each `rgb(...)`, the parser could consume the closing parenthesis as
+argument text and keep the call open across the next entry. The argument grammar
+now follows the stop tokens in Typst’s `math_arg`. A top-level comma or semicolon
+separates arguments, and a right parenthesis closes the call. Nested delimited
+groups keep their own punctuation.
 
-| repetitions | parse time |
-| --- | --- |
-| 20 | 29 ms |
-| 25 | 274 ms |
-| 30 | 6.8 s |
-| 35 | does not finish |
+Each row measures a closed equation containing repeated lines of `name: rgb(abc),`
+on Windows. Times are the median of five completed Tree-sitter CLI parses. Each
+process had a five-second timeout.
 
-All three parts are needed — an identifier, a colon, and a **call** followed by a comma.
-Any one removed and the same input parses in ~16 ms. Closing the equation does not help.
+| Entries | Before | After |
+| ---: | ---: | ---: |
+| 20 | 11.35 ms | 0.15 ms |
+| 25 | 280.52 ms | 0.17 ms |
+| 30 | timed out | 0.20 ms |
+| 35 | timed out | 0.22 ms |
+| 100 | timed out | 0.53 ms |
+| 306 | timed out | 1.43 ms |
 
-The cause is two ambiguities that sustain each other. `rgb(` may open a call's argument
-list or an identifier followed by a delimited group, and nothing local decides which. The
-scanner emits `math_named_ident` only when `valid_symbols` says an argument list is open,
-so the *only* reason `name:` can be read as a named argument is that the first ambiguity
-is keeping an "inside arguments" parse alive. Neither can be pruned locally, so live
-parses multiply.
-
-This is reachable from real documents: a package with seventeen colour themes of eighteen
-`black: rgb("#000000"),` entries hangs the parser outright once an equation opens above
-them. Editors reparse on every keystroke, so typing `$` above a large dictionary is enough.
-
-A dynamic precedence on `math_call` — the remedy already used for the separators in
-`_math_args` — was tried and reverted: it barely moved the exponent (6.8 s to 5.4 s at
-30 repetitions) and introduced a false reject on `typst-suite/math/root.typ`, taking
-validity agreement from 100% to 99.55%. A real fix means making the call-versus-group
-decision authoritative rather than forked, which is surgery on the rules the validity
-figure rests on.
-
-The test harness caps any single-file parse at 60 seconds and reports the offending input,
-so this degrades to a test failure rather than a hang.
+On the original package file, inserting the opening dollar at byte 7,493 took
+4.79 ms to reparse incrementally. The old parser exceeded the five-second cap.
+`npm run test:incremental` exercises the edit on a generated 96-entry dictionary
+and compares the completed equation with a fresh parse.
 
 ### Compared with other Typst grammars
 
@@ -151,9 +135,8 @@ npm run compare -- ../tree-sitter-typst-uben0 ../tree-sitter-typst-seniormars
   accept more than the language does.
 - "False accept" is measured against files the real parser rejects, and a corpus of real
   documents contains few of those — so it is a weaker signal than the false-reject count.
-- The structural table is a 150-file sample, not the full corpus, and its metric is
-  deliberately crude so that it ports across grammars. It is not the same measurement as
-  the 98.23% figure above, which uses the kind map.
+- The structural table uses a 150-file sample and a metric that works across grammars.
+  The full-corpus span agreement above uses the Typst kind map.
 
 ## Usage
 

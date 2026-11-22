@@ -51,7 +51,8 @@ const PREC_MATH = {
 // loose bars with the attachment hanging off the closing one, not a delimited group raised
 // to a power. Only `[|` and `|]`, which are unambiguous, pair up.
 const MATH_OPEN = choice('(', '[', '{', '⟨', '⌊', '⌈', '[|');
-const MATH_CLOSE = choice(')', ']', '}', '⟩', '⌋', '⌉', '|]');
+const MATH_CLOSE_BRACE = choice(']', '}', '⟩', '⌋', '⌉', '|]');
+const MATH_CLOSE = choice(')', MATH_CLOSE_BRACE);
 
 module.exports = grammar({
   name: 'typst',
@@ -111,8 +112,6 @@ module.exports = grammar({
     $._adjacent_prime,  // zero-width: a `'` follows immediately, so it attaches
     $.link,             // a bare URL, with `[]` and `()` balanced
     $.math_named_ident, // a code identifier followed by `:` inside math arguments
-    $._math_attach_named_separator, // separator before a named `attach` argument
-    $._math_frac_separator, // the single separator in `frac(numerator, denominator)`
     $._non_ascii_space, // whitespace outside markup, where typst skips it as trivia
     $._error_sentinel,  // never matched; signals error recovery to the scanner
   ],
@@ -178,6 +177,7 @@ module.exports = grammar({
     // parenthesis, and a closing brace with no opener is simply a symbol. Whether a run
     // of math is finished or still open is likewise undecidable until the closer appears.
     [$._math_expr, $.math_delimited],
+    [$._math_arg_expr, $.math_delimited],
     [$._math_operand, $.math_delimited],
     [$._math_base_operand, $.math_delimited],
     // `x^(a)` — grouping parens in a script slot, against the same parens read as a
@@ -185,17 +185,17 @@ module.exports = grammar({
     [$._math_operand, $.math_delimited, $._math_group],
     [$._math_base_operand, $.math_delimited, $._math_group],
     [$._math_expr, $.math_delimited, $._math_group],
+    [$._math_arg_expr, $.math_delimited, $._math_group],
     [$.math_delimited, $._math_group],
     [$.math],
 
     // `f(size: 2)` — is `size` the start of a math expression, or the name of an
     // argument? Only the colon says, and it comes later.
     [$._math_expr, $._math_args],
+    [$._math_arg],
     [$._math_named_arg],
-    [$._math_attach_named_arg],
     [$._math_spread_arg],
 
-    [$._math_operand, $._math_args],
     [$._math_base_operand, $._math_args],
     [$._math_operand, $._math_base_operand],
 
@@ -377,99 +377,22 @@ module.exports = grammar({
     // Math arguments are comma- or semicolon-separated, and each one may be named
     // (`lr(}, size: #h)`) or spread. Each argument's contents are wrapped in `math`,
     // which is what typst's `math_exprs` does per argument.
-    /*
-     * The separators carry a dynamic precedence because `,` and `;` have a second
-     * reading: `mathExpr` also offers them as `math_text`, which is what they are
-     * everywhere outside an argument list. Left evenly matched, every separator doubles
-     * the number of parses, and a call holding two sibling calls of two rows each — the
-     * shape at the heart of Mozilla's MathML torture test — never resolves.
-     *
-     * Only `prec.dynamic` states this. A static precedence has no effect here: the two
-     * readings are separate parses GLR is choosing between, not competing rules within
-     * one.
-     */
     _math_args: $ => seq(
       token.immediate('('),
-      sepBy(prec.dynamic(30, choice(',', ';')), optional($._math_arg)),
+      sepBy(choice(',', ';'), optional($._math_arg)),
       ')',
     ),
 
     _math_arg: $ => choice(
       alias($._math_named_arg, $.named),
       alias($._math_spread_arg, $.spread),
-      $.math,
+      alias($._math_arg_body, $.math),
     ),
 
-    // `attach` is a Typst built-in with one positional base followed by side-specific
-    // named arguments. Parsing that signature directly keeps deeply nested attachment
-    // matrices deterministic without adding a named-separator terminal to every math
-    // call (which would overflow Tree-sitter's bounded GLR versions on ordinary formulas).
-    _math_attach_call: $ => prec.dynamic(100, seq(
-      field('item', alias('attach', $.math_ident)),
-      field('args', alias($._math_attach_args, $.math_args)),
-    )),
-
-    _math_attach_args: $ => prec(1, seq(
-      token.immediate('('),
-      optional($.math),
-      repeat(seq(
-        $._math_attach_named_separator,
-        alias($._math_attach_named_arg, $.named),
-      )),
-      optional(prec.dynamic(30, choice(',', ';'))),
-      ')',
-    )),
-
-    _math_attach_named_arg: $ => prec.dynamic(20, seq(
-      field('name', alias($.math_named_ident, $.ident)),
-      ':',
-      optional(alias($._math_attach_value_expr, $.math)),
-    )),
-
-    _math_attach_value_expr: $ => repeat1($._math_attach_value),
-
-    // This operand set intentionally excludes a loose closing delimiter. A closing `)`
-    // after the last side value belongs to the surrounding `attach` call; offering it as
-    // the value itself makes deeply nested chains consume one closer too many.
-    _math_attach_value: $ => choice(
-      mathText($),
-      $.math_ident,
-      $.math_field_access,
-      $.math_shorthand,
-      $.math_align_point,
-      $.math_primes,
-      $.math_delimited,
-      alias($.math_implicit_call, $.math),
-      alias($.math_factorial, $.math),
-      $.math_root,
-      alias($._math_frac_call, $.math_call),
-      alias($._math_attach_call, $.math_call),
-      $.math_call,
-      $.math_attach,
-      $.math_frac,
-      $.str,
-      $.escape,
-      $.linebreak,
-      $._hash_expr,
-      alias(choice('.', '!', '=', '+', '<', '>', ':', '|'), $.math_text),
-    ),
-
-    // The `frac` built-in has exactly two positional math arguments. Its dedicated
-    // separator removes comma-as-math-text ambiguity around large numerator and
-    // denominator expressions without affecting any other call.
-    _math_frac_call: $ => prec.dynamic(100, seq(
-      field('item', alias('frac', $.math_ident)),
-      field('args', alias(choice($._math_frac_args, $._math_args), $.math_args)),
-    )),
-
-    _math_frac_args: $ => prec(1, seq(
-      token.immediate('('),
-      alias($._math_operand, $.math),
-      $._math_frac_separator,
-      $.math,
-      optional(prec.dynamic(30, choice(',', ';'))),
-      ')',
-    )),
+    // typst-syntax's math_arg stops at a comma, semicolon or right parenthesis.
+    // Nested delimited groups still use ordinary math, including its punctuation.
+    _math_arg_body: $ => repeat1($._math_arg_expr),
+    _math_arg_expr: $ => mathExpr($, { operators: true, inArgs: true }),
 
     // The name is a code identifier rather than a math one — typst lexes it with
     // `maybe_math_named_arg`, which is why `size` here is not a math symbol.
@@ -481,9 +404,9 @@ module.exports = grammar({
     _math_named_arg: $ => prec.dynamic(2, seq(
       field('name', alias($.math_named_ident, $.ident)),
       ':',
-      optional($.math),
+      optional(alias($._math_arg_body, $.math)),
     )),
-    _math_spread_arg: $ => seq('..', optional($.math)),
+    _math_spread_arg: $ => seq('..', optional(alias($._math_arg_body, $.math))),
 
     // `(x + y)`, `[|v|]` and the Unicode bracket pairs. Typst re-labels the delimiters as
     // math text, since they render as symbols rather than acting as grouping syntax.
@@ -1316,7 +1239,7 @@ function markupExpr($, { label, strong = true, emph = true }) {
  * Dropping the operators from the operand rule expresses the same thing, which is what
  * keeps `x_i^2` one flat attachment carrying both scripts.
  */
-function mathExpr($, { operators, looseOpen = true }) {
+function mathExpr($, { operators, looseOpen = true, inArgs = false }) {
   return choice(
     mathText($),
     $.math_ident,
@@ -1328,8 +1251,6 @@ function mathExpr($, { operators, looseOpen = true }) {
     alias($.math_implicit_call, $.math),
     alias($.math_factorial, $.math),
     $.math_root,
-    alias($._math_frac_call, $.math_call),
-    alias($._math_attach_call, $.math_call),
     $.math_call,
     $.str,
     $.escape,
@@ -1338,7 +1259,7 @@ function mathExpr($, { operators, looseOpen = true }) {
     ...(operators ? [
       $.math_attach,
       $.math_frac,
-      alias(prec.dynamic(-20, choice(MATH_OPEN, MATH_CLOSE)), $.math_text),
+      alias(prec.dynamic(-20, choice(MATH_OPEN, inArgs ? MATH_CLOSE_BRACE : MATH_CLOSE)), $.math_text),
     ] : [
       // A loose closing delimiter can carry an attachment (`]_1`), while an opener
       // starts a group and cannot be reinterpreted as the base in `(_ c)`.
@@ -1355,7 +1276,8 @@ function mathExpr($, { operators, looseOpen = true }) {
     // passes a brace as an argument. Typst converts these back to math text too.
     // `|` sits here rather than among the delimiters: it never groups, so it is only ever
     // a symbol. The `math_text` character class excludes it, hence the explicit entry.
-    alias(choice('.', ',', ';', '!', '=', '+', '<', '>', ':', '|'), $.math_text),
+    alias(choice('.', '!', '=', '+', '<', '>', ':', '|'), $.math_text),
+    ...(inArgs ? [] : [alias(choice(',', ';'), $.math_text)]),
 
     // An unmatched delimiter is a symbol, not an error: `$<($` and `$=)$` are both valid
     // Typst, because `math_delimited` falls back to a plain sequence when it finds no

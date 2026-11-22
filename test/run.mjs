@@ -440,6 +440,7 @@ function mutate(src, rnd) {
 
 function tierIncremental() {
   head('Tier 4b — incremental reparse equivalence');
+  checkRepeatedMathCalls();
   const groups = corpusGroups({ limit: LIMIT });
   const files = groups.flatMap((g) => g.files);
   const ROUNDS = numFlag('rounds', 150);
@@ -543,6 +544,41 @@ function tierIncremental() {
       `  ${recovery} further divergences were on documents the edit made invalid, ` +
       'where incremental and full parses may recover differently',
     ));
+  }
+}
+
+// Typing a dollar inside a palette reinterprets every remaining entry as math.
+// The old parser timed out even with the equation closed and only 35 entries.
+function checkRepeatedMathCalls() {
+  const count = 96;
+  const prefix = '#let palette = (';
+  const entries = Array.from({ length: count }, (_, i) => `  color${i}: rgb("#000000"),\n`).join('');
+  const body = '\n' + entries;
+  const file = path.join(ROOT, '.tmp', `math-calls-${process.pid}.typ`);
+  const open = `${prefix.length} 0 $`;
+  const close = `${prefix.length + 1 + body.length} 0 $`;
+  const timeout = 5_000;
+  try {
+    fs.writeFileSync(file, prefix + body + ')');
+    const incomplete = tsParseSexp(file, ['--edits', open], timeout);
+    if (!/\((ERROR|MISSING)/.test(incomplete)) {
+      fail('expected an unclosed equation after inserting the opening dollar');
+      return;
+    }
+    const incremental = tsParseSexp(file, ['--edits', open, '--edits', close], timeout);
+    fs.writeFileSync(file, prefix + '$' + body + '$)');
+    const fresh = tsParseSexp(file, [], timeout);
+    if (/\((ERROR|MISSING)/.test(fresh) || (fresh.match(/\(math_call\b/g) ?? []).length !== count ||
+        normalizeTree(incremental) !== normalizeTree(fresh)) {
+      fail(`closing the equation must produce the same ${count} calls as a fresh parse`);
+      return;
+    }
+    pass(`opened and closed an equation over ${count} dictionary entries`);
+  } catch (e) {
+    if (!(e instanceof ParseTimeout)) throw e;
+    fail(e.message);
+  } finally {
+    fs.rmSync(file, { force: true });
   }
 }
 

@@ -56,8 +56,6 @@ enum TokenType {
   ADJACENT_PRIME,
   LINK,
   MATH_NAMED_IDENT,
-  MATH_ATTACH_NAMED_SEPARATOR,
-  MATH_FRAC_SEPARATOR,
   NON_ASCII_SPACE,
   ERROR_SENTINEL,
 };
@@ -1674,34 +1672,6 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
       return true;
     }
     return false;
-  }
-
-  // A distinct separator exists only when the next argument is named. Looking through
-  // whitespace here lets the parser choose the named-argument path at the comma instead
-  // of carrying the comma-as-math-text alternative all the way to the later colon.
-  if (valid_symbols[MATH_ATTACH_NAMED_SEPARATOR] &&
-      (lexer->lookahead == ',' || lexer->lookahead == ';')) {
-    advance(lexer);
-    lexer->mark_end(lexer);
-    while (is_space(lexer->lookahead)) skip(lexer);
-    if (lexer->lookahead != '_' && !is_alpha(lexer->lookahead)) return false;
-    advance(lexer);
-    while (is_id_continue(lexer->lookahead)) advance(lexer);
-    while (lexer->lookahead == ' ' || lexer->lookahead == '\t' ||
-           lexer->lookahead == '\r') {
-      skip(lexer);
-    }
-    if (lexer->lookahead != ':') return false;
-    lexer->result_symbol = MATH_ATTACH_NAMED_SEPARATOR;
-    return true;
-  }
-
-  if (valid_symbols[MATH_FRAC_SEPARATOR] &&
-      (lexer->lookahead == ',' || lexer->lookahead == ';')) {
-    advance(lexer);
-    lexer->mark_end(lexer);
-    lexer->result_symbol = MATH_FRAC_SEPARATOR;
-    return true;
   }
 
   /*

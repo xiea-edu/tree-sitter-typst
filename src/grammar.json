@@ -871,24 +871,6 @@
           "name": "math_root"
         },
         {
-          "type": "ALIAS",
-          "content": {
-            "type": "SYMBOL",
-            "name": "_math_frac_call"
-          },
-          "named": true,
-          "value": "math_call"
-        },
-        {
-          "type": "ALIAS",
-          "content": {
-            "type": "SYMBOL",
-            "name": "_math_attach_call"
-          },
-          "named": true,
-          "value": "math_call"
-        },
-        {
           "type": "SYMBOL",
           "name": "math_call"
         },
@@ -965,28 +947,33 @@
                       "value": ")"
                     },
                     {
-                      "type": "STRING",
-                      "value": "]"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "}"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⟩"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⌋"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⌉"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "|]"
+                      "type": "CHOICE",
+                      "members": [
+                        {
+                          "type": "STRING",
+                          "value": "]"
+                        },
+                        {
+                          "type": "STRING",
+                          "value": "}"
+                        },
+                        {
+                          "type": "STRING",
+                          "value": "⟩"
+                        },
+                        {
+                          "type": "STRING",
+                          "value": "⌋"
+                        },
+                        {
+                          "type": "STRING",
+                          "value": "⌉"
+                        },
+                        {
+                          "type": "STRING",
+                          "value": "|]"
+                        }
+                      ]
                     }
                   ]
                 }
@@ -1004,14 +991,6 @@
               {
                 "type": "STRING",
                 "value": "."
-              },
-              {
-                "type": "STRING",
-                "value": ","
-              },
-              {
-                "type": "STRING",
-                "value": ";"
               },
               {
                 "type": "STRING",
@@ -1040,6 +1019,24 @@
               {
                 "type": "STRING",
                 "value": "|"
+              }
+            ]
+          },
+          "named": true,
+          "value": "math_text"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "STRING",
+                "value": ","
+              },
+              {
+                "type": "STRING",
+                "value": ";"
               }
             ]
           },
@@ -1121,24 +1118,6 @@
           "name": "math_root"
         },
         {
-          "type": "ALIAS",
-          "content": {
-            "type": "SYMBOL",
-            "name": "_math_frac_call"
-          },
-          "named": true,
-          "value": "math_call"
-        },
-        {
-          "type": "ALIAS",
-          "content": {
-            "type": "SYMBOL",
-            "name": "_math_attach_call"
-          },
-          "named": true,
-          "value": "math_call"
-        },
-        {
           "type": "SYMBOL",
           "name": "math_call"
         },
@@ -1207,28 +1186,33 @@
                       "value": ")"
                     },
                     {
-                      "type": "STRING",
-                      "value": "]"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "}"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⟩"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⌋"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⌉"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "|]"
+                      "type": "CHOICE",
+                      "members": [
+                        {
+                          "type": "STRING",
+                          "value": "]"
+                        },
+                        {
+                          "type": "STRING",
+                          "value": "}"
+                        },
+                        {
+                          "type": "STRING",
+                          "value": "⟩"
+                        },
+                        {
+                          "type": "STRING",
+                          "value": "⌋"
+                        },
+                        {
+                          "type": "STRING",
+                          "value": "⌉"
+                        },
+                        {
+                          "type": "STRING",
+                          "value": "|]"
+                        }
+                      ]
                     }
                   ]
                 }
@@ -1246,14 +1230,6 @@
               {
                 "type": "STRING",
                 "value": "."
-              },
-              {
-                "type": "STRING",
-                "value": ","
-              },
-              {
-                "type": "STRING",
-                "value": ";"
               },
               {
                 "type": "STRING",
@@ -1282,6 +1258,24 @@
               {
                 "type": "STRING",
                 "value": "|"
+              }
+            ]
+          },
+          "named": true,
+          "value": "math_text"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "STRING",
+                "value": ","
+              },
+              {
+                "type": "STRING",
+                "value": ";"
               }
             ]
           },
@@ -1363,24 +1357,6 @@
           "name": "math_root"
         },
         {
-          "type": "ALIAS",
-          "content": {
-            "type": "SYMBOL",
-            "name": "_math_frac_call"
-          },
-          "named": true,
-          "value": "math_call"
-        },
-        {
-          "type": "ALIAS",
-          "content": {
-            "type": "SYMBOL",
-            "name": "_math_attach_call"
-          },
-          "named": true,
-          "value": "math_call"
-        },
-        {
           "type": "SYMBOL",
           "name": "math_call"
         },
@@ -1413,28 +1389,33 @@
                   "value": ")"
                 },
                 {
-                  "type": "STRING",
-                  "value": "]"
-                },
-                {
-                  "type": "STRING",
-                  "value": "}"
-                },
-                {
-                  "type": "STRING",
-                  "value": "⟩"
-                },
-                {
-                  "type": "STRING",
-                  "value": "⌋"
-                },
-                {
-                  "type": "STRING",
-                  "value": "⌉"
-                },
-                {
-                  "type": "STRING",
-                  "value": "|]"
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "STRING",
+                      "value": "]"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "}"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⟩"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⌋"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⌉"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "|]"
+                    }
+                  ]
                 }
               ]
             }
@@ -1450,14 +1431,6 @@
               {
                 "type": "STRING",
                 "value": "."
-              },
-              {
-                "type": "STRING",
-                "value": ","
-              },
-              {
-                "type": "STRING",
-                "value": ";"
               },
               {
                 "type": "STRING",
@@ -1486,6 +1459,24 @@
               {
                 "type": "STRING",
                 "value": "|"
+              }
+            ]
+          },
+          "named": true,
+          "value": "math_text"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "STRING",
+                "value": ","
+              },
+              {
+                "type": "STRING",
+                "value": ";"
               }
             ]
           },
@@ -1644,21 +1635,17 @@
                     "type": "SEQ",
                     "members": [
                       {
-                        "type": "PREC_DYNAMIC",
-                        "value": 30,
-                        "content": {
-                          "type": "CHOICE",
-                          "members": [
-                            {
-                              "type": "STRING",
-                              "value": ","
-                            },
-                            {
-                              "type": "STRING",
-                              "value": ";"
-                            }
-                          ]
-                        }
+                        "type": "CHOICE",
+                        "members": [
+                          {
+                            "type": "STRING",
+                            "value": ","
+                          },
+                          {
+                            "type": "STRING",
+                            "value": ";"
+                          }
+                        ]
                       },
                       {
                         "type": "CHOICE",
@@ -1710,175 +1697,24 @@
           "value": "spread"
         },
         {
-          "type": "SYMBOL",
-          "name": "math"
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_math_arg_body"
+          },
+          "named": true,
+          "value": "math"
         }
       ]
     },
-    "_math_attach_call": {
-      "type": "PREC_DYNAMIC",
-      "value": 100,
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "FIELD",
-            "name": "item",
-            "content": {
-              "type": "ALIAS",
-              "content": {
-                "type": "STRING",
-                "value": "attach"
-              },
-              "named": true,
-              "value": "math_ident"
-            }
-          },
-          {
-            "type": "FIELD",
-            "name": "args",
-            "content": {
-              "type": "ALIAS",
-              "content": {
-                "type": "SYMBOL",
-                "name": "_math_attach_args"
-              },
-              "named": true,
-              "value": "math_args"
-            }
-          }
-        ]
-      }
-    },
-    "_math_attach_args": {
-      "type": "PREC",
-      "value": 1,
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "IMMEDIATE_TOKEN",
-            "content": {
-              "type": "STRING",
-              "value": "("
-            }
-          },
-          {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "math"
-              },
-              {
-                "type": "BLANK"
-              }
-            ]
-          },
-          {
-            "type": "REPEAT",
-            "content": {
-              "type": "SEQ",
-              "members": [
-                {
-                  "type": "SYMBOL",
-                  "name": "_math_attach_named_separator"
-                },
-                {
-                  "type": "ALIAS",
-                  "content": {
-                    "type": "SYMBOL",
-                    "name": "_math_attach_named_arg"
-                  },
-                  "named": true,
-                  "value": "named"
-                }
-              ]
-            }
-          },
-          {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "PREC_DYNAMIC",
-                "value": 30,
-                "content": {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "STRING",
-                      "value": ","
-                    },
-                    {
-                      "type": "STRING",
-                      "value": ";"
-                    }
-                  ]
-                }
-              },
-              {
-                "type": "BLANK"
-              }
-            ]
-          },
-          {
-            "type": "STRING",
-            "value": ")"
-          }
-        ]
-      }
-    },
-    "_math_attach_named_arg": {
-      "type": "PREC_DYNAMIC",
-      "value": 20,
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "FIELD",
-            "name": "name",
-            "content": {
-              "type": "ALIAS",
-              "content": {
-                "type": "SYMBOL",
-                "name": "math_named_ident"
-              },
-              "named": true,
-              "value": "ident"
-            }
-          },
-          {
-            "type": "STRING",
-            "value": ":"
-          },
-          {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_math_attach_value_expr"
-                },
-                "named": true,
-                "value": "math"
-              },
-              {
-                "type": "BLANK"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    "_math_attach_value_expr": {
+    "_math_arg_body": {
       "type": "REPEAT1",
       "content": {
         "type": "SYMBOL",
-        "name": "_math_attach_value"
+        "name": "_math_arg_expr"
       }
     },
-    "_math_attach_value": {
+    "_math_arg_expr": {
       "type": "CHOICE",
       "members": [
         {
@@ -1951,34 +1787,8 @@
           "name": "math_root"
         },
         {
-          "type": "ALIAS",
-          "content": {
-            "type": "SYMBOL",
-            "name": "_math_frac_call"
-          },
-          "named": true,
-          "value": "math_call"
-        },
-        {
-          "type": "ALIAS",
-          "content": {
-            "type": "SYMBOL",
-            "name": "_math_attach_call"
-          },
-          "named": true,
-          "value": "math_call"
-        },
-        {
           "type": "SYMBOL",
           "name": "math_call"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "math_attach"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "math_frac"
         },
         {
           "type": "SYMBOL",
@@ -1995,6 +1805,90 @@
         {
           "type": "SYMBOL",
           "name": "_hash_expr"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "math_attach"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "math_frac"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "PREC_DYNAMIC",
+            "value": -20,
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "STRING",
+                      "value": "("
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "["
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "{"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⟨"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⌊"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⌈"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "[|"
+                    }
+                  ]
+                },
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "STRING",
+                      "value": "]"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "}"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⟩"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⌋"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "⌉"
+                    },
+                    {
+                      "type": "STRING",
+                      "value": "|]"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "named": true,
+          "value": "math_text"
         },
         {
           "type": "ALIAS",
@@ -2040,112 +1934,6 @@
         }
       ]
     },
-    "_math_frac_call": {
-      "type": "PREC_DYNAMIC",
-      "value": 100,
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "FIELD",
-            "name": "item",
-            "content": {
-              "type": "ALIAS",
-              "content": {
-                "type": "STRING",
-                "value": "frac"
-              },
-              "named": true,
-              "value": "math_ident"
-            }
-          },
-          {
-            "type": "FIELD",
-            "name": "args",
-            "content": {
-              "type": "ALIAS",
-              "content": {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SYMBOL",
-                    "name": "_math_frac_args"
-                  },
-                  {
-                    "type": "SYMBOL",
-                    "name": "_math_args"
-                  }
-                ]
-              },
-              "named": true,
-              "value": "math_args"
-            }
-          }
-        ]
-      }
-    },
-    "_math_frac_args": {
-      "type": "PREC",
-      "value": 1,
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "IMMEDIATE_TOKEN",
-            "content": {
-              "type": "STRING",
-              "value": "("
-            }
-          },
-          {
-            "type": "ALIAS",
-            "content": {
-              "type": "SYMBOL",
-              "name": "_math_operand"
-            },
-            "named": true,
-            "value": "math"
-          },
-          {
-            "type": "SYMBOL",
-            "name": "_math_frac_separator"
-          },
-          {
-            "type": "SYMBOL",
-            "name": "math"
-          },
-          {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "PREC_DYNAMIC",
-                "value": 30,
-                "content": {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "STRING",
-                      "value": ","
-                    },
-                    {
-                      "type": "STRING",
-                      "value": ";"
-                    }
-                  ]
-                }
-              },
-              {
-                "type": "BLANK"
-              }
-            ]
-          },
-          {
-            "type": "STRING",
-            "value": ")"
-          }
-        ]
-      }
-    },
     "_math_named_arg": {
       "type": "PREC_DYNAMIC",
       "value": 2,
@@ -2173,8 +1961,13 @@
             "type": "CHOICE",
             "members": [
               {
-                "type": "SYMBOL",
-                "name": "math"
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_arg_body"
+                },
+                "named": true,
+                "value": "math"
               },
               {
                 "type": "BLANK"
@@ -2195,8 +1988,13 @@
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "math"
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_math_arg_body"
+              },
+              "named": true,
+              "value": "math"
             },
             {
               "type": "BLANK"
@@ -2268,28 +2066,33 @@
                 "value": ")"
               },
               {
-                "type": "STRING",
-                "value": "]"
-              },
-              {
-                "type": "STRING",
-                "value": "}"
-              },
-              {
-                "type": "STRING",
-                "value": "⟩"
-              },
-              {
-                "type": "STRING",
-                "value": "⌋"
-              },
-              {
-                "type": "STRING",
-                "value": "⌉"
-              },
-              {
-                "type": "STRING",
-                "value": "|]"
+                "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "STRING",
+                    "value": "]"
+                  },
+                  {
+                    "type": "STRING",
+                    "value": "}"
+                  },
+                  {
+                    "type": "STRING",
+                    "value": "⟩"
+                  },
+                  {
+                    "type": "STRING",
+                    "value": "⌋"
+                  },
+                  {
+                    "type": "STRING",
+                    "value": "⌉"
+                  },
+                  {
+                    "type": "STRING",
+                    "value": "|]"
+                  }
+                ]
               }
             ]
           },
@@ -6446,6 +6249,10 @@
       "math_delimited"
     ],
     [
+      "_math_arg_expr",
+      "math_delimited"
+    ],
+    [
       "_math_operand",
       "math_delimited"
     ],
@@ -6465,6 +6272,11 @@
     ],
     [
       "_math_expr",
+      "math_delimited",
+      "_math_group"
+    ],
+    [
+      "_math_arg_expr",
       "math_delimited",
       "_math_group"
     ],
@@ -6480,17 +6292,13 @@
       "_math_args"
     ],
     [
+      "_math_arg"
+    ],
+    [
       "_math_named_arg"
     ],
     [
-      "_math_attach_named_arg"
-    ],
-    [
       "_math_spread_arg"
-    ],
-    [
-      "_math_operand",
-      "_math_args"
     ],
     [
       "_math_base_operand",
@@ -6638,14 +6446,6 @@
     {
       "type": "SYMBOL",
       "name": "math_named_ident"
-    },
-    {
-      "type": "SYMBOL",
-      "name": "_math_attach_named_separator"
-    },
-    {
-      "type": "SYMBOL",
-      "name": "_math_frac_separator"
     },
     {
       "type": "SYMBOL",

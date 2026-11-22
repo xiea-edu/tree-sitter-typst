@@ -174,15 +174,15 @@ export function tsBatchSummary(files) {
 
 /** Parse one file with our parser, returning the raw S-expression text. */
 /**
- * Thrown when a single-file parse exceeds {@link PARSE_TIMEOUT_MS}.
+ * Thrown when a single-file parse exceeds its timeout (default {@link PARSE_TIMEOUT_MS}).
  *
  * Distinguished from an ordinary nonzero exit so callers can report a hang as a hang.
  * Without this a timeout surfaces as a *partial* tree, which the incremental tier then
  * reports as a span divergence — blaming the grammar for what is actually a hung CLI.
  */
 export class ParseTimeout extends Error {
-  constructor(file) {
-    super(`parse exceeded ${PARSE_TIMEOUT_MS}ms: ${file}`);
+  constructor(file, timeout = PARSE_TIMEOUT_MS) {
+    super(`parse exceeded ${timeout}ms: ${file}`);
     this.name = 'ParseTimeout';
     this.file = file;
   }
@@ -199,11 +199,11 @@ export class ParseTimeout extends Error {
  */
 export const PARSE_TIMEOUT_MS = 60_000;
 
-export function tsParseSexp(file, extraArgs = []) {
+export function tsParseSexp(file, extraArgs = [], timeout = PARSE_TIMEOUT_MS) {
   try {
-    return treeSitter(['parse', file, ...extraArgs], { timeout: PARSE_TIMEOUT_MS });
+    return treeSitter(['parse', file, ...extraArgs], { timeout });
   } catch (e) {
-    if (e.killed || e.code === 'ETIMEDOUT') throw new ParseTimeout(file);
+    if (e.killed || e.code === 'ETIMEDOUT') throw new ParseTimeout(file, timeout);
     // Nonzero exit just means the tree contains ERROR nodes; the tree is still printed.
     return e.stdout ?? '';
   }
