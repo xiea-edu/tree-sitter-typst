@@ -1,17 +1,8 @@
 /**
  * Fetch real-world Typst source into `corpus/` for differential testing.
  *
- * The corpus is deliberately NOT committed. It is third-party Apache-2.0 material and
- * would bloat the repo; `corpus/` is gitignored and rebuilt on demand (and cached, so
- * re-runs are cheap).
- *
- * Two sources, in descending order of value per file:
- *
- *   1. `typst/typst@vN tests/suite/**\/*.typ` — the compiler's own test suite. These are
- *      adversarial edge cases written by the people who designed the language, so they
- *      exercise exactly the corners a grammar gets wrong.
- *   2. Typst Universe packages — ordinary real-world documents, which catch the opposite
- *      failure mode: common constructs we somehow never thought to test.
+ * Fetch the compiler suite, parser test inputs, Touying and Typst Universe packages.
+ * Downloaded archives and extracted third-party material stay under gitignored `corpus/`.
  *
  * Usage:
  *   node scripts/fetch-corpus.mjs                 # suite + 300 packages
@@ -28,6 +19,7 @@ import { readTarGz } from './tar.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CORPUS = path.join(ROOT, 'corpus');
 const CACHE = path.join(CORPUS, '.cache');
+const peerCorpora = JSON.parse(fs.readFileSync(new URL('../test/peer-corpora.json', import.meta.url)));
 
 /** Typst version to pin the suite to. Keep in sync with tools/oracle/Cargo.toml. */
 const TYPST_VERSION = '0.15.1';
@@ -146,6 +138,60 @@ async function fetchPinned(seen) {
   return count;
 }
 
+/** Headers in these two pinned corpora have one title line and unsuffixed delimiters. */
+function* corpusExamples(text) {
+  const headers = [...text.matchAll(/^(={3,})\n([^\n]+)\n\1\n/gm)];
+  if (!headers.length) throw new Error('Missing Tree-sitter corpus header');
+  for (const [i, header] of headers.entries()) {
+    const body = text.slice(header.index + header[0].length, headers[i + 1]?.index);
+    // Tree-sitter picks the longest divider (last on a tie) so Typst shorthands
+    // can appear in the source. Strip exactly the newline introducing the divider.
+    let divider;
+    for (const m of body.matchAll(/^-{3,}\n/gm)) {
+      if (!divider || m[0].length >= divider[0].length) divider = m;
+    }
+    if (!divider) throw new Error('Missing corpus divider for ' + header[2]);
+    yield [header[2], body.slice(0, divider.index).replace(/\n$/, '')];
+  }
+}
+
+async function fetchParserCorpus(owner, { revision, files }) {
+  const archive = await download(
+    'https://codeload.github.com/' + owner + '/tree-sitter-typst/tar.gz/' + revision,
+    owner + '-' + revision + '.tar.gz',
+  );
+  const dest = path.join(CORPUS, owner);
+  const inputs = new Map();
+  let license;
+  for (const { name, data } of readTarGz(archive)) {
+    const rel = name.slice(name.indexOf('/') + 1);
+    if (rel === 'LICENSE') license = data;
+    if (/^test\/fixtures\/(?:[\w-]+\/)*[\w-]+\.typ$/.test(rel)) {
+      inputs.set(rel.slice('test/'.length), normalize(data));
+    }
+    const suite = /^test\/corpus\/([\w-]+)\.(?:scm|txt)$/.exec(rel)?.[1];
+    if (!suite) continue;
+    for (const [title, source] of corpusExamples(normalize(data))) {
+      const label = title.startsWith(suite + '/') ? title.slice(suite.length + 1) : title;
+      const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const file = suite + '/' + slug + '.typ';
+      if (!slug || inputs.has(file)) throw new Error('Ambiguous corpus title: ' + title);
+      inputs.set(file, source);
+    }
+  }
+  if (!license || inputs.size !== files) {
+    throw new Error(owner + ' archive incomplete: found ' + inputs.size + ' test inputs, expected ' + files);
+  }
+  fs.rmSync(dest, { recursive: true, force: true });
+  for (const [file, source] of inputs) {
+    const target = path.join(dest, file);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, source);
+  }
+  fs.writeFileSync(path.join(dest, 'LICENSE'), license);
+  return inputs.size;
+}
+
 async function fetchPackages(limit, seen) {
   const dest = path.join(CORPUS, 'packages');
   fs.rmSync(dest, { recursive: true, force: true });
@@ -218,19 +264,25 @@ async function main() {
 `);
 
   let packages = 0;
+  const parsers = {};
+  for (const [owner, pin] of Object.entries(peerCorpora)) {
+    parsers[owner] = await fetchParserCorpus(owner, pin);
+    console.log('  -> ' + parsers[owner] + ' test inputs from ' + owner);
+  }
   if (PACKAGE_COUNT > 0) {
     packages = await fetchPackages(PACKAGE_COUNT, seen);
     console.log(`  -> ${packages} files from Typst Universe\n`);
   }
 
+  const total = suite + pinned + packages + Object.values(parsers).reduce((a, b) => a + b, 0);
   const manifest = {
     fetchedAt: new Date().toISOString(),
     typstVersion: TYPST_VERSION,
-    counts: { suite, pinned, packages, total: suite + pinned + packages },
+    counts: { suite, pinned, ...parsers, packages, total },
   };
   fs.writeFileSync(path.join(CORPUS, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
-  console.log(`Corpus ready: ${suite + pinned + packages} .typ files in corpus/`);
+  console.log('Corpus ready: ' + total + ' .typ files in corpus/');
 }
 
 main().catch((err) => {

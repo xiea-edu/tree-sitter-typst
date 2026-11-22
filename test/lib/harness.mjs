@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const CORPUS = path.join(ROOT, 'corpus');
+export const peerCorpora = JSON.parse(fs.readFileSync(new URL('../peer-corpora.json', import.meta.url)));
 const TMP = path.join(ROOT, '.tmp');
 
 const ORACLE_BIN = path.join(
@@ -54,6 +55,13 @@ export function corpusGroups({ limit = Infinity } = {}) {
     // Repositories pinned by tag in fetch-corpus.mjs. Reported apart from the Universe
     // sample because, being version-pinned, their score is reproducible and can be gated.
     { name: 'pinned', files: listTypFiles(path.join(CORPUS, 'pinned')) },
+    ...Object.entries(peerCorpora).map(([name, pin]) => {
+      const files = listTypFiles(path.join(CORPUS, name));
+      if (files.length !== pin.files) {
+        throw new Error(name + ' corpus is incomplete; run npm run corpus:fetch');
+      }
+      return { name, files };
+    }),
     { name: 'packages', files: listTypFiles(path.join(CORPUS, 'packages')) },
   ].filter((g) => g.files.length);
 

@@ -34,6 +34,14 @@ mapped node counts, byte spans, and parents, and `npm run test:incremental` to c
 trees. The node mapping is in `test/lib/kind-map.mjs`. To inspect a disagreement
 in one file, run `node scripts/why.mjs <file.typ>`.
 
+The corpus includes the Typst compiler suite, Touying, a sample of Universe
+packages, and the pinned test inputs from uben0 and SeniorMars. Each Tree-sitter
+corpus example runs as its own Typst document against the oracle, including
+uben0's imported compiler examples and SeniorMars's standalone fixtures.
+`test/peer-corpora.json` records both revisions and the individual cases with
+known disagreements. New disagreements fail the suite. When a case starts
+matching the oracle, remove its entry from that file.
+
 ## License
 
 MIT

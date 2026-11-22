@@ -44,7 +44,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: corpus
-          key: corpus-v1-${{ hashFiles('scripts/fetch-corpus.mjs') }}
+          key: corpus-v1-${{ hashFiles('scripts/fetch-corpus.mjs', 'test/peer-corpora.json') }}
 
       - run: npm ci
 

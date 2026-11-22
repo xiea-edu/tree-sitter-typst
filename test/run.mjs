@@ -15,7 +15,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  ROOT, corpusGroups, oracleBatch, oracleParseText, tsBatchSummary, tsParseSexp,
+  ROOT, CORPUS, peerCorpora, corpusGroups, oracleBatch, oracleParseText, tsBatchSummary, tsParseSexp,
   spanTrees, parseSexpNodes, color, pct, rel, TS_BIN, ParseTimeout,
 } from './lib/harness.mjs';
 import { compareSpans } from './lib/spans.mjs';
@@ -55,6 +55,18 @@ const fail = (msg) => { failed = true; console.log(color.red(`  FAIL  ${msg}`));
 const pass = (msg) => console.log(color.green(`  ok    ${msg}`));
 const head = (t) => console.log(`\n${color.bold(t)}`);
 
+// Compare each peer case with its pinned status. A fix and an unrelated new
+// failure cannot cancel each other out. A resolved case retires its baseline entry.
+function checkPeerCase(group, file, category, disagrees) {
+  const pin = peerCorpora[group];
+  if (!pin) return;
+  const key = path.relative(path.join(CORPUS, group), file).split(path.sep).join('/');
+  const expected = pin[category].includes(key);
+  if (disagrees !== expected) {
+    fail(`${group}/${key}: ${disagrees ? 'new disagreement' : 'resolved; remove baseline entry'} (${category})`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Tier 1 — validity agreement
 // ---------------------------------------------------------------------------
@@ -88,7 +100,12 @@ function tierValid() {
     for (const file of g.files) {
       const key = path.resolve(file);
       const o = oracle.get(key), t = ours.get(key);
-      if (!o || !t || o.read_error) continue;
+      if (!o || !t || o.read_error) {
+        fail('missing parser result for ' + rel(file));
+        continue;
+      }
+      checkPeerCase(g.name, file, 'falseAccepts', !o.ok && t.ok);
+      if (peerCorpora[g.name] && o.ok && !t.ok) fail('new false reject: ' + rel(file));
       total++;
       seen++;
       if (o.ok === t.ok) { agree++; totalAgree++; }
@@ -198,10 +215,15 @@ function tierDiff() {
     const ours = tsBatchSummary(g.files);
     let compared = 0, matching = 0;
 
-    const validFiles = g.files.filter(file => oracle.get(file)?.ok && ours.get(file)?.ok);
+    const validFiles = g.files.filter(file => {
+      const o = oracle.get(file), t = ours.get(file);
+      if (!o || o.read_error || !t) fail('missing parser result for ' + rel(file));
+      return o?.ok && t?.ok;
+    });
     for (const [file, tree] of spanTrees(validFiles)) {
       const buf = fs.readFileSync(file);
       const diff = compareSpans(oracle.get(file).nodes, parseSexpNodes(tree, buf), buf);
+      checkPeerCase(g.name, file, 'spanMismatches', diff.length > 0);
       filesCompared++;
       compared++;
       if (diff.length === 0) { filesMatching++; matching++; }

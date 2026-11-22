@@ -1,0 +1,69 @@
+{
+  "uben0": {
+    "revision": "46cf4ded12ee974a70bf8457263b67ad7ee0379d",
+    "files": 2934,
+    "falseAccepts": [
+      "positive/367.typ",
+      "positive/399.typ",
+      "positive/403.typ",
+      "typst/call-call-args-duplicate.typ",
+      "typst/call-math-call-named-args-duplicate.typ",
+      "typst/closure-closure-param-duplicate-mixed.typ",
+      "typst/closure-closure-param-duplicate-positional.typ",
+      "typst/closure-closure-param-duplicate-spread.typ",
+      "typst/closure-closure-param-keyword.typ",
+      "typst/destructuring-destructuring-let-array-with-unnamed-sink.typ",
+      "typst/dict-dict-duplicate-key-stringy.typ",
+      "typst/dict-dict-duplicate-key.typ",
+      "typst/embedded-markup-expr-incomplete-followed-by-text.typ",
+      "typst/let-issue-4027-let-binding-with-destructured-keywords.typ",
+      "typst/let-issue-4027-let-binding-with-keyword-context.typ",
+      "typst/let-issue-4027-let-binding-with-keyword-let.typ",
+      "typst/let-let-binding-keyword-in-code.typ",
+      "typst/let-let-binding-keyword-in-markup.typ",
+      "typst/let-let-with-no-init-destructuring.typ",
+      "typst/let-let-with-no-init-group.typ",
+      "typst/params-params-sink-bool-invalid.typ",
+      "typst/params-params-sink-multiple-invalid.typ"
+    ],
+    "spanMismatches": [
+      "positive/216.typ",
+      "positive/288.typ",
+      "positive/350.typ",
+      "typst/attach-math-attach-limit.typ"
+    ]
+  },
+  "SeniorMars": {
+    "revision": "1acd48c90d260bc9f8a99f903d3e2a8031bc7aae",
+    "files": 287,
+    "falseAccepts": [
+      "audit_fixes/nested-return-recovery-stays-on-one-line.typ",
+      "feedback/code-continuation-after-assignment-and-binary-operator.typ",
+      "feedback/code-continuation-before-conditional-block.typ",
+      "fixtures/invalid/missing-token.typ",
+      "proposed_matrix/math-incomplete-attachment.typ",
+      "regressions/atomic-context-permits-spaced-statement-bodies.typ",
+      "regressions/bare-underscore-is-not-an-atomic-field-identifier.typ",
+      "regressions/embedded-hash-requires-immediate-code.typ",
+      "regressions/embedded-hash-statement-stops-at-newline.typ",
+      "regressions/review-checklist-immediate-call-comments-in-code-blocks.typ",
+      "regressions/review-checklist-immediate-content-comments-in-code-blocks.typ",
+      "regressions/review-checklist-invalid-embedded-code-markers.typ",
+      "regressions/review-matrix-atomic-adjacency.typ",
+      "regressions/stopped-conditional-rejects-next-line-content-body.typ",
+      "scanner_edges/scanner-edge-bare-underscore-is-not-field-continuation.typ"
+    ],
+    "spanMismatches": [
+      "audit_fixes/numbered-marker-overflow.typ",
+      "audit_fixes/reference-punctuation-is-not-a-supplement.typ",
+      "modern_markup/heading-less-than-text.typ",
+      "proposed_matrix/heading-with-less-than-text.typ",
+      "regressions/destructuring-reassignment.typ",
+      "regressions/heading-and-list-comment-boundaries.typ",
+      "regressions/parenthesized-single-assignment-target-is-not-destructuring.typ",
+      "regressions/review-matrix-atomic-context-propagation.typ",
+      "regressions/statement-like-expressions-participate-in-precedence.typ",
+      "scanner_edges/scanner-edge-overflowing-numbered-marker-is-text.typ"
+    ]
+  }
+}
