@@ -742,7 +742,7 @@ return in a function
             (int)))))))
 
 ================================================================================
-an unmatched trailing underscore is text
+a dot before a lone underscore ends embedded code
 ================================================================================
 
 #a._ b _
@@ -750,11 +750,9 @@ an unmatched trailing underscore is text
 --------------------------------------------------------------------------------
 
 (source_file
-  (field_access
-    (ident)
-    (ident))
+  (ident)
   (text)
-  (text))
+  (emph (markup (text))))
 
 ================================================================================
 bare return as a spread argument

@@ -37,6 +37,34 @@ test('blank lines keep indented list bodies and close before dedented content', 
   ]) check(s);
 });
 
+test('line-start context survives comments and restarts inside item bodies', () => {
+  for (const s of [
+    'text\n/**/ = Heading', 'text /**/ = ordinary', 'text /*\n*/ = ordinary',
+    '1. 1. nested\n   2. sibling\n2. outer', '/ term: - nested', 'intro\n/ term: - nested',
+    '- parent\n /**/- child\n/**/ - sibling\noutside', '-\n /**/- first',
+    '- a\n  /path', '- a\n  / term: body', '#[\n  // before first\n  - item\n]',
+    '*text\n/**/ = Heading\n*', 'text\n/**/ 123abc',
+    '- one\n /* outer /* nested */\n  */ - two\n- three',
+  ]) check(s);
+  const tree = check('- parent\n' + '  /* item comment */\n'.repeat(64) + '  body');
+  assert.equal(tree.match(/\(block_comment\b/g)?.length, 64);
+});
+
+test('literal brackets and word punctuation preserve markup text boundaries', () => {
+  for (const s of [
+    '#[[#name]]', 'a ["b" [$x$]] c', 'abc_def*g 0.1_g', 'a..b...c', 'abc httpish',
+    'a< b', 'https:\\/\\/example', '-٣ -¾', '_#name._', '#a._ b _', '#a._field',
+  ]) check(s);
+  check('0._x', false);
+});
+
+test('postfix math and trailing code comments preserve the oracle tree', () => {
+  for (const s of [
+    "$n'!'$", "$n!'!$", "$a_n'!'^b$", '$==> =>> <==>$',
+    '$pi.alt(x) pi.alt/**/(x) pi.alt / x$', '#{1 /* tail */}', '#{1 /* inside */ + 2}',
+  ]) check(s);
+});
+
 test('a shebang is trivia only at the start of the document', () => {
   assert.match(check('#!/usr/bin/env typst\n= Title\n\nHello'), /\(shebang \[0, 0\]/);
   check('#!');
@@ -139,6 +167,11 @@ test('batched trees agree with single parses; invalid batch output cannot shift 
 
 test('incremental edits across scanner lookahead boundaries match fresh oracle-checked trees', () => {
   for (const [before, needle, replacement] of [
+    ['a_b_', 'a', '.'], ['a _x_', ' _x_', '_x'], ['a..b', '..', '...'],
+    ['- outer\n /**/- child', '/**/', ''], ['text\n/**/ = H', '\n', ' '],
+    ["$n'!$", '!', "!'"], ['$pi.alt(x)$', '(', '/**/('],
+    ['#[outer [#x]]', '#x', 'inner [x]'],
+    ['#{1 /*tail*/}', '}', ' + 2}'],
     ['- parent\n\nchild', 'child', '  child'],
     ['= /path', ' ', ''],
     ['#!/bin\n= Title', '#!', ''],

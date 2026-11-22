@@ -2764,10 +2764,6 @@
           "named": true
         },
         {
-          "type": "markup",
-          "named": true
-        },
-        {
           "type": "module_import",
           "named": true
         },
@@ -2944,6 +2940,10 @@
           },
           {
             "type": "math_align_point",
+            "named": true
+          },
+          {
+            "type": "math_attach",
             "named": true
           },
           {
@@ -6003,10 +6003,6 @@
         },
         {
           "type": "loop_continue",
-          "named": true
-        },
-        {
-          "type": "markup",
           "named": true
         },
         {

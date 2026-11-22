@@ -99,8 +99,7 @@ module.exports = grammar({
     $._math_dot,        // the `.` of a math field access: a name must follow it
     $._math_adjacent,   // zero-width: a delimiter follows immediately, so it is a call
     $._math_bang,       // zero-width: a `!` follows immediately, so it is a factorial
-    // The same four markers again, valid only as the first thing in a content block,
-    // where the column test cannot apply — see `content_block`.
+    // The same markers at the start of a fresh markup context, including item bodies.
     $._heading_marker_start,
     $._list_marker_start,
     $._enum_marker_start,
@@ -118,6 +117,8 @@ module.exports = grammar({
     $._let_name_ahead,  // the binding name touches an opening parenthesis
     $._non_ascii_space, // whitespace outside markup, where typst skips it as trivia
     $._math_adjacent_brace, // implicit call after an identifier; ( starts explicit arguments
+    $._math_symbol_end, // commit an identifier before trivia can separate it from a call
+    $._after_line_comments, // replay leading comment extras with fresh markup context
     $._error_sentinel,  // never matched; signals error recovery to the scanner
   ],
 
@@ -167,13 +168,13 @@ module.exports = grammar({
 
     // `/ a: b` — a term item, or ordinary text that happens to contain a colon? The
     // colon is plain text in markup, and only a term item gives it a second meaning.
-    [$._markup_expr, $.term_item],
+    [$._plain_markup_expr, $.term_item],
 
     // A run of markup can always be extended or closed.
     [$.markup],
     // A content block's first element may be a term item whose marker needs no column, or
     // ordinary markup that happens to contain a colon. Only the colon settles it.
-    [$._markup_expr, $._block_term_item],
+    [$._plain_markup_expr, $._block_term_item],
 
     // Round parentheses in an operand can be unwrapped by math_unparen.
     [$.math_delimited, $._math_group],
@@ -188,9 +189,13 @@ module.exports = grammar({
     // Most markup tokens come from the external scanner, which reproduces typst's
     // `Lexer::markup` — see src/scanner.c for why they cannot be regexes.
 
-    source_file: $ => seq(optional($.shebang), repeat($._markup_expr)),
+    source_file: $ => seq(optional($.shebang), optional($._block_markup)),
 
-    _markup_expr: $ => markupExpr($, { label: true }),
+    _plain_markup_expr: $ => markupExpr($, { label: true }),
+    _markup_expr: $ => choice(
+      $._plain_markup_expr,
+      seq($._after_line_comments, choice($._block_first, $._plain_markup_expr)),
+    ),
 
     // A heading's body stops at a label, so in `= Real <real>` the label is a sibling of
     // the heading rather than part of it. Typst spells this as a stop set on the
@@ -204,7 +209,7 @@ module.exports = grammar({
     // *unbalanced* `]` free to close an enclosing content block.
     _bracket_text: $ => seq(
       alias('[', $.text),
-      optional($.markup),
+      repeat($._markup_expr),
       alias(']', $.text),
     ),
 
@@ -277,13 +282,13 @@ module.exports = grammar({
       optional(alias($._markup_unlabelled, $.markup)),
       $._heading_end,
     ),
-    list_item: $ => seq($.list_marker, optional($.markup), $._line_end),
-    enum_item: $ => seq($.enum_marker, optional($.markup), $._line_end),
+    list_item: $ => seq($.list_marker, optional($._item_markup), $._line_end),
+    enum_item: $ => seq($.enum_marker, optional($._item_markup), $._line_end),
     term_item: $ => seq(
       $.term_marker,
       field('term', optional($.markup)),
       ':',
-      field('description', optional($.markup)),
+      field('description', optional($._item_markup)),
       $._line_end,
     ),
 
@@ -534,7 +539,8 @@ module.exports = grammar({
     _math_sup_rebased: $ => prec.left(PREC_MATH.attach,
       seq(field('base', $._math_operand), $._math_sup)),
 
-    _math_primed: $ => prec.left(PREC_MATH.attach, seq(
+    // Complete the primed base before an adjacent factorial wraps it.
+    _math_primed: $ => prec.left(PREC_MATH.attach + 1, seq(
       field('base', $._math_operand), $._adjacent_prime, $.math_primes,
       optional($._math_scripts),
     )),
@@ -553,7 +559,7 @@ module.exports = grammar({
 
     // math_op wraps adjacent factorials in Math, including digit operands ($2!$).
     math_factorial: $ => prec.left(PREC_MATH.attach, seq(
-      field('base', $._math_operand),
+      field('base', choice($._math_operand, alias($._math_primed, $.math_attach))),
       $._math_bang,
       alias('!', $.math_text),
     )),
@@ -586,7 +592,7 @@ module.exports = grammar({
     // not read as `<=` followed by `=>`.
     math_shorthand: _ => token(choice(
       '<==>', '<-->', '<--', '<-<', '<->', '<<-', '<<<', '<=>', '<==', '<~~',
-      '>->', '>>>', '=>>', '|->', '|=>', '~~>', '::=', '-->', '->>', '...',
+      '>->', '>>>', '==>', '|->', '|=>', '~~>', '::=', '-->', '->>', '...',
       '<=', '<<', '<-', '<~', '>=', '>>', '=>', '=:', ':=', '!=', '||', '~>',
       '->', '*', '-', '~',
     )),
@@ -704,10 +710,14 @@ module.exports = grammar({
      */
     content_block: $ => seq('[', optional(alias($._block_markup, $.markup)), ']'),
 
-    _block_markup: $ => choice(
-      seq($._block_first, repeat($._markup_expr)),
-      repeat1($._markup_expr),
-    ),
+    _block_markup: $ => seq(choice($._block_first, $._plain_markup_expr), repeat($._markup_expr)),
+
+    // In restricted markup, only a possible marker causes a comment replay.
+    // A digit or hyphen can still be ordinary text or shorthand after lookahead.
+    _commented_marker: $ => seq($._after_line_comments, choice($._block_first, $.text, $.shorthand)),
+
+    // Keep any leading comment outside the extent of the first body expression.
+    _item_markup: $ => seq(optional($._after_line_comments), alias($._block_markup, $.markup)),
 
     /*
      * The item forms again, for the one position where a marker needs no column. Each
@@ -732,18 +742,18 @@ module.exports = grammar({
     ),
 
     _block_list_item: $ => seq(
-      alias($._list_marker_start, $.list_marker), optional($.markup), $._line_end,
+      alias($._list_marker_start, $.list_marker), optional($._item_markup), $._line_end,
     ),
 
     _block_enum_item: $ => seq(
-      alias($._enum_marker_start, $.enum_marker), optional($.markup), $._line_end,
+      alias($._enum_marker_start, $.enum_marker), optional($._item_markup), $._line_end,
     ),
 
     _block_term_item: $ => seq(
       alias($._term_marker_start, $.term_marker),
       field("term", optional($.markup)),
       ":",
-      field("description", optional($.markup)),
+      field("description", optional($._item_markup)),
       $._line_end,
     ),
 
@@ -1215,6 +1225,7 @@ function markupExpr($, { label, strong = true, emph = true }) {
     $.heading,
     $.list_item,
     $.enum_item,
+    ...(!label || !strong || !emph ? [$._commented_marker] : []),
     $.term_item,
     $.equation,
     $._hash_expr,
@@ -1274,8 +1285,7 @@ function mathScript(operator, operand) {
 function mathExpr($, { operators, inArgs = false }) {
   return choice(
     mathText($),
-    $.math_ident,
-    $.math_field_access,
+    seq(choice($.math_ident, $.math_field_access), optional($._math_symbol_end)),
     $.math_shorthand,
     $.math_align_point,
     $.math_primes,
