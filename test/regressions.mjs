@@ -108,6 +108,33 @@ test('named functions need adjacent parameters and a body; commas require an ite
     '#foo(,)', '#let f(,) = 1', '#let f = (,) => 1']) check(s, false);
 });
 
+test('bindings, assignments, and argument sinks have different pattern syntax', () => {
+  for (const s of ['#let let_ = 1', '#let x', '#let (a, .., b) = v',
+    '#let f((..inner), ..rest) = rest', '#((target.at(0),) = source)',
+    '#{ () = value }', '#(false.true)', '#(let (x)\n=1)']) check(s);
+  for (const s of ['#let as = 1', '#let (context, b) = v', '#let (x)', '#let _',
+    '#let f(none: 0) = x', '#let f(..true) = x', '#let f(..a, ..b) = x',
+    '#let (..a, ..b) = v', '#let (target.at(0),) = v', '#let (x: target.field) = v',
+    '#(:..)', '#f(..)']) check(s, false);
+});
+
+test('embedded code, blocks, and parentheses apply their own newline rules', () => {
+  for (const s of ['#let x = (1 +\n 2)', '#(if c\n [body])', '#{if c\n .name [body]}',
+    '#let /*\n*/ x = 1', '#context let x = 1', '#context (-x)',
+    '$#if true [] /* a */ else /* b */ []$', '#(a\n: 1)']) check(s);
+  for (const s of ['# value', '#/*c*/value', '#let\n x = 1', '#let x =\r\n 2',
+    '#let x =\n/*c*/ 1', '#return f(x) +\n next', '#if c\n .name [body]',
+    '#if c\n /*c*/ [body]', '#{if c\n[body]}', '#context +x',
+    '#{f/*c*/(x)}', '#{f/*c*/[x]}', '#(f\n(x))', '#value._']) check(s, false);
+});
+
+test('markup boundaries survive nested scopes and numbered marker overflow', () => {
+  for (const s of ['= x < y', '= [x\nnext', '- [a\n b]', '- a\n  - b *\n - c\n *\n  - d',
+    '18446744073709551615. item', '18446744073709551616. prose', '00000000000000000001. item',
+    'https://[)', '@r\n[s]', '@r/*c*/[s]', '$a\n!$', '$a\n(x)$', '$a\\\u00a0b$']) check(s);
+  for (const s of ['= [\na]', '- [a\na]', '\n$x^$\n']) check(s, false);
+});
+
 test('radix integers use the signed 64-bit limit independently of token length', () => {
   for (const [base, prefix] of [[2, '0b'], [8, '0o'], [16, '0x']]) {
     const maximum = (1n << 63n) - 1n;
@@ -176,7 +203,11 @@ test('batched trees agree with single parses; invalid batch output cannot shift 
 });
 
 test('incremental edits across scanner lookahead boundaries match fresh oracle-checked trees', () => {
-  for (const [before, needle, replacement] of [
+  for (const [before, needle, replacement, valid = true] of [
+    ['#let x = 1', '= ', '=\n/*c*/', false], ['#foo', '#', '# ', false],
+    ['#let f(..a, b) = a', ', b', ', ..b', false], ['#let (x)', '(x)', 'x'],
+    ['#(f\n(x))', '\n', ''], ['@r[s]', '[', '/*c*/['],
+    ['- [a\n b]', ' b', 'b', false], ['18446744073709551615. x', '15.', '16.'],
     ['a_b_', 'a', '.'], ['a _x_', ' _x_', '_x'], ['a..b', '..', '...'],
     ['prefix https:/x', ':/', '://'], ['prefix http://x', '//', '\\/\\/'],
     ['- outer\n /**/- child', '/**/', ''], ['text\n/**/ = H', '\n', ' '],
@@ -199,6 +230,8 @@ test('incremental edits across scanner lookahead boundaries match fresh oracle-c
     const offset = Buffer.byteLength(before.slice(0, at));
     const edit = [offset, Buffer.byteLength(needle), replacement].join(' ');
     const tree = tsParseSexp(fixture('before', before), ['--edits', edit]);
-    assert.equal(tree.trim(), check(after).trim(), after);
+    // The CLI adds a path and timing footer to erroneous parses.
+    const syntax = output => output.split(/\r?\n(?=[^\n]+\tParse:)/)[0].trim();
+    assert.equal(syntax(tree), syntax(check(after, valid)), after);
   }
 });

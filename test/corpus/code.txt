@@ -804,17 +804,20 @@ block comments separate control values from content bodies
 (source_file
   (conditional
     (ident)
+    (block_comment)
     (content_block
       (markup
         (text))))
   (while_loop
     (ident)
+    (block_comment)
     (content_block
       (markup
         (text))))
   (for_loop
     (ident)
     (ident)
+    (block_comment)
     (content_block
       (markup
         (text)))))

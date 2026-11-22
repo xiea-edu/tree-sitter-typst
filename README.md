@@ -39,7 +39,8 @@ packages, and the pinned test inputs from uben0 and SeniorMars. Each Tree-sitter
 corpus example runs as its own Typst document against the oracle, including
 uben0's imported compiler examples and SeniorMars's standalone fixtures.
 `test/peer-corpora.json` records both revisions and the individual cases with
-known disagreements. New disagreements fail the suite. When a case starts
+known disagreements. The remaining cases involve duplicate dictionary keys,
+named arguments, or parameter names. New disagreements fail the suite. When a case starts
 matching the oracle, remove its entry from that file.
 
 ## License
