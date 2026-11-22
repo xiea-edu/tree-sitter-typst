@@ -48,29 +48,33 @@ Against the reference parser, on the full 3,831-file corpus:
 | | |
 | --- | --- |
 | Validity agreement | **100%** — 0 false rejects, 0 false accepts |
-| Span agreement | 98.23% of files structurally identical (3,727 / 3,794) |
+| Span agreement | 98.84% of files structurally identical (3,750 / 3,794) |
 | `SyntaxKind` coverage | 130 / 130 kinds the corpus produces |
-| Golden tests | 67, all passing |
+| Golden tests | 72, all passing |
 | Fuzz / incremental | clean |
 
-Span agreement splits by group: 98.69% on the 3,519 package files, 100% on the pinned
-set, and 88.59% on Typst's own test suite — which is adversarial by design.
+Span agreement is 99.12% on the 3,519 package files, 100% on the pinned set, and
+92.93% on the 184 valid files in Typst's own test suite.
+
+An unmatched math opener wraps the rest of its equation in a nested `math` node.
+In `$[ (x ] y$`, the `]` closes the inner `(` to form a `math_delimited` node.
+The outer `[` and the final `y` share the unmatched group. ASCII `<` and `>`
+are ordinary math symbols.
 
 ### Known gaps
 
-Both of the following come from the same place: how math tells an argument list apart
-from a delimited group.
+The remaining 44 files with span differences include markup text, lists, and math
+attachments. For example, the reference wraps `a'!` in a `Math` node covering
+the primed expression and its factorial.
 
-**Delimiter grouping.** The remaining span disagreements are almost entirely math-mode
-delimiter grouping. Typst opens a nested `Math` scope at any opening delimiter and closes
-it at the end of the equation if the closer never arrives; `math_delimited` here requires
-a matched pair, so an unmatched `<` or `[` produces a flat run where the reference nests.
-This is why the adversarial suite scores lower than real documents. It does not affect
-which tokens receive which capture, so highlighting, folding and indentation are
-unaffected.
+### Historical math-call performance
 
-**Exponential parse on repeated named calls in math.** A run of `name: call(...),` inside
-an equation costs roughly 1.9× per repetition:
+The following measurements and diagnosis describe the parser at `ac552b4`.
+With the delimiter fix, the 35-repetition example below took 0.21 ms in a local
+CLI parse. That measurement covers the synthetic equation.
+
+**Exponential parse on repeated named calls in math at `ac552b4`.** A run of
+`name: call(...),` inside an equation cost roughly 1.9× per repetition:
 
 ```typst
 $
@@ -153,7 +157,7 @@ npm run compare -- ../tree-sitter-typst-uben0 ../tree-sitter-typst-seniormars
   documents contains few of those — so it is a weaker signal than the false-reject count.
 - The structural table is a 150-file sample, not the full corpus, and its metric is
   deliberately crude so that it ports across grammars. It is not the same measurement as
-  the 98.23% figure above, which uses the kind map.
+  the full-corpus span agreement figure above, which uses the kind map.
 
 ## Usage
 

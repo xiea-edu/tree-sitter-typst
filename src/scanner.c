@@ -59,6 +59,7 @@ enum TokenType {
   MATH_ATTACH_NAMED_SEPARATOR,
   MATH_FRAC_SEPARATOR,
   NON_ASCII_SPACE,
+  MATH_ADJACENT_BRACE,
   ERROR_SENTINEL,
 };
 
@@ -1338,6 +1339,23 @@ static bool scan_raw_content(TSLexer *lexer, Scanner *scanner) {
 // entry point
 // ---------------------------------------------------------------------------
 
+// The single-character openers from typst_utils::default_math_class. The
+// two-character shorthand [| starts with an opening bracket as well.
+static bool is_math_open(int32_t c) {
+  switch (c) {
+    case '(': case '[': case '{':
+    case 0x2308: case 0x230A: case 0x231C: case 0x231E: case 0x23B0:
+    case 0x2772: case 0x27C5:
+    case 0x27E6: case 0x27E8: case 0x27EA: case 0x27EC: case 0x27EE:
+    case 0x2983: case 0x2985: case 0x2987: case 0x2989: case 0x298B:
+    case 0x298D: case 0x298F: case 0x2991: case 0x2993: case 0x2995:
+    case 0x2997: case 0x29D8: case 0x29DA: case 0x29FC:
+      return true;
+    default:
+      return false;
+  }
+}
+
 static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols);
 
 bool tree_sitter_typst_external_scanner_scan(void *payload, TSLexer *lexer,
@@ -1393,16 +1411,13 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     return true;
   }
 
-  if (valid_symbols[MATH_ADJACENT] && !lexer->eof(lexer)) {
-    int32_t c = lexer->lookahead;
-    // The bars are deliberately absent. `|` and `‖` open *and* close a group, so after a
-    // letter they are simply symbols — typst reads `$f|x|$` as four separate texts, not a
-    // call on `|x|`. Admitting them here made the closing bar ambiguous against the
-    // opening one and cost five files their parse outright.
-    if (c == '(' || c == '[' || c == '{' ||
-        c == 0x27E8 || c == 0x230A || c == 0x2308) {  // ⟨ ⌊ ⌈
-      lexer->mark_end(lexer);
+  if (is_math_open(lexer->lookahead)) {
+    if (valid_symbols[MATH_ADJACENT]) {
       lexer->result_symbol = MATH_ADJACENT;
+      return true;
+    }
+    if (valid_symbols[MATH_ADJACENT_BRACE] && lexer->lookahead != '(') {
+      lexer->result_symbol = MATH_ADJACENT_BRACE;
       return true;
     }
   }

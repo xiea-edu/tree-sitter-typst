@@ -777,8 +777,22 @@
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "math"
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "math"
+                },
+                {
+                  "type": "ALIAS",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "_math_unclosed_sequence"
+                  },
+                  "named": true,
+                  "value": "math"
+                }
+              ]
             },
             {
               "type": "BLANK"
@@ -788,6 +802,22 @@
         {
           "type": "STRING",
           "value": "$"
+        }
+      ]
+    },
+    "_math_unclosed_sequence": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_math_expr"
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_math_unclosed_expr"
         }
       ]
     },
@@ -919,82 +949,33 @@
         {
           "type": "ALIAS",
           "content": {
-            "type": "PREC_DYNAMIC",
-            "value": -20,
+            "type": "TOKEN",
             "content": {
               "type": "CHOICE",
               "members": [
                 {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "STRING",
-                      "value": "("
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "["
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "{"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⟨"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⌊"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⌈"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "[|"
-                    }
-                  ]
+                  "type": "PATTERN",
+                  "value": "[)\\]}]"
                 },
                 {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "STRING",
-                      "value": ")"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "]"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "}"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⟩"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⌋"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⌉"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "|]"
-                    }
-                  ]
+                  "type": "PATTERN",
+                  "value": "[⌉⌋⌝⌟⎱❳⟆⟧⟩⟫⟭⟯⦄⦆⦈⦊⦌⦎⦐⦒⦔⦖⦘⧙⧛⧽]",
+                  "flags": "u"
                 }
               ]
             }
           },
           "named": true,
           "value": "math_text"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "STRING",
+            "value": "|]"
+          },
+          "named": true,
+          "value": "math_shorthand"
         },
         {
           "type": "ALIAS",
@@ -1161,76 +1142,18 @@
         {
           "type": "ALIAS",
           "content": {
-            "type": "PREC_DYNAMIC",
-            "value": -20,
+            "type": "TOKEN",
             "content": {
               "type": "CHOICE",
               "members": [
                 {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "STRING",
-                      "value": "("
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "["
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "{"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⟨"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⌊"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⌈"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "[|"
-                    }
-                  ]
+                  "type": "PATTERN",
+                  "value": "[)\\]}]"
                 },
                 {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "STRING",
-                      "value": ")"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "]"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "}"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⟩"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⌋"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "⌉"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "|]"
-                    }
-                  ]
+                  "type": "PATTERN",
+                  "value": "[⌉⌋⌝⌟⎱❳⟆⟧⟩⟫⟭⟯⦄⦆⦈⦊⦌⦎⦐⦒⦔⦖⦘⧙⧛⧽]",
+                  "flags": "u"
                 }
               ]
             }
@@ -1241,206 +1164,11 @@
         {
           "type": "ALIAS",
           "content": {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "STRING",
-                "value": "."
-              },
-              {
-                "type": "STRING",
-                "value": ","
-              },
-              {
-                "type": "STRING",
-                "value": ";"
-              },
-              {
-                "type": "STRING",
-                "value": "!"
-              },
-              {
-                "type": "STRING",
-                "value": "="
-              },
-              {
-                "type": "STRING",
-                "value": "+"
-              },
-              {
-                "type": "STRING",
-                "value": "<"
-              },
-              {
-                "type": "STRING",
-                "value": ">"
-              },
-              {
-                "type": "STRING",
-                "value": ":"
-              },
-              {
-                "type": "STRING",
-                "value": "|"
-              }
-            ]
+            "type": "STRING",
+            "value": "|]"
           },
           "named": true,
-          "value": "math_text"
-        }
-      ]
-    },
-    "_math_base_operand": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "ALIAS",
-              "content": {
-                "type": "SYMBOL",
-                "name": "_math_letter"
-              },
-              "named": true,
-              "value": "math_text"
-            },
-            {
-              "type": "ALIAS",
-              "content": {
-                "type": "SYMBOL",
-                "name": "_math_other"
-              },
-              "named": true,
-              "value": "math_text"
-            }
-          ]
-        },
-        {
-          "type": "SYMBOL",
-          "name": "math_ident"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "math_field_access"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "math_shorthand"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "math_align_point"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "math_primes"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "math_delimited"
-        },
-        {
-          "type": "ALIAS",
-          "content": {
-            "type": "SYMBOL",
-            "name": "math_implicit_call"
-          },
-          "named": true,
-          "value": "math"
-        },
-        {
-          "type": "ALIAS",
-          "content": {
-            "type": "SYMBOL",
-            "name": "math_factorial"
-          },
-          "named": true,
-          "value": "math"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "math_root"
-        },
-        {
-          "type": "ALIAS",
-          "content": {
-            "type": "SYMBOL",
-            "name": "_math_frac_call"
-          },
-          "named": true,
-          "value": "math_call"
-        },
-        {
-          "type": "ALIAS",
-          "content": {
-            "type": "SYMBOL",
-            "name": "_math_attach_call"
-          },
-          "named": true,
-          "value": "math_call"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "math_call"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "str"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "escape"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "linebreak"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "_hash_expr"
-        },
-        {
-          "type": "ALIAS",
-          "content": {
-            "type": "PREC_DYNAMIC",
-            "value": -20,
-            "content": {
-              "type": "CHOICE",
-              "members": [
-                {
-                  "type": "STRING",
-                  "value": ")"
-                },
-                {
-                  "type": "STRING",
-                  "value": "]"
-                },
-                {
-                  "type": "STRING",
-                  "value": "}"
-                },
-                {
-                  "type": "STRING",
-                  "value": "⟩"
-                },
-                {
-                  "type": "STRING",
-                  "value": "⌋"
-                },
-                {
-                  "type": "STRING",
-                  "value": "⌉"
-                },
-                {
-                  "type": "STRING",
-                  "value": "|]"
-                }
-              ]
-            }
-          },
-          "named": true,
-          "value": "math_text"
+          "value": "math_shorthand"
         },
         {
           "type": "ALIAS",
@@ -2209,6 +1937,31 @@
       "type": "SEQ",
       "members": [
         {
+          "type": "SYMBOL",
+          "name": "_math_open"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "math"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_math_close"
+        }
+      ]
+    },
+    "_math_open": {
+      "type": "CHOICE",
+      "members": [
+        {
           "type": "ALIAS",
           "content": {
             "type": "CHOICE",
@@ -2226,20 +1979,16 @@
                 "value": "{"
               },
               {
-                "type": "STRING",
-                "value": "⟨"
-              },
-              {
-                "type": "STRING",
-                "value": "⌊"
-              },
-              {
-                "type": "STRING",
-                "value": "⌈"
-              },
-              {
-                "type": "STRING",
-                "value": "[|"
+                "type": "TOKEN",
+                "content": {
+                  "type": "PREC",
+                  "value": 1,
+                  "content": {
+                    "type": "PATTERN",
+                    "value": "[⌈⌊⌜⌞⎰❲⟅⟦⟨⟪⟬⟮⦃⦅⦇⦉⦋⦍⦏⦑⦓⦕⦗⧘⧚⧼]",
+                    "flags": "u"
+                  }
+                }
               }
             ]
           },
@@ -2247,17 +1996,19 @@
           "value": "math_text"
         },
         {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "SYMBOL",
-              "name": "math"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
+          "type": "ALIAS",
+          "content": {
+            "type": "STRING",
+            "value": "[|"
+          },
+          "named": true,
+          "value": "math_shorthand"
+        }
+      ]
+    },
+    "_math_close": {
+      "type": "CHOICE",
+      "members": [
         {
           "type": "ALIAS",
           "content": {
@@ -2276,27 +2027,602 @@
                 "value": "}"
               },
               {
-                "type": "STRING",
-                "value": "⟩"
-              },
-              {
-                "type": "STRING",
-                "value": "⌋"
-              },
-              {
-                "type": "STRING",
-                "value": "⌉"
-              },
-              {
-                "type": "STRING",
-                "value": "|]"
+                "type": "TOKEN",
+                "content": {
+                  "type": "PREC",
+                  "value": 1,
+                  "content": {
+                    "type": "PATTERN",
+                    "value": "[⌉⌋⌝⌟⎱❳⟆⟧⟩⟫⟭⟯⦄⦆⦈⦊⦌⦎⦐⦒⦔⦖⦘⧙⧛⧽]",
+                    "flags": "u"
+                  }
+                }
               }
             ]
           },
           "named": true,
           "value": "math_text"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "TOKEN",
+            "content": {
+              "type": "PREC",
+              "value": 1,
+              "content": {
+                "type": "STRING",
+                "value": "|]"
+              }
+            }
+          },
+          "named": true,
+          "value": "math_shorthand"
         }
       ]
+    },
+    "_math_unclosed": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_math_open"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_math_expr"
+          }
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "_math_unclosed_expr"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        }
+      ]
+    },
+    "_math_unclosed_expr": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_math_unclosed_operand"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_math_unclosed_attach"
+          },
+          "named": true,
+          "value": "math_attach"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_math_unclosed_frac"
+          },
+          "named": true,
+          "value": "math_frac"
+        }
+      ]
+    },
+    "_math_unclosed_operand": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_math_unclosed"
+          },
+          "named": true,
+          "value": "math"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_math_unclosed_implicit_call"
+          },
+          "named": true,
+          "value": "math"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_math_unclosed_root"
+          },
+          "named": true,
+          "value": "math_root"
+        }
+      ]
+    },
+    "_math_unclosed_implicit_call": {
+      "type": "PREC_LEFT",
+      "value": 2,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "CHOICE",
+                    "members": [
+                      {
+                        "type": "ALIAS",
+                        "content": {
+                          "type": "SYMBOL",
+                          "name": "_math_letter"
+                        },
+                        "named": true,
+                        "value": "math_text"
+                      },
+                      {
+                        "type": "SYMBOL",
+                        "name": "str"
+                      },
+                      {
+                        "type": "SYMBOL",
+                        "name": "math_primes"
+                      },
+                      {
+                        "type": "SYMBOL",
+                        "name": "escape"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "_math_adjacent"
+                  }
+                ]
+              },
+              {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "CHOICE",
+                    "members": [
+                      {
+                        "type": "SYMBOL",
+                        "name": "math_ident"
+                      },
+                      {
+                        "type": "SYMBOL",
+                        "name": "math_field_access"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "_math_adjacent_brace"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_math_unclosed"
+            },
+            "named": true,
+            "value": "math"
+          }
+        ]
+      }
+    },
+    "_math_unclosed_root": {
+      "type": "PREC_RIGHT",
+      "value": 2,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "FIELD",
+            "name": "operator",
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": "√"
+                },
+                {
+                  "type": "STRING",
+                  "value": "∛"
+                },
+                {
+                  "type": "STRING",
+                  "value": "∜"
+                }
+              ]
+            }
+          },
+          {
+            "type": "FIELD",
+            "name": "radicand",
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "_math_unclosed_operand"
+                },
+                {
+                  "type": "ALIAS",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "_math_unclosed_attach"
+                  },
+                  "named": true,
+                  "value": "math_attach"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "_math_unclosed_frac": {
+      "type": "PREC_LEFT",
+      "value": 1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "FIELD",
+            "name": "numerator",
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "ALIAS",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "_math_group"
+                  },
+                  "named": true,
+                  "value": "math"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "_math_expr"
+                }
+              ]
+            }
+          },
+          {
+            "type": "STRING",
+            "value": "/"
+          },
+          {
+            "type": "FIELD",
+            "name": "denominator",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_math_unclosed_expr"
+            }
+          }
+        ]
+      }
+    },
+    "_math_unclosed_attach": {
+      "type": "PREC_LEFT",
+      "value": 2,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "FIELD",
+            "name": "base",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_math_operand"
+            }
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "SYMBOL",
+                    "name": "_adjacent_prime"
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "math_primes"
+                  }
+                ]
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "_math_unclosed_sub_scripts"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "_math_unclosed_sup_scripts"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "_math_unclosed_sub_scripts": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_math_unclosed_sub"
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "_math_sub"
+            },
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "FIELD",
+                  "name": "operator",
+                  "content": {
+                    "type": "STRING",
+                    "value": "^"
+                  }
+                },
+                {
+                  "type": "FIELD",
+                  "name": "attachment",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "_math_unclosed_last"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "_math_unclosed_sup_scripts": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_math_unclosed_sup"
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "_math_sup"
+            },
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "FIELD",
+                  "name": "operator",
+                  "content": {
+                    "type": "STRING",
+                    "value": "_"
+                  }
+                },
+                {
+                  "type": "FIELD",
+                  "name": "attachment",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "_math_unclosed_last"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "_math_unclosed_last": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_math_unclosed_operand"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_math_unclosed_attach"
+          },
+          "named": true,
+          "value": "math_attach"
+        }
+      ]
+    },
+    "_math_unclosed_sub": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "FIELD",
+          "name": "operator",
+          "content": {
+            "type": "STRING",
+            "value": "_"
+          }
+        },
+        {
+          "type": "FIELD",
+          "name": "attachment",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "_math_unclosed_operand"
+              },
+              {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_unclosed_sub_rebased"
+                },
+                "named": true,
+                "value": "math_attach"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "_math_unclosed_sup": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "FIELD",
+          "name": "operator",
+          "content": {
+            "type": "STRING",
+            "value": "^"
+          }
+        },
+        {
+          "type": "FIELD",
+          "name": "attachment",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "_math_unclosed_operand"
+              },
+              {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_math_unclosed_sup_rebased"
+                },
+                "named": true,
+                "value": "math_attach"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "_math_unclosed_sub_rebased": {
+      "type": "PREC_LEFT",
+      "value": 2,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "FIELD",
+            "name": "base",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_math_operand"
+            }
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "SYMBOL",
+                    "name": "_adjacent_prime"
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "math_primes"
+                  }
+                ]
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_math_unclosed_sub_scripts"
+          }
+        ]
+      }
+    },
+    "_math_unclosed_sup_rebased": {
+      "type": "PREC_LEFT",
+      "value": 2,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "FIELD",
+            "name": "base",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_math_operand"
+            }
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "SYMBOL",
+                    "name": "_adjacent_prime"
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "math_primes"
+                  }
+                ]
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_math_unclosed_sup_scripts"
+          }
+        ]
+      }
     },
     "math_attach": {
       "type": "PREC_LEFT",
@@ -2309,7 +2635,7 @@
             "name": "base",
             "content": {
               "type": "SYMBOL",
-              "name": "_math_base_operand"
+              "name": "_math_operand"
             }
           },
           {
@@ -2350,7 +2676,7 @@
       }
     },
     "_math_scripts": {
-      "type": "PREC_LEFT",
+      "type": "PREC_RIGHT",
       "value": 2,
       "content": {
         "type": "CHOICE",
@@ -2517,7 +2843,7 @@
             "name": "base",
             "content": {
               "type": "SYMBOL",
-              "name": "_math_base_operand"
+              "name": "_math_operand"
             }
           },
           {
@@ -2644,7 +2970,7 @@
             "name": "base",
             "content": {
               "type": "SYMBOL",
-              "name": "_math_base_operand"
+              "name": "_math_operand"
             }
           },
           {
@@ -2665,7 +2991,7 @@
             "name": "base",
             "content": {
               "type": "SYMBOL",
-              "name": "_math_base_operand"
+              "name": "_math_operand"
             }
           },
           {
@@ -2686,7 +3012,7 @@
             "name": "base",
             "content": {
               "type": "SYMBOL",
-              "name": "_math_base_operand"
+              "name": "_math_operand"
             }
           },
           {
@@ -2752,7 +3078,7 @@
             "name": "base",
             "content": {
               "type": "SYMBOL",
-              "name": "_math_base_operand"
+              "name": "_math_operand"
             }
           },
           {
@@ -2781,23 +3107,63 @@
             "type": "CHOICE",
             "members": [
               {
-                "type": "ALIAS",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_math_letter"
-                },
-                "named": true,
-                "value": "math_text"
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "CHOICE",
+                    "members": [
+                      {
+                        "type": "ALIAS",
+                        "content": {
+                          "type": "SYMBOL",
+                          "name": "_math_letter"
+                        },
+                        "named": true,
+                        "value": "math_text"
+                      },
+                      {
+                        "type": "SYMBOL",
+                        "name": "str"
+                      },
+                      {
+                        "type": "SYMBOL",
+                        "name": "math_primes"
+                      },
+                      {
+                        "type": "SYMBOL",
+                        "name": "escape"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "_math_adjacent"
+                  }
+                ]
               },
               {
-                "type": "SYMBOL",
-                "name": "str"
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "CHOICE",
+                    "members": [
+                      {
+                        "type": "SYMBOL",
+                        "name": "math_ident"
+                      },
+                      {
+                        "type": "SYMBOL",
+                        "name": "math_field_access"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "_math_adjacent_brace"
+                  }
+                ]
               }
             ]
-          },
-          {
-            "type": "SYMBOL",
-            "name": "_math_adjacent"
           },
           {
             "type": "SYMBOL",
@@ -2911,6 +3277,10 @@
                   },
                   "named": true,
                   "value": "math"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "math_attach"
                 },
                 {
                   "type": "SYMBOL",
@@ -6442,33 +6812,6 @@
       "_let_closure"
     ],
     [
-      "_math_expr",
-      "math_delimited"
-    ],
-    [
-      "_math_operand",
-      "math_delimited"
-    ],
-    [
-      "_math_base_operand",
-      "math_delimited"
-    ],
-    [
-      "_math_operand",
-      "math_delimited",
-      "_math_group"
-    ],
-    [
-      "_math_base_operand",
-      "math_delimited",
-      "_math_group"
-    ],
-    [
-      "_math_expr",
-      "math_delimited",
-      "_math_group"
-    ],
-    [
       "math_delimited",
       "_math_group"
     ],
@@ -6487,18 +6830,6 @@
     ],
     [
       "_math_spread_arg"
-    ],
-    [
-      "_math_operand",
-      "_math_args"
-    ],
-    [
-      "_math_base_operand",
-      "_math_args"
-    ],
-    [
-      "_math_operand",
-      "_math_base_operand"
     ]
   ],
   "precedences": [],
@@ -6653,10 +6984,17 @@
     },
     {
       "type": "SYMBOL",
+      "name": "_math_adjacent_brace"
+    },
+    {
+      "type": "SYMBOL",
       "name": "_error_sentinel"
     }
   ],
-  "inline": [],
+  "inline": [
+    "_math_open",
+    "_math_close"
+  ],
   "supertypes": [],
   "reserved": {}
 }
