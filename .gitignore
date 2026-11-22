@@ -12,10 +12,11 @@ prebuilds/
 /corpus/
 
 # NOTE: src/parser.c, src/grammar.json, src/node-types.json and src/tree_sitter/
-# are intentionally COMMITTED. Consumers (nvim-treesitter, Helix, Zed) compile
-# the generated C directly and never run the tree-sitter CLI.
+# are intentionally COMMITTED. Emacs compiles
+# the generated C directly and does not run the tree-sitter CLI.
 
 # tree-sitter build output
+/src/*.o
 *.dll
 *.so
 *.dylib

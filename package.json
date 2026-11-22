@@ -6,7 +6,6 @@
   "files": [
     "grammar.js",
     "tree-sitter.json",
-    "queries/**",
     "src/**"
   ],
   "scripts": {
@@ -19,7 +18,7 @@
     "test:fuzz": "node test/run.mjs fuzz",
     "test:incremental": "node test/run.mjs incremental",
     "coverage": "node test/run.mjs coverage",
-    "test:queries": "node test/run.mjs queries",
+    "test:emacs": "node test/run.mjs emacs",
     "oracle:build": "cargo build --release --manifest-path tools/oracle/Cargo.toml",
     "corpus:fetch": "node scripts/fetch-corpus.mjs",
     "parse": "tree-sitter parse"

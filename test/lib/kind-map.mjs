@@ -6,14 +6,13 @@
  * in `KIND_MAP` or in `UNMAPPED_OK`, or `npm run coverage` reports it as unhandled.
  *
  * Values:
- *   'node_name'            our node with the identical span
- *   ['a', 'b']             context selects the corresponding root or nested node
+ *   'node_name'            corresponding editor node
+ *   ['a', 'b']             context selects the corresponding editor node
  *   null                   deliberately not modelled, and not worth listing separately
  *   undefined (absent)     NOT YET IMPLEMENTED — reported by the coverage ledger
  *
- * Node names mirror typst's kinds in snake_case. That is deliberate: it keeps this table
- * near-mechanical, so a structural bug shows up as a real disagreement rather than as an
- * artifact of two different naming philosophies.
+ * The major mode owns the public node names. Context-dependent spans and
+ * parent changes are projected from the oracle in spans.mjs.
  */
 
 /**
@@ -59,59 +58,58 @@ export const KIND_MAP = {
   // ---- markup ------------------------------------------------------------
 
   // Typst wraps every run of markup content in `Markup`: at the root, and again inside
-  // each content block, heading, list item and so on. Ours is `source_file` at the root
-  // and `markup` when nested.
-  Markup: ['source_file', 'markup'],
+  // each content block, heading and list item. The mode exposes nested markup directly.
+  Markup: 'source_file',
   Text: 'text',
 
   Linebreak: 'linebreak',
   Escape: 'escape',
   Shorthand: 'shorthand',
-  SmartQuote: 'smart_quote',
+  SmartQuote: 'quote',
   Strong: 'strong',
   Emph: 'emph',
-  HeadingMarker: 'heading_marker',
-  ListMarker: 'list_marker',
+  HeadingMarker: null,
+  ListMarker: null,
   EnumMarker: 'enum_marker',
-  TermMarker: 'term_marker',
+  TermMarker: null,
 
-  Raw: 'raw',
-  RawDelim: 'raw_delim',
-  RawLang: 'raw_lang',
-  Link: 'link',
+  Raw: ['raw_span', 'raw_blck'],
+  RawDelim: null,
+  RawLang: 'ident',
+  Link: 'url',
   Label: 'label',
   Ref: 'ref',
   RefMarker: 'ref_marker',
   Heading: 'heading',
-  ListItem: 'list_item',
-  EnumItem: 'enum_item',
-  TermItem: 'term_item',
+  ListItem: 'item',
+  EnumItem: 'item',
+  TermItem: 'term',
 
   // ---- math --------------------------------------------------------------
-  Equation: 'equation',
+  Equation: 'math',
 
-  Math: 'math',
-  MathText: 'math_text',
-  MathIdent: 'math_ident',
-  MathFieldAccess: 'math_field_access',
+  Math: ['formula', 'fac'],
+  MathText: ['symbol', 'letter'],
+  MathIdent: 'ident',
+  MathFieldAccess: 'field',
   MathShorthand: 'math_shorthand',
-  MathAlignPoint: 'math_align_point',
-  MathCall: 'math_call',
-  MathArgs: 'math_args',
+  MathAlignPoint: 'align',
+  MathCall: 'call',
+  MathArgs: 'group',
   MathDelimited: 'math_delimited',
-  MathAttach: 'math_attach',
-  MathFrac: 'math_frac',
+  MathAttach: 'attach',
+  MathFrac: 'fraction',
   MathRoot: 'math_root',
 
   // Typst's `MathPrimes` is the `'` run itself, wrapped by a `MathAttach`. Ours names
-  // the run `math_primes` and lets `math_attach` be the pairing, as typst does.
+  // the run `math_primes` and lets `attach` be the pairing.
   MathPrimes: 'math_primes',
 
   // ---- code --------------------------------------------------------------
 
-  Code: 'code',
-  CodeBlock: 'code_block',
-  ContentBlock: 'content_block',
+  Code: null,
+  CodeBlock: 'block',
+  ContentBlock: 'content',
 
   // Literals. `None` and `Auto` are keyword-spelled but behave as value literals, and
   // typst emits them as leaf nodes just like `Int`, so they belong here and not in the
@@ -119,45 +117,45 @@ export const KIND_MAP = {
   None: 'none',
   Auto: 'auto',
   Bool: 'bool',
-  Int: 'int',
-  Float: 'float',
-  Numeric: 'numeric',
-  Str: 'str',
+  Int: 'number',
+  Float: 'number',
+  Numeric: 'number',
+  Str: 'string',
   Ident: 'ident',
 
-  Parenthesized: 'parenthesized',
-  Array: 'array',
-  Dict: 'dict',
-  Named: 'named',
+  Parenthesized: 'group',
+  Array: 'group',
+  Dict: 'group',
+  Named: 'tagged',
   Keyed: 'keyed',
   Spread: 'spread',
 
-  Unary: 'unary',
-  Binary: 'binary',
-  FieldAccess: 'field_access',
-  FuncCall: 'func_call',
-  Args: 'args',
+  Unary: ['sign', 'not'],
+  Binary: ['add', 'sub', 'mul', 'div', 'in', 'cmp', 'and', 'or', 'assign'],
+  FieldAccess: 'field',
+  FuncCall: 'call',
+  Args: 'group',
 
   Closure: 'closure',
   Params: 'params',
-  Destructuring: 'destructuring',
+  Destructuring: 'group',
   DestructAssignment: 'destruct_assignment',
 
-  LetBinding: 'let_binding',
-  SetRule: 'set_rule',
-  ShowRule: 'show_rule',
-  Contextual: 'contextual',
+  LetBinding: 'let',
+  SetRule: 'set',
+  ShowRule: 'show',
+  Contextual: 'context',
 
-  Conditional: 'conditional',
-  WhileLoop: 'while_loop',
-  ForLoop: 'for_loop',
-  LoopBreak: 'loop_break',
-  LoopContinue: 'loop_continue',
-  FuncReturn: 'func_return',
+  Conditional: 'branch',
+  WhileLoop: 'while',
+  ForLoop: 'for',
+  LoopBreak: 'flow',
+  LoopContinue: 'flow',
+  FuncReturn: 'return',
 
-  ModuleImport: 'module_import',
+  ModuleImport: 'import',
   ImportItems: 'import_items',
   ImportItemPath: 'import_item_path',
-  RenamedImportItem: 'renamed_import_item',
-  ModuleInclude: 'module_include',
+  RenamedImportItem: 'as',
+  ModuleInclude: 'include',
 };

@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { after, test } from 'node:test';
 import {
-  ROOT, TS_BIN, decodeSpanBatch, oracleParseText, parseSexpNodes, spanTrees, tsParseSexp,
+  ROOT, decodeSpanBatch, oracleParseText, parseSexpNodes, spanTrees, tsParseSexp,
 } from './lib/harness.mjs';
 import { compareSpans } from './lib/spans.mjs';
 
@@ -47,7 +46,7 @@ test('line-start context survives comments and restarts inside item bodies', () 
     '- one\n /* outer /* nested */\n  */ - two\n- three',
   ]) check(s);
   const tree = check('- parent\n' + '  /* item comment */\n'.repeat(64) + '  body');
-  assert.equal(tree.match(/\(block_comment\b/g)?.length, 64);
+  assert.equal(tree.match(/\(comment\b/g)?.length, 64);
 });
 
 test('literal brackets and word punctuation preserve markup text boundaries', () => {
@@ -68,6 +67,10 @@ test('only complete HTTP schemes interrupt a markup text run', () => {
   check('αhttp:/x https://example.org http:');
 });
 
+test('quoted comment markers stay inside strings in code and math', () => {
+  for (const source of ['#let prefix = "// ["', '#("/*", "*/", "//")', '$op("//")$']) check(source);
+});
+
 test('postfix math and trailing code comments preserve the oracle tree', () => {
   for (const s of [
     "$n'!'$", "$n!'!$", "$a_n'!'^b$", '$==> =>> <==>$',
@@ -84,8 +87,8 @@ test('a shebang is trivia only at the start of the document', () => {
 test('markup markers recognize Unicode whitespace and actual comment openers', () => {
   for (const s of ['=/usr/local', '-/path', '+/path', '1./path', '/path', '=\u00a0Title',
     '-\u2003item', '+\u3000item', '1.\u00a0item', '=//note\ntext', '=/*one*/ /*two*/ Title']) check(s);
-  assert.match(check('-/*one /*two*/ */item'), /\(block_comment\b/);
-  assert.match(check('+//note\n  item'), /\(line_comment\b/);
+  assert.match(check('-/*one /*two*/ */item'), /\(comment\b/);
+  assert.match(check('+//note\n  item'), /\(comment\b/);
 });
 
 test('not in accepts trivia according to the surrounding newline mode', () => {
@@ -158,16 +161,6 @@ test('math graphemes, identifiers, fields and argument wrappers match the oracle
   ]) check(s);
 });
 
-test('import locals capture the name bound by each import', () => {
-  const src = '#import "a.typ" as mod: a.b as c, d.e, f';
-  check(src);
-  const out = execFileSync(TS_BIN, ['query', '--captures', 'queries/locals.scm', fixture('imports', src)], {
-    cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  const captures = [...out.matchAll(/local\.definition\.import, start: \(0, (\d+)\), end: \(0, (\d+)\)/g)];
-  assert.deepEqual(captures.map(m => src.slice(+m[1], +m[2])), ['mod', 'c', 'e', 'f']);
-});
-
 test('span comparison catches extra, duplicate, missing and misplaced nodes', () => {
   const source = '$sqrt(x)$';
   const oracle = oracleParseText(source).nodes;
@@ -176,11 +169,22 @@ test('span comparison catches extra, duplicate, missing and misplaced nodes', ()
   const compare = ns => compareSpans(oracle, ns, buf);
   const leaf = nodes.at(-1);
   assert.deepEqual(compare(nodes), []);
-  assert.match(compare(nodes.slice(0, -1)).join(), /math_text .* missing/);
-  assert.match(compare([...nodes, leaf]).join(), /math_text .* extra/);
+  assert.match(compare(nodes.slice(0, -1)).join(), /letter .* missing/);
+  assert.match(compare([...nodes, leaf]).join(), /letter .* extra/);
   assert.match(compare([...nodes.slice(0, -1), { ...leaf, kind: 'math' },
     { ...leaf, depth: leaf.depth + 1 }]).join(), /math .* extra/);
   assert.match(compare([...nodes.slice(0, -1), { ...leaf, depth: leaf.depth - 1 }]).join(), /different parent/);
+});
+
+test('only the function signature belongs to the call in a let pattern', () => {
+  const source = '#let double(x) = x + x';
+  const buf = Buffer.from(source);
+  const oracle = oracleParseText(source).nodes;
+  const nodes = parseSexpNodes(check(source), buf);
+  const signature = nodes.find(node => node.kind === 'call');
+  assert.equal(source.slice(signature.start, signature.end), 'double(x)');
+  signature.end = buf.length;
+  assert.match(compareSpans(oracle, nodes, buf).join(), /call .* missing/);
 });
 
 test('batched trees agree with single parses; invalid batch output cannot shift file attribution', () => {

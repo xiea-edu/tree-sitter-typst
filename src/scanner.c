@@ -26,11 +26,11 @@ enum TokenType {
   SHORTHAND,
   STAR,
   UNDERSCORE_TOK,
-  HEADING_MARKER,
+  HEAD1, HEAD2, HEAD3, HEAD4, HEAD5, HEAD6,
   LIST_MARKER,
   ENUM_MARKER,
   TERM_MARKER,
-  RAW_DELIM,
+  RAW_INLINE, RAW_FENCE,
   RAW_LANG,
   RAW_CONTENT,
   ATOMIC_END,
@@ -47,7 +47,7 @@ enum TokenType {
   MATH_DOT,
   MATH_ADJACENT,
   MATH_BANG,
-  HEADING_MARKER_START,
+  START_HEAD1, START_HEAD2, START_HEAD3, START_HEAD4, START_HEAD5, START_HEAD6,
   LIST_MARKER_START,
   ENUM_MARKER_START,
   TERM_MARKER_START,
@@ -78,7 +78,8 @@ enum TokenType {
   REF_END,
   DETACHED_ARGS,
   HASH,
-  ERROR_SENTINEL,
+  BEFORE_HEAD1, BEFORE_HEAD2, BEFORE_HEAD3, BEFORE_HEAD4, BEFORE_HEAD5, BEFORE_HEAD6,
+  SECTION_NEWLINE, ERROR_SENTINEL,
 };
 
 /*
@@ -579,6 +580,16 @@ static int32_t after_comments(TSLexer *lexer, uint32_t *column, bool cross_lines
   }
 }
 
+// The mode uses the sixth heading face for all deeper levels.
+static unsigned heading_level(TSLexer *lexer) {
+  unsigned level = 0;
+  while (lexer->lookahead == '=') {
+    if (level < 6) level++;
+    advance(lexer);
+  }
+  return level;
+}
+
 static bool starts_marker(int32_t c) {
   return c == '=' || c == '+' || c == '-' || c == '/' || (c >= '0' && c <= '9');
 }
@@ -624,14 +635,17 @@ static Trailer at_line_trailer_or_comment(TSLexer *lexer, bool *saw_comment) {
 }
 
 /* Typst's `space_or_end`: end of file, whitespace, or the start of a comment. */
-static bool at_space_or_end(TSLexer *lexer) {
-  // Keep the token boundary before any lookahead into a comment.
-  lexer->mark_end(lexer);
+static bool probe_space_or_end(TSLexer *lexer) {
   if (lexer->eof(lexer) || is_space(lexer->lookahead) ||
       is_non_ascii_space(lexer->lookahead)) return true;
   if (lexer->lookahead != '/') return false;
   advance(lexer);
   return lexer->lookahead == '/' || lexer->lookahead == '*';
+}
+
+static bool at_space_or_end(TSLexer *lexer) {
+  lexer->mark_end(lexer);
+  return probe_space_or_end(lexer);
 }
 
 // ---------------------------------------------------------------------------
@@ -799,7 +813,7 @@ static bool emit_marker_or_text(TSLexer *lexer, unsigned marker, unsigned start_
    * the current column could establish.
    */
   if (start_marker && valid_symbols[start_marker]) {
-    if (scanner && start_marker != HEADING_MARKER_START) push_item_column(scanner, column);
+    if (scanner) push_item_column(scanner, column);
     lexer->result_symbol = start_marker;
     return true;
   }
@@ -807,7 +821,7 @@ static bool emit_marker_or_text(TSLexer *lexer, unsigned marker, unsigned start_
   if (at_line_start && valid_symbols[marker]) {
     // An item marker opens a body that may run past this line, so its column is recorded
     // for the line-end test. Headings never continue, so they record nothing.
-    if (scanner && marker != HEADING_MARKER) push_item_column(scanner, column);
+    if (scanner) push_item_column(scanner, column);
     lexer->result_symbol = marker;
     return true;
   }
@@ -921,7 +935,6 @@ static bool scan_number(TSLexer *lexer, int32_t first, unsigned *kind_out) {
 
   bool is_float = (first == '.');
   bool exponent_digits = true;
-  bool ended_early = false;
 
   // The suffix runs to the end of the alphanumeric run, so `1hello` is rejected whole
   // rather than becoming the integer `1` and an identifier.
@@ -940,7 +953,6 @@ static bool scan_number(TSLexer *lexer, int32_t first, unsigned *kind_out) {
       if (after == '.' || is_alpha(after) || after == '_') {
         // The number is finished. Nothing more can be consumed — we are already past
         // the dot — so jump straight to validation with the end marked before it.
-        ended_early = true;
         goto finish;
       }
       is_float = true;
@@ -953,6 +965,7 @@ static bool scan_number(TSLexer *lexer, int32_t first, unsigned *kind_out) {
     // they must not enter the number buffer — `1em` is Numeric, not Float.
     if (lexer->lookahead == 'e' || lexer->lookahead == 'E') {
       int32_t marker = lexer->lookahead;
+      lexer->mark_end(lexer);  // in 1em the unit starts here
       advance(lexer);
       if (marker == 'e' && lexer->lookahead == 'm') {
         suffix[slen++] = 'e';
@@ -972,6 +985,8 @@ static bool scan_number(TSLexer *lexer, int32_t first, unsigned *kind_out) {
     }
   }
 
+  // Validate the entire suffix but let the grammar emit it as a unit child.
+  if (slen == 0) lexer->mark_end(lexer);
   while (is_alnum(lexer->lookahead) || lexer->lookahead == '%') {
     if (slen == sizeof(suffix) - 1 || lexer->lookahead > 127) return false;
     suffix[slen++] = (char)lexer->lookahead;
@@ -999,9 +1014,6 @@ finish:
   // Decimal integers outside the signed range fall back to Float.
   if (out_of_range) is_float = true;
 
-  // When the scan stopped at a dot that turned out to belong to a field access, the end
-  // is already marked before it and must not be extended.
-  if (!ended_early) lexer->mark_end(lexer);
   *kind_out = has_suffix ? NUMBER_NUMERIC : (is_float ? NUMBER_FLOAT : NUMBER_INT);
   return true;
 }
@@ -1217,7 +1229,7 @@ static bool scan_raw_open(TSLexer *lexer, Scanner *scanner) {
     lexer->mark_end(lexer);
   }
 
-  lexer->result_symbol = RAW_DELIM;
+  lexer->result_symbol = scanner->raw_backticks >= 3 ? RAW_FENCE : RAW_INLINE;
   return true;
 }
 
@@ -1227,9 +1239,9 @@ static bool scan_raw_close(TSLexer *lexer, Scanner *scanner) {
     if (lexer->lookahead != '`') return false;
     advance(lexer);
   }
+  lexer->result_symbol = scanner->raw_backticks >= 3 ? RAW_FENCE : RAW_INLINE;
   scanner->raw_backticks = 0;
   lexer->mark_end(lexer);
-  lexer->result_symbol = RAW_DELIM;
   return true;
 }
 
@@ -1564,7 +1576,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
       return true;
     }
     if (valid_symbols[RAW_CONTENT] && scan_raw_content(lexer, scanner)) return true;
-    if (valid_symbols[RAW_DELIM]) return scan_raw_close(lexer, scanner);
+    if (valid_symbols[scanner->raw_backticks >= 3 ? RAW_FENCE : RAW_INLINE]) return scan_raw_close(lexer, scanner);
     return false;
   }
 
@@ -1809,12 +1821,12 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
   bool saw_newline = false;
   bool saw_space = false;
   while (!lexer->eof(lexer) && is_space(lexer->lookahead)) {
-    if (valid_symbols[NEWLINE] && (lexer->lookahead == '\n' || lexer->lookahead == '\r')) {
+    if ((valid_symbols[NEWLINE] || valid_symbols[SECTION_NEWLINE]) && (lexer->lookahead == '\n' || lexer->lookahead == '\r')) {
       int32_t first = lexer->lookahead;
       advance(lexer);
       if (first == '\r' && lexer->lookahead == '\n') advance(lexer);
       lexer->mark_end(lexer);
-      lexer->result_symbol = NEWLINE;
+      lexer->result_symbol = valid_symbols[SECTION_NEWLINE] ? SECTION_NEWLINE : NEWLINE;
       return true;
     }
     if (lexer->lookahead == '\n') saw_newline = true;
@@ -1836,6 +1848,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
   // Whitespace and nested block comments may separate the two keywords.
   if (valid_symbols[NOT_IN] && lexer->lookahead == 'n') {
     if (!eat_str(lexer, "not") || is_id_continue(lexer->lookahead)) return false;
+    lexer->mark_end(lexer);
     for (;;) {
       while (is_space(lexer->lookahead) || is_non_ascii_space(lexer->lookahead)) {
         int32_t c = lexer->lookahead;
@@ -1853,7 +1866,6 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
       scan_block_comment_body(lexer);
     }
     if (!eat_str(lexer, "in") || is_id_continue(lexer->lookahead)) return false;
-    lexer->mark_end(lexer);
     lexer->result_symbol = NOT_IN;
     return true;
   }
@@ -1922,7 +1934,7 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     advance(lexer);
     return scan_hash_tail(lexer, valid_symbols);
   }
-  if (valid_symbols[RAW_DELIM] && c == '`') return scan_raw_open(lexer, scanner);
+  if ((valid_symbols[RAW_INLINE] || valid_symbols[RAW_FENCE]) && c == '`') return scan_raw_open(lexer, scanner);
 
   /*
    * A word starting with `h` might be a URL. If the scheme does not pan out, whatever we
@@ -2079,10 +2091,10 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
    * the character forms its own text node exactly as it does in typst.
    */
   if (c == '=') {
-    while (lexer->lookahead == '=') advance(lexer);
+    unsigned level = heading_level(lexer);
     if (at_space_or_end(lexer)) {
-      return emit_marker_or_text(lexer, HEADING_MARKER, HEADING_MARKER_START, valid_symbols,
-                                 at_line_start, scanner, column);
+      return emit_marker_or_text(lexer, HEAD1 + level - 1, START_HEAD1 + level - 1,
+                                 valid_symbols, at_line_start, NULL, column);
     }
     if (!valid_symbols[TEXT]) return false;
     return scan_text(lexer, scanner, c);
@@ -2126,7 +2138,16 @@ static bool scan_impl(Scanner *scanner, TSLexer *lexer, const bool *valid_symbol
     advance(lexer);
     if (at_line_start && !valid_symbols[LIST_MARKER_START] && valid_symbols[AFTER_LINE_COMMENTS] &&
         lexer->lookahead == '*') {
-      if (!starts_marker(after_comments(lexer, &column, false))) return false;
+      int32_t next = after_comments(lexer, &column, false);
+      if (!starts_marker(next)) return false;
+      if (next == '=') {
+        unsigned marker = BEFORE_HEAD1 + heading_level(lexer) - 1;
+        // Keep mark_end before the comment so it is still emitted as trivia.
+        if (valid_symbols[marker] && probe_space_or_end(lexer)) {
+          lexer->result_symbol = marker;
+          return true;
+        }
+      }
       lexer->result_symbol = AFTER_LINE_COMMENTS;
       return true;
     }

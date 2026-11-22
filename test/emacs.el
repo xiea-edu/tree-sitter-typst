@@ -1,0 +1,127 @@
+;;; emacs.el --- Tests against the installed Typst major mode -*- lexical-binding: t; -*-
+
+(require 'ert)
+(require 'treesit)
+(require 'package)
+(package-initialize)
+(push (getenv "TYPST_TEST_GRAMMAR") treesit-extra-load-path)
+(require 'typst-ts-mode)
+
+(defmacro typst-test-buffer (source &rest body)
+  (declare (indent 1))
+  `(with-temp-buffer
+     (setq buffer-file-name (expand-file-name "example.typ" (getenv "TYPST_TEST_GRAMMAR")))
+     (insert ,source)
+     (goto-char (point-min))
+     (let ((treesit-font-lock-level 4))
+       (set-auto-mode)
+       (should (eq major-mode 'typst-ts-mode))
+       ,@body)))
+
+(ert-deftest typst-stock-font-lock ()
+  (typst-test-buffer "= Title\n// Note\n#let f(x) = x + 1\n$f^2$\n"
+    (dolist (setting typst-ts-font-lock-settings)
+      (treesit-query-capture (treesit-buffer-root-node) (car setting)))
+    (font-lock-ensure)
+    (should (file-in-directory-p (treesit-grammar-location 'typst) (getenv "TYPST_TEST_GRAMMAR")))
+    (dolist (sample `(("Title" . ,(if typst-ts-markup-header-same-height
+                                      'typst-ts-markup-header-face 'typst-ts-markup-header-face-1))
+                      ("// Note" . font-lock-comment-face)
+                      ("let" . font-lock-keyword-face)
+                      ("+" . font-lock-operator-face)))
+      (goto-char (point-min))
+      (search-forward (car sample))
+      (let ((face (get-text-property (1- (point)) 'face)))
+        (should (memq (cdr sample) (ensure-list face)))))
+    (goto-char (point-min))
+    (search-forward "// Note")
+    (replace-match "#let answer = 42" t t)
+    (font-lock-ensure)
+    (should (memq 'font-lock-number-face
+                  (ensure-list (get-text-property (1- (point)) 'face))))))
+
+(ert-deftest typst-stock-imenu-and-sections ()
+  (typst-test-buffer "= First\n#let double(x) = x + x\n== Child\nBody\n= Last\nEnd\n"
+    (require 'imenu)
+    (let ((index (funcall imenu-create-index-function)))
+      (should (assoc "double" (cdr (assoc "Functions" index)))))
+    (outline-hide-subtree)
+    (search-forward "Body")
+    (should (invisible-p (1- (point))))
+    (search-forward "= Last")
+    (should-not (invisible-p (1- (point))))
+    (outline-show-all)
+    (beginning-of-line)
+    (typst-ts-editing-heading-up)
+    (should (string-prefix-p "= Last\nEnd\n= First" (buffer-string)))
+    (let ((root (treesit-buffer-root-node)))
+      (should-not (treesit-node-check root 'has-error))
+      (should (= 2 (treesit-node-child-count root t)))
+      (should (= 3 (length (treesit-query-capture root '((section) @section))))))))
+
+(ert-deftest typst-stock-list-and-grid-editing ()
+  (typst-test-buffer "- one\n- two\n#grid(columns: (1fr, 1fr), [A], [B], [C], [D])"
+    (typst-ts-editing-item-list-change-type 'numbered)
+    (should (string-prefix-p "1. one\n2. two\n" (buffer-string)))
+    (goto-char (point-min))
+    (search-forward "[A")
+    (backward-char)
+    (typst-ts-editing-grid-cell-down)
+    (should (string-match-p (regexp-quote "[C], [B], [A], [D]") (buffer-string)))))
+
+(ert-deftest typst-stock-insert-sibling-heading ()
+  (typst-test-buffer "= First\n== Child\nBody\n= Last\nEnd\n"
+    (forward-line 1)
+    (typst-ts-editing-meta-return)
+    (should (equal (buffer-string) "= First\n== Child\nBody\n== \n= Last\nEnd\n"))))
+
+(ert-deftest typst-incremental-section-boundaries ()
+  (typst-test-buffer "= A\n== B\n/**/ = C\nBody\n"
+    (let ((sections '((section (heading) @heading))))
+      (should (= 2 (length (treesit-query-capture (treesit-buffer-root-node)
+                                                 '((source_file (section) @top))))))
+      (search-forward "/**/ =")
+      (insert "==")
+      (let ((root (treesit-buffer-root-node)))
+        (should (= 1 (length (treesit-query-capture root '((source_file (section) @top))))))
+        (should (= 3 (length (treesit-query-capture root sections))))
+        (let ((edited (treesit-node-string root))
+              (source (buffer-string)))
+          (with-temp-buffer
+            (insert source)
+            (should (equal edited (treesit-node-string
+                                   (treesit-parser-root-node (treesit-parser-create 'typst)))))))))))
+
+(ert-deftest typst-stock-code-and-math-captures ()
+  (typst-test-buffer "#set text(size: 12pt)\n#import \"a.typ\" as mod\n#(a not /* note */ in b)\n$op.abs(x)^2$"
+    (font-lock-ensure)
+    (dolist (sample '(("text" . font-lock-function-call-face)
+                      ("size" . font-lock-variable-name-face)
+                      ("as" . font-lock-keyword-face)
+                      ("not" . font-lock-keyword-face)
+                      ("/* note */" . font-lock-comment-face)
+                      (" in" . font-lock-keyword-face)
+                      ("abs" . font-lock-function-call-face)))
+      (goto-char (point-min))
+      (search-forward (car sample))
+      (should (memq (cdr sample) (ensure-list (get-text-property (1- (point)) 'face)))))))
+
+(ert-deftest typst-stock-raw-and-indentation ()
+  (typst-test-buffer "```rust\nfn main() {}\n```\n#{\nlet x = 1\n}\n"
+    (let ((captures (treesit-query-capture (treesit-buffer-root-node)
+                                          '((raw_blck lang: (ident) @lang (blob) @body)))))
+      (should (equal (treesit-node-text (cdr (assq 'lang captures))) "rust"))
+      (should (equal (treesit-node-text (cdr (assq 'body captures))) "\nfn main() {}\n")))
+    (search-forward "let x")
+    (indent-according-to-mode)
+    (should (= (current-indentation) typst-ts-indent-offset))))
+
+(ert-deftest typst-stock-open-at-point ()
+  (typst-test-buffer "#include \"README.md\"\nhttps://example.org"
+    (let* (opened (typst-ts-mc-open-function (lambda (text type) (setq opened (list text type)))))
+      (search-forward "README")
+      (typst-ts-mc-open-at-point)
+      (should (equal opened '("README.md" local)))
+      (search-forward "example")
+      (typst-ts-mc-open-at-point)
+      (should (equal opened '("https://example.org" url))))))

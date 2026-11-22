@@ -6,10 +6,7 @@
       "camelcase": "Typst",
       "scope": "source.typst",
       "path": ".",
-      "file-types": ["typ"],
-      "highlights": ["queries/highlights.scm"],
-      "injections": ["queries/injections.scm"],
-      "locals": ["queries/locals.scm"]
+      "file-types": ["typ"]
     }
   ],
   "metadata": {

@@ -7,9 +7,10 @@ let binding with a simple value
 --------------------------------------------------------------------------------
 
 (source_file
-  (let_binding
-    (ident)
-    (int)))
+  (code
+    (let
+      (ident)
+      (number))))
 
 ================================================================================
 identifiers may contain hyphens
@@ -20,9 +21,10 @@ identifiers may contain hyphens
 --------------------------------------------------------------------------------
 
 (source_file
-  (let_binding
-    (ident)
-    (int)))
+  (code
+    (let
+      (ident)
+      (number))))
 
 ================================================================================
 subtraction needs surrounding space
@@ -33,10 +35,11 @@ subtraction needs surrounding space
 --------------------------------------------------------------------------------
 
 (source_file
-  (parenthesized
-    (binary
-      (ident)
-      (ident))))
+  (code
+    (group
+      (sub
+        (ident)
+        (ident)))))
 
 ================================================================================
 hyphen without space is part of the identifier
@@ -47,8 +50,9 @@ hyphen without space is part of the identifier
 --------------------------------------------------------------------------------
 
 (source_file
-  (parenthesized
-    (ident)))
+  (code
+    (group
+      (ident))))
 
 ================================================================================
 operator precedence
@@ -59,17 +63,18 @@ operator precedence
 --------------------------------------------------------------------------------
 
 (source_file
-  (parenthesized
-    (binary
-      (binary
-        (binary
-          (int)
-          (binary
-            (int)
-            (int)))
-        (int))
-      (unary
-        (bool)))))
+  (code
+    (group
+      (and
+        (cmp
+          (add
+            (number)
+            (mul
+              (number)
+              (number)))
+          (number))
+        (not
+          (bool))))))
 
 ================================================================================
 assignment is right associative
@@ -80,11 +85,11 @@ assignment is right associative
 --------------------------------------------------------------------------------
 
 (source_file
-  (code_block
-    (code
-      (binary
+  (code
+    (block
+      (assign
         (ident)
-        (binary
+        (assign
           (ident)
           (ident))))))
 
@@ -97,13 +102,20 @@ numeric literals with units
 --------------------------------------------------------------------------------
 
 (source_file
-  (array
-    (numeric)
-    (numeric)
-    (numeric)
-    (numeric)
-    (numeric)
-    (numeric)))
+  (code
+    (group
+      (number
+        (unit))
+      (number
+        (unit))
+      (number
+        (unit))
+      (number
+        (unit))
+      (number
+        (unit))
+      (number
+        (unit)))))
 
 ================================================================================
 integer bases
@@ -114,11 +126,12 @@ integer bases
 --------------------------------------------------------------------------------
 
 (source_file
-  (array
-    (int)
-    (int)
-    (int)
-    (int)))
+  (code
+    (group
+      (number)
+      (number)
+      (number)
+      (number))))
 
 ================================================================================
 floats with exponents
@@ -129,11 +142,12 @@ floats with exponents
 --------------------------------------------------------------------------------
 
 (source_file
-  (array
-    (float)
-    (float)
-    (float)
-    (float)))
+  (code
+    (group
+      (number)
+      (number)
+      (number)
+      (number))))
 
 ================================================================================
 empty parens are an array
@@ -144,7 +158,8 @@ empty parens are an array
 --------------------------------------------------------------------------------
 
 (source_file
-  (array))
+  (code
+    (group)))
 
 ================================================================================
 single value in parens is parenthesized
@@ -155,8 +170,9 @@ single value in parens is parenthesized
 --------------------------------------------------------------------------------
 
 (source_file
-  (parenthesized
-    (int)))
+  (code
+    (group
+      (number))))
 
 ================================================================================
 trailing comma makes a one-element array
@@ -167,8 +183,9 @@ trailing comma makes a one-element array
 --------------------------------------------------------------------------------
 
 (source_file
-  (array
-    (int)))
+  (code
+    (group
+      (number))))
 
 ================================================================================
 dictionary
@@ -179,13 +196,14 @@ dictionary
 --------------------------------------------------------------------------------
 
 (source_file
-  (dict
-    (named
-      (ident)
-      (int))
-    (keyed
-      (str)
-      (int))))
+  (code
+    (group
+      (tagged
+        (ident)
+        (number))
+      (keyed
+        (string)
+        (number)))))
 
 ================================================================================
 function call with named arguments
@@ -196,13 +214,14 @@ function call with named arguments
 --------------------------------------------------------------------------------
 
 (source_file
-  (func_call
-    (ident)
-    (args
-      (int)
-      (named
-        (ident)
-        (int)))))
+  (code
+    (call
+      (ident)
+      (group
+        (number)
+        (tagged
+          (ident)
+          (number))))))
 
 ================================================================================
 trailing content block joins the same argument list
@@ -213,12 +232,12 @@ trailing content block joins the same argument list
 --------------------------------------------------------------------------------
 
 (source_file
-  (func_call
-    (ident)
-    (args
-      (int)
-      (content_block
-        (markup
+  (code
+    (call
+      (ident)
+      (group
+        (number)
+        (content
           (text))))))
 
 ================================================================================
@@ -230,14 +249,13 @@ several trailing content blocks
 --------------------------------------------------------------------------------
 
 (source_file
-  (func_call
-    (ident)
-    (args
-      (content_block
-        (markup
-          (text)))
-      (content_block
-        (markup
+  (code
+    (call
+      (ident)
+      (group
+        (content
+          (text))
+        (content
           (text))))))
 
 ================================================================================
@@ -250,12 +268,11 @@ a bracket on the next line is a separate expression
 --------------------------------------------------------------------------------
 
 (source_file
-  (code_block
-    (code
+  (code
+    (block
       (ident)
-      (content_block
-        (markup
-          (text))))))
+      (content
+        (text)))))
 
 ================================================================================
 two code expressions on one line need a separator
@@ -266,13 +283,12 @@ two code expressions on one line need a separator
 --------------------------------------------------------------------------------
 
 (source_file
-  (code_block
-    (ERROR
-      (ident))
-    (code
-      (content_block
-        (markup
-          (text))))))
+  (code
+    (block
+      (ERROR
+        (ident))
+      (content
+        (text)))))
 
 ================================================================================
 method call chain
@@ -283,13 +299,14 @@ method call chain
 --------------------------------------------------------------------------------
 
 (source_file
-  (func_call
-    (field_access
-      (field_access
-        (ident)
+  (code
+    (call
+      (field
+        (field
+          (ident)
+          (ident))
         (ident))
-      (ident))
-    (args)))
+      (group))))
 
 ================================================================================
 function definition
@@ -300,15 +317,16 @@ function definition
 --------------------------------------------------------------------------------
 
 (source_file
-  (let_binding
-    (closure
-      (ident)
-      (params
+  (code
+    (let
+      (call
         (ident)
-        (named
+        (group
           (ident)
-          (int)))
-      (binary
+          (tagged
+            (ident)
+            (number))))
+      (add
         (ident)
         (ident)))))
 
@@ -321,13 +339,13 @@ closure
 --------------------------------------------------------------------------------
 
 (source_file
-  (code_block
-    (code
+  (code
+    (block
       (closure
         (params
           (ident)
           (ident))
-        (binary
+        (add
           (ident)
           (ident))))))
 
@@ -340,13 +358,14 @@ destructuring binding
 --------------------------------------------------------------------------------
 
 (source_file
-  (let_binding
-    (destructuring
-      (ident)
-      (ident))
-    (array
-      (int)
-      (int))))
+  (code
+    (let
+      (group
+        (ident)
+        (ident))
+      (group
+        (number)
+        (number)))))
 
 ================================================================================
 destructuring with spread and placeholder
@@ -357,13 +376,14 @@ destructuring with spread and placeholder
 --------------------------------------------------------------------------------
 
 (source_file
-  (let_binding
-    (destructuring
-      (ident)
-      (underscore)
-      (spread
-        (ident)))
-    (ident)))
+  (code
+    (let
+      (group
+        (ident)
+        (wildcard)
+        (spread
+          (ident)))
+      (ident))))
 
 ================================================================================
 set rule
@@ -374,12 +394,15 @@ set rule
 --------------------------------------------------------------------------------
 
 (source_file
-  (set_rule
-    (ident)
-    (args
-      (named
+  (code
+    (set
+      (call
         (ident)
-        (numeric)))))
+        (group
+          (tagged
+            (ident)
+            (number
+              (unit))))))))
 
 ================================================================================
 set rule on a dotted path
@@ -390,14 +413,16 @@ set rule on a dotted path
 --------------------------------------------------------------------------------
 
 (source_file
-  (set_rule
-    (field_access
-      (ident)
-      (ident))
-    (args
-      (named
-        (ident)
-        (str)))))
+  (code
+    (set
+      (call
+        (field
+          (ident)
+          (ident))
+        (group
+          (tagged
+            (ident)
+            (string)))))))
 
 ================================================================================
 conditional set rule
@@ -408,11 +433,13 @@ conditional set rule
 --------------------------------------------------------------------------------
 
 (source_file
-  (set_rule
-    (ident)
-    (args
-      (ident))
-    (ident)))
+  (code
+    (set
+      (call
+        (ident)
+        (group
+          (ident)))
+      (ident))))
 
 ================================================================================
 show rule with a selector
@@ -423,14 +450,15 @@ show rule with a selector
 --------------------------------------------------------------------------------
 
 (source_file
-  (show_rule
-    (ident)
-    (closure
-      (params
-        (ident))
-      (field_access
-        (ident)
-        (ident)))))
+  (code
+    (show
+      (ident)
+      (closure
+        (params
+          (ident))
+        (field
+          (ident)
+          (ident))))))
 
 ================================================================================
 bare show rule
@@ -441,8 +469,9 @@ bare show rule
 --------------------------------------------------------------------------------
 
 (source_file
-  (show_rule
-    (ident)))
+  (code
+    (show
+      (ident))))
 
 ================================================================================
 show rule with a where selector
@@ -453,19 +482,21 @@ show rule with a where selector
 --------------------------------------------------------------------------------
 
 (source_file
-  (show_rule
-    (func_call
-      (field_access
-        (ident)
-        (ident))
-      (args
-        (named
+  (code
+    (show
+      (call
+        (field
           (ident)
-          (int))))
-    (set_rule
-      (ident)
-      (args
-        (ident)))))
+          (ident))
+        (group
+          (tagged
+            (ident)
+            (number))))
+      (set
+        (call
+          (ident)
+          (group
+            (ident)))))))
 
 ================================================================================
 conditional
@@ -476,23 +507,21 @@ conditional
 --------------------------------------------------------------------------------
 
 (source_file
-  (conditional
-    (binary
-      (ident)
-      (int))
-    (code_block
-      (code
-        (str)))
-    (conditional
-      (binary
+  (code
+    (branch
+      (cmp
         (ident)
-        (int))
-      (code_block
-        (code
-          (str)))
-      (code_block
-        (code
-          (str))))))
+        (number))
+      (block
+        (string))
+      (branch
+        (cmp
+          (ident)
+          (number))
+        (block
+          (string))
+        (block
+          (string))))))
 
 ================================================================================
 for loop
@@ -503,13 +532,13 @@ for loop
 --------------------------------------------------------------------------------
 
 (source_file
-  (for_loop
-    (destructuring
+  (code
+    (for
+      (group
+        (ident)
+        (ident))
       (ident)
-      (ident))
-    (ident)
-    (code_block
-      (code
+      (block
         (ident)))))
 
 ================================================================================
@@ -521,20 +550,17 @@ while loop with break and continue
 --------------------------------------------------------------------------------
 
 (source_file
-  (code_block
-    (code
-      (while_loop
+  (code
+    (block
+      (while
         (ident)
-        (code_block
-          (code
-            (conditional
-              (ident)
-              (code_block
-                (code
-                  (loop_break)))
-              (code_block
-                (code
-                  (loop_continue))))))))))
+        (block
+          (branch
+            (ident)
+            (block
+              (flow))
+            (block
+              (flow))))))))
 
 ================================================================================
 import with items
@@ -545,13 +571,14 @@ import with items
 --------------------------------------------------------------------------------
 
 (source_file
-  (module_import
-    (str)
-    (import_items
-      (import_item_path
-        (ident))
-      (import_item_path
-        (ident)))))
+  (code
+    (import
+      (string)
+      (import_items
+        (import_item_path
+          (ident))
+        (import_item_path
+          (ident))))))
 
 ================================================================================
 import with a rename
@@ -562,13 +589,14 @@ import with a rename
 --------------------------------------------------------------------------------
 
 (source_file
-  (module_import
-    (str)
-    (import_items
-      (renamed_import_item
-        (import_item_path
-          (ident))
-        (ident)))))
+  (code
+    (import
+      (string)
+      (import_items
+        (as
+          (import_item_path
+            (ident))
+          (ident))))))
 
 ================================================================================
 import everything
@@ -579,8 +607,10 @@ import everything
 --------------------------------------------------------------------------------
 
 (source_file
-  (module_import
-    (str)))
+  (code
+    (import
+      (string)
+      (wildcard))))
 
 ================================================================================
 include
@@ -591,8 +621,9 @@ include
 --------------------------------------------------------------------------------
 
 (source_file
-  (module_include
-    (str)))
+  (code
+    (include
+      (string))))
 
 ================================================================================
 context expression
@@ -603,15 +634,16 @@ context expression
 --------------------------------------------------------------------------------
 
 (source_file
-  (contextual
-    (func_call
-      (field_access
-        (func_call
-          (ident)
-          (args
-            (ident)))
-        (ident))
-      (args))))
+  (code
+    (context
+      (call
+        (field
+          (call
+            (ident)
+            (group
+              (ident)))
+          (ident))
+        (group)))))
 
 ================================================================================
 spread arguments
@@ -622,15 +654,16 @@ spread arguments
 --------------------------------------------------------------------------------
 
 (source_file
-  (func_call
-    (ident)
-    (args
-      (spread
-        (ident))
-      (spread
-        (array
-          (int)
-          (int))))))
+  (code
+    (call
+      (ident)
+      (group
+        (spread
+          (ident))
+        (spread
+          (group
+            (number)
+            (number)))))))
 
 ================================================================================
 code block with semicolons
@@ -641,15 +674,15 @@ code block with semicolons
 --------------------------------------------------------------------------------
 
 (source_file
-  (code_block
-    (code
-      (let_binding
+  (code
+    (block
+      (let
         (ident)
-        (int))
-      (let_binding
+        (number))
+      (let
         (ident)
-        (int))
-      (binary
+        (number))
+      (add
         (ident)
         (ident)))))
 
@@ -662,11 +695,11 @@ comments are ignored
 --------------------------------------------------------------------------------
 
 (source_file
-  (code_block
-    (block_comment)
-    (code
-      (int)))
-  (line_comment))
+  (code
+    (block
+      (comment)
+      (number)))
+  (comment))
 
 ================================================================================
 embedded expressions are atomic - no binary operators
@@ -677,7 +710,8 @@ embedded expressions are atomic - no binary operators
 --------------------------------------------------------------------------------
 
 (source_file
-  (ident)
+  (code
+    (ident))
   (text)
   (text))
 
@@ -690,7 +724,8 @@ embedded expressions are atomic - no closures
 --------------------------------------------------------------------------------
 
 (source_file
-  (ident)
+  (code
+    (ident))
   (text)
   (text))
 
@@ -703,10 +738,11 @@ parentheses restore full expression parsing
 --------------------------------------------------------------------------------
 
 (source_file
-  (parenthesized
-    (binary
-      (ident)
-      (ident))))
+  (code
+    (group
+      (add
+        (ident)
+        (ident)))))
 
 ================================================================================
 none and auto are value literals
@@ -717,11 +753,12 @@ none and auto are value literals
 --------------------------------------------------------------------------------
 
 (source_file
-  (array
-    (none)
-    (auto)
-    (bool)
-    (bool)))
+  (code
+    (group
+      (none)
+      (auto)
+      (bool)
+      (bool))))
 
 ================================================================================
 return in a function
@@ -732,14 +769,14 @@ return in a function
 --------------------------------------------------------------------------------
 
 (source_file
-  (let_binding
-    (closure
-      (ident)
-      (params)
-      (code_block
-        (code
-          (func_return
-            (int)))))))
+  (code
+    (let
+      (call
+        (ident)
+        (group))
+      (block
+        (return
+          (number))))))
 
 ================================================================================
 a dot before a lone underscore ends embedded code
@@ -750,9 +787,11 @@ a dot before a lone underscore ends embedded code
 --------------------------------------------------------------------------------
 
 (source_file
-  (ident)
+  (code
+    (ident))
   (text)
-  (emph (markup (text))))
+  (emph
+    (text)))
 
 ================================================================================
 bare return as a spread argument
@@ -763,14 +802,14 @@ bare return as a spread argument
 --------------------------------------------------------------------------------
 
 (source_file
-  (code_block
-    (code
-      (func_call
+  (code
+    (block
+      (call
         (ident)
-        (args
+        (group
           (spread
-            (func_return))
-          (int))))))
+            (return))
+          (number))))))
 
 ================================================================================
 empty nested list ends before the content block bracket
@@ -783,13 +822,10 @@ empty nested list ends before the content block bracket
 --------------------------------------------------------------------------------
 
 (source_file
-  (content_block
-    (markup
-      (list_item
-        (list_marker)
-        (markup
-          (list_item
-            (list_marker)))))))
+  (code
+    (content
+      (item
+        (item)))))
 
 ================================================================================
 block comments separate control values from content bodies
@@ -802,22 +838,22 @@ block comments separate control values from content bodies
 --------------------------------------------------------------------------------
 
 (source_file
-  (conditional
-    (ident)
-    (block_comment)
-    (content_block
-      (markup
+  (code
+    (branch
+      (ident)
+      (comment)
+      (content
         (text))))
-  (while_loop
-    (ident)
-    (block_comment)
-    (content_block
-      (markup
+  (code
+    (while
+      (ident)
+      (comment)
+      (content
         (text))))
-  (for_loop
-    (ident)
-    (ident)
-    (block_comment)
-    (content_block
-      (markup
+  (code
+    (for
+      (ident)
+      (ident)
+      (comment)
+      (content
         (text)))))

@@ -2,10 +2,8 @@
  * @file Tree-sitter grammar for the Typst markup language
  * @license MIT
  *
- * Node names mirror `typst_syntax::SyntaxKind` in snake_case (`let_binding`,
- * `func_call`, `content_block`). That keeps the differential test's translation table
- * near-mechanical, so a disagreement with the reference parser means a real structural
- * bug rather than a naming difference.
+ * The public tree supplies the nodes and fields read by typst-ts-mode.
+ * Typst's parser supplies the syntax and operator precedence.
  *
  * Whitespace is in `extras`, matching Typst's own model: its lexer emits `Space` and
  * `Parbreak` as *trivia* in every mode, including markup. Spacing that actually changes
@@ -28,7 +26,9 @@ const PREC = {
   assign: 1,
 };
 
-// Postfix access binds tighter than any operator. `args` outranks `func_call` so that a
+const HEADING_LEVELS = [1, 2, 3, 4, 5, 6];
+
+// Postfix access binds tighter than any operator. argument lists outrank calls so that a
 // trailing content block is shifted into the *current* argument list rather than
 // triggering a reduce that would start a second, nested call: `f(1)[x]` is one call.
 const PREC_ARGS = 21;
@@ -62,8 +62,7 @@ module.exports = grammar({
     // typst gives a character like U+3000 its own one-character `Text` node. Only the
     // scanner can tell the two apart, so this is an external token rather than a regex.
     $._non_ascii_space,
-    $.line_comment,
-    $.block_comment,
+    $.comment,
   ],
 
   // Tokens the external scanner owns, because each needs either lookahead or knowledge
@@ -74,17 +73,17 @@ module.exports = grammar({
     $.shorthand,        // `~ ... --- -- -?`, and `-` before a digit
     $._star,            // `*` only outside a word
     $._underscore,      // `_` only outside a word
-    $.heading_marker,   // `=`+ at line start, followed by a space
+    ...HEADING_LEVELS.map(n => $['_head' + n]), // `=`+ at line start, followed by a space
     $.list_marker,      // `-` at line start, followed by a space
     $.enum_marker,      // `+` or `1.` at line start, followed by a space
     $.term_marker,      // `/` at line start, followed by a space
-    $.raw_delim,        // a backtick fence; the closer must match the opener's count
+    $._raw_inline, $._raw_fence, // a backtick fence; the closer must match the opener's count
     $.raw_lang,         // the language tag of a fenced block, for injections
     $.raw_content,      // everything between the fences, whitespace included
     $._atomic_end,      // an embedded value ends unless `.`, `(` or `[` follows
     $._stmt_end,        // an embedded statement ends at the newline
     $._bare_return,     // zero-width: `return` has no value before its terminator
-    $._not_in,          // `not /* trivia */ in` as one comparison operator
+    $._not_in,          // `not` only if `in` follows after trivia
     $._heading_end,     // a heading ends at the newline, or at a label
     $._line_end,        // a heading or list item ends at the newline
     $._code_sep,        // zero-width: a line break separates two code expressions
@@ -101,14 +100,14 @@ module.exports = grammar({
     $._math_adjacent,   // zero-width: a delimiter follows immediately, so it is a call
     $._math_bang,       // zero-width: a `!` follows immediately, so it is a factorial
     // The same markers at the start of a fresh markup context, including item bodies.
-    $._heading_marker_start,
+    ...HEADING_LEVELS.map(n => $['_start_head' + n]),
     $._list_marker_start,
     $._enum_marker_start,
     $._term_marker_start,
     $.escape,          // `\x`, or `\u{...}` with a codepoint that is a real character
     $.linebreak,       // `\` at the end of a line
     $._adjacent_prime,  // zero-width: a `'` follows immediately, so it attaches
-    $.link,             // a bare URL, with `[]` and `()` balanced
+    $.url,             // a bare URL, with `[]` and `()` balanced
     $._math_named_ident,
     $._math_spread_dots,
     $._math_name_head,  // first grapheme of a longer named argument
@@ -133,6 +132,8 @@ module.exports = grammar({
     $._ref_end,         // finish before a separated supplement
     $._detached_args,
     $._hash,            // the next character must begin code without intervening trivia
+    ...HEADING_LEVELS.map(n => $['_before_heading' + n]),
+    $._section_newline,   // include the trailing line break in a section edit
     $._error_sentinel,  // never matched; signals error recovery to the scanner
   ],
 
@@ -143,7 +144,7 @@ module.exports = grammar({
   reserved: {
     global: $ => [
       $.none, $.auto, 'true', 'false', 'not', 'and', 'or', 'let', 'set', 'show', 'context',
-      'if', 'else', 'for', 'in', 'while', $.loop_break, $.loop_continue, 'return', 'import', 'include', 'as',
+      'if', 'else', 'for', 'in', 'while', 'break', 'continue', 'return', 'import', 'include', 'as',
     ],
     field: _ => [],
   },
@@ -179,13 +180,12 @@ module.exports = grammar({
     [$._value, $._postfixable],
     [$._line_value, $._line_postfixable],
     [$._block_value, $._block_postfixable],
-    [$._postfixable, $.set_rule],
-    [$._line_postfixable, $._line_set_rule],
-    [$._block_postfixable, $._block_set_rule],
+    [$._postfixable, $._set_target],
+    [$._line_postfixable, $._line_set_target],
+    [$._block_postfixable, $._block_set_target],
 
     [$.import_items],
-    [$.import_items, $.renamed_import_item],
-    [$.markup],
+    [$.import_items, $.as],
 
     // Round parentheses in an operand can be unwrapped by math_unparen.
     [$.math_delimited, $._math_group],
@@ -226,17 +226,13 @@ module.exports = grammar({
     ),
 
     // Typst does not decide opening versus closing here; that is a rendering concern.
-    smart_quote: _ => choice('\'', '"'),
+    quote: _ => choice('\'', '"'),
 
-    // `` `code` `` or a fenced block with a language tag. The pieces are separate nodes
-    // so `queries/injections.scm` can point `raw_lang` at `raw_content` and get the
-    // embedded language highlighted.
-    raw: $ => seq(
-      $.raw_delim,
-      optional($.raw_lang),
-      optional($.raw_content),
-      $.raw_delim,
-    ),
+    // The mode uses the fence's lang field and blob span for indirect editing.
+    _raw: $ => choice($.raw_span, $.raw_blck),
+    raw_span: $ => seq(alias($._raw_inline, '`'), optional(alias($.raw_content, $.blob)), alias($._raw_inline, '`')),
+    raw_blck: $ => seq(alias($._raw_fence, '```'), optional(field('lang', alias($.raw_lang, $.ident))),
+      optional(alias($.raw_content, $.blob)), alias($._raw_fence, '```')),
 
     /*
      * Typst never nests a delimiter inside its own kind. `strong` runs `markup` with the
@@ -251,8 +247,8 @@ module.exports = grammar({
      * The other kind still nests: `*a _b_ c*` is a strong containing an emph, because
      * only `Star` is in strong's stop set.
      */
-    strong: $ => seq($._star, optional(alias($._markup_no_strong, $.markup)), $._star),
-    emph: $ => seq($._underscore, optional(alias($._markup_no_emph, $.markup)), $._underscore),
+    strong: $ => seq(alias($._star, '*'), optional($._markup_no_strong), alias($._star, '*')),
+    emph: $ => seq(alias($._underscore, '_'), optional($._markup_no_emph), alias($._underscore, '_')),
 
     _markup_no_strong: $ => repeat1(markupExpr($, { label: true, strong: false })),
     _markup_no_emph: $ => repeat1(markupExpr($, { label: true, emph: false })),
@@ -264,7 +260,7 @@ module.exports = grammar({
     // `see @thm.` ends the reference before the sentence's full stop.
     ref: $ => seq(
       $.ref_marker,
-      choice(alias($._content_block_immediate, $.content_block), $._ref_end),
+      choice(alias($._content_block_immediate, $.content), $._ref_end),
     ),
     ref_marker: _ => token(seq(
       '@',
@@ -275,16 +271,12 @@ module.exports = grammar({
 
     // Each of these ends at the end of its line; `_line_end` is a zero-width token the
     // scanner emits when the body is over.
-    heading: $ => seq(
-      $.heading_marker,
-      optional(alias($._markup_unlabelled, $.markup)),
-      $._heading_end,
-    ),
-    list_item: $ => seq($.list_marker, optional($._item_markup), $._line_end),
-    enum_item: $ => seq($.enum_marker, optional($._item_markup), $._line_end),
-    term_item: $ => seq(
-      $.term_marker,
-      field('term', optional(alias($._term_markup, $.markup))),
+    ...headingRules(),
+    _list_item: $ => seq(alias($.list_marker, '-'), optional($._item_markup), $._line_end),
+    _enum_item: $ => seq($.enum_marker, optional($._item_markup), $._line_end),
+    term: $ => seq(
+      alias($.term_marker, '/'),
+      field('term', optional($._term_markup)),
       ':',
       field('description', optional($._item_markup)),
       $._line_end,
@@ -300,13 +292,13 @@ module.exports = grammar({
     // by the spacing inside the dollars, but that is a layout decision — both produce the
     // same `Equation` node.
 
-    equation: $ => seq(
-      '$', optional(choice($.math, alias($._math_unclosed_sequence, $.math))), '$',
+    math: $ => seq(
+      '$', optional(choice($.formula, alias($._math_unclosed_sequence, $.formula))), '$',
     ),
 
     _math_unclosed_sequence: $ => seq(repeat($._math_expr), $._math_unclosed_expr),
 
-    math: $ => repeat1($._math_expr),
+    formula: $ => repeat1($._math_expr),
 
     _math_expr: $ => mathExpr($, { operators: true }),
 
@@ -319,7 +311,7 @@ module.exports = grammar({
     // character is a variable. That is why `$sum$` is the summation sign but `$s u m$`
     // is three variables. Note there is no `_` here — unlike code identifiers, since `_`
     // is the subscript operator in math.
-    math_ident: _ => token(new RustRegex(String.raw`\p{XID_Start}[\p{XID_Continue}&&[^_]]+`)),
+    _math_ident: _ => token(new RustRegex(String.raw`\p{XID_Start}[\p{XID_Continue}&&[^_]]+`)),
 
     /*
      * A single grapheme, or a number kept whole.
@@ -328,7 +320,7 @@ module.exports = grammar({
      * `$f(x)$` in an extra `Math` node but leaves `$2(x)$` and `$+(x)$` alone. The two
      * halves match disjoint character sets, so the lexer is never choosing between two
      * tokens for the same text — the trap that sinks `token.immediate` here. Both are
-     * aliased back to `math_text` at every use, so the node name is unchanged.
+     * exposed as letter or symbol for the mode's math highlighting.
      */
     _math_letter: _ => token(/\p{Alphabetic}/u),
     _math_other: _ => token(choice(
@@ -346,16 +338,16 @@ module.exports = grammar({
      * access and then had no name to finish it. The scanner supplies a dot that exists
      * only when a name follows.
      */
-    math_field_access: $ => prec.left(seq(
-      choice($.math_ident, $.math_field_access),
+    _math_field: $ => prec.left(seq(
+      choice(alias($._math_ident, $.ident), alias($._math_field, $.field)),
       alias($._math_dot, '.'),
-      alias(token.immediate(new RustRegex(String.raw`\p{XID_Start}[\p{XID_Continue}&&[^_]]*`)), $.math_ident),
+      field('field', alias(token.immediate(new RustRegex(String.raw`\p{XID_Start}[\p{XID_Continue}&&[^_]]*`)), $.ident)),
     )),
 
     // `sum(x)` — a call needs the parenthesis directly adjacent, like in code.
-    math_call: $ => prec.left(PREC_MATH.func, seq(
-      field('item', choice($.math_ident, $.math_field_access)),
-      field('args', alias($._math_args, $.math_args)),
+    _math_call: $ => prec.left(PREC_MATH.func, seq(
+      field('item', choice(alias($._math_ident, $.ident), alias($._math_field, $.field))),
+      field('args', alias($._math_args, $.group)),
     )),
     // Math arguments are comma- or semicolon-separated, and each one may be named
     // (`lr(}, size: #h)`) or spread. Only multi-expression arguments need a Math wrapper.
@@ -366,14 +358,14 @@ module.exports = grammar({
     ),
 
     _math_arg: $ => choice(
-      alias($._math_named_arg, $.named),
+      alias($._math_named_arg, $.tagged),
       alias($._math_spread_arg, $.spread),
       $._math_arg_value,
     ),
 
     // typst-syntax's math_arg stops at a comma, semicolon or right parenthesis.
     // Nested delimited groups still use ordinary math, including its punctuation.
-    _math_arg_value: $ => choice(prec(1, $._math_arg_expr), alias($._math_arg_body, $.math)),
+    _math_arg_value: $ => choice(prec(1, $._math_arg_expr), alias($._math_arg_body, $.formula)),
     _math_arg_body: $ => prec.left(seq($._math_arg_expr, repeat1($._math_arg_expr))),
     _math_arg_expr: $ => mathExpr($, { operators: true, inArgs: true }),
 
@@ -387,7 +379,7 @@ module.exports = grammar({
     math_named_ident: $ => choice($._math_named_ident,
       seq($._math_name_head, token.immediate(/[-_\p{XID_Continue}]+/u))),
     _math_named_arg: $ => prec.dynamic(2, seq(
-      field('name', alias($.math_named_ident, $.ident)),
+      field('field', alias($.math_named_ident, $.ident)),
       ':',
       $._math_arg_value,
     )),
@@ -396,12 +388,12 @@ module.exports = grammar({
     // typst-syntax's math_delimited accepts the first closer, even across shapes: [(x]}.
     math_delimited: $ => seq(
       $._math_open,
-      optional($.math),
+      optional($.formula),
       $._math_close,
     ),
 
-    _math_open: $ => choice(alias(MATH_OPEN, $.math_text), alias('[|', $.math_shorthand)),
-    _math_close: $ => choice(alias(MATH_CLOSE, $.math_text), alias(token(prec(1, '|]')), $.math_shorthand)),
+    _math_open: $ => choice(alias(MATH_OPEN, $.symbol), alias('[|', $.math_shorthand)),
+    _math_close: $ => choice(alias(MATH_CLOSE, $.symbol), alias(token(prec(1, '|]')), $.math_shorthand)),
 
     // typst-syntax's math_delimited wraps the opener and its expressions together
     // in Math when it reaches the end of the equation before a closer.
@@ -412,18 +404,18 @@ module.exports = grammar({
     // stay inside the group (including the ! in $a[+!$).
     _math_unclosed_expr: $ => choice(
       $._math_unclosed_operand,
-      alias($._math_unclosed_attach, $.math_attach),
-      alias($._math_unclosed_frac, $.math_frac),
+      alias($._math_unclosed_attach, $.attach),
+      alias($._math_unclosed_frac, $.fraction),
     ),
     _math_unclosed_operand: $ => choice(
-      alias($._math_unclosed, $.math),
-      alias($._math_unclosed_implicit_call, $.math),
+      alias($._math_unclosed, $.formula),
+      alias($._math_unclosed_implicit_call, $.formula),
       alias($._math_unclosed_root, $.math_root),
     ),
 
-    _math_unclosed_implicit_call: $ => mathImplicitCall($, alias($._math_unclosed, $.math)),
+    _math_unclosed_implicit_call: $ => mathImplicitCall($, alias($._math_unclosed, $.formula)),
     _math_unclosed_root: $ => mathRoot(choice(
-      $._math_unclosed_operand, alias($._math_unclosed_attach, $.math_attach),
+      $._math_unclosed_operand, alias($._math_unclosed_attach, $.attach),
     )),
     _math_unclosed_frac: $ => mathFrac($, $._math_unclosed_expr),
 
@@ -437,13 +429,13 @@ module.exports = grammar({
       $._math_unclosed_sup, seq($._math_sup, mathScript('_', $._math_unclosed_last)),
     ),
     _math_unclosed_last: $ => choice(
-      $._math_unclosed_operand, alias($._math_unclosed_attach, $.math_attach),
+      $._math_unclosed_operand, alias($._math_unclosed_attach, $.attach),
     ),
     _math_unclosed_sub: $ => mathScript('_', choice(
-      $._math_unclosed_operand, alias($._math_unclosed_sub_rebased, $.math_attach),
+      $._math_unclosed_operand, alias($._math_unclosed_sub_rebased, $.attach),
     )),
     _math_unclosed_sup: $ => mathScript('^', choice(
-      $._math_unclosed_operand, alias($._math_unclosed_sup_rebased, $.math_attach),
+      $._math_unclosed_operand, alias($._math_unclosed_sup_rebased, $.attach),
     )),
     _math_unclosed_sub_rebased: $ => mathUnclosedAttach($, $._math_unclosed_sub_scripts),
     _math_unclosed_sup_rebased: $ => mathUnclosedAttach($, $._math_unclosed_sup_scripts),
@@ -463,7 +455,7 @@ module.exports = grammar({
      * need a second token for `'`; with both valid the lexer picks whichever it likes,
      * and the immediate one never matches.
      */
-    math_attach: $ => prec.left(PREC_MATH.attach, seq(
+    attach: $ => prec.left(PREC_MATH.attach, seq(
       field('base', $._math_operand),
       choice(
         seq($._adjacent_prime, $.math_primes, optional($._math_scripts)),
@@ -492,16 +484,16 @@ module.exports = grammar({
      * its own kind, since the enclosing node can still take the other one.
      */
     _math_sub_last: $ => seq(field('operator', '_'), field('attachment', choice(
-      alias($._math_group, $.math),
-      alias($._math_primed, $.math_attach),
-      alias($._math_any_rebased, $.math_attach),
+      alias($._math_group, $.formula),
+      alias($._math_primed, $.attach),
+      alias($._math_any_rebased, $.attach),
       $._math_operand,
     ))),
 
     _math_sup_last: $ => seq(field('operator', '^'), field('attachment', choice(
-      alias($._math_group, $.math),
-      alias($._math_primed, $.math_attach),
-      alias($._math_any_rebased, $.math_attach),
+      alias($._math_group, $.formula),
+      alias($._math_primed, $.attach),
+      alias($._math_any_rebased, $.attach),
       $._math_operand,
     ))),
 
@@ -519,16 +511,16 @@ module.exports = grammar({
      * separated them.
      */
     _math_sub: $ => seq(field('operator', '_'), field('attachment', choice(
-      alias($._math_group, $.math),
-      alias($._math_primed, $.math_attach),
-      alias($._math_sub_rebased, $.math_attach),
+      alias($._math_group, $.formula),
+      alias($._math_primed, $.attach),
+      alias($._math_sub_rebased, $.attach),
       $._math_operand,
     ))),
 
     _math_sup: $ => seq(field('operator', '^'), field('attachment', choice(
-      alias($._math_group, $.math),
-      alias($._math_primed, $.math_attach),
-      alias($._math_sup_rebased, $.math_attach),
+      alias($._math_group, $.formula),
+      alias($._math_primed, $.attach),
+      alias($._math_sup_rebased, $.attach),
       $._math_operand,
     ))),
 
@@ -553,13 +545,13 @@ module.exports = grammar({
      * delimited too — it is the script position that asks for grouping, not the
      * parentheses themselves.
      */
-    _math_group: $ => prec.dynamic(5, seq('(', optional($.math), ')')),
+    _math_group: $ => prec.dynamic(5, seq('(', optional($.formula), ')')),
 
     // math_op wraps adjacent factorials in Math, including digit operands ($2!$).
-    math_factorial: $ => prec.left(PREC_MATH.attach, seq(
-      field('base', choice($._math_operand, alias($._math_primed, $.math_attach))),
+    fac: $ => prec.left(PREC_MATH.attach, seq(
+      field('base', choice($._math_operand, alias($._math_primed, $.attach))),
       $._math_bang,
-      alias('!', $.math_text),
+      '!',
     )),
 
     // math_expr_prec wraps the continuable token and its adjacent group together.
@@ -581,10 +573,10 @@ module.exports = grammar({
     math_primes: _ => token(/'+/),
 
     // Both slots group round parens, the same way a script slot does — see `_math_group`.
-    math_frac: $ => mathFrac($, choice(alias($._math_group, $.math), $._math_expr)),
-    math_root: $ => mathRoot(choice(alias($._math_group, $.math), $.math_attach, $._math_operand)),
+    fraction: $ => mathFrac($, choice(alias($._math_group, $.formula), $._math_expr)),
+    math_root: $ => mathRoot(choice(alias($._math_group, $.formula), $.attach, $._math_operand)),
 
-    math_align_point: _ => '&',
+    align: _ => '&',
 
     // The full shorthand set from typst's math lexer, longest first so that `<==>` is
     // not read as `<=` followed by `=>`.
@@ -595,14 +587,9 @@ module.exports = grammar({
       '->', '*', '-', '~',
     )),
 
-    // A `#` in markup escapes into code mode for exactly one expression. Typst emits the
-    // `Hash` as a sibling of the expression rather than a parent, so the expression node
-    // must span only the expression itself — hence a hidden rule with an anonymous `#`.
-    // Typst treats the two kinds of embedded expression differently, so they get
-    // different terminators — see the comment in src/scanner.c. Both terminators are
-    // required, which is what keeps markup from resuming in the middle of a code
-    // expression.
-    _hash_expr: $ => choice(
+    // The code node records where embedded code begins and markup or math resumes.
+    // Values and statements use different terminators (see the scanner).
+    code: $ => choice(
       // A directly adjacent `;` ends the expression, exactly as it does for a statement:
       // typst reads `a#f;b` as three markup children with the semicolon its own token,
       // while `a #f ;b` — with a space — leaves `;b` as ordinary text.
@@ -617,12 +604,12 @@ module.exports = grammar({
      * semicolon or a line break, which is what `_stmt_end` enforces.
      */
     _hash_statement: $ => choice(
-      alias($._line_let_binding, $.let_binding),
-      alias($._line_set_rule, $.set_rule),
-      alias($._line_show_rule, $.show_rule),
-      alias($._line_module_import, $.module_import),
-      alias($._line_module_include, $.module_include),
-      alias($._line_func_return, $.func_return),
+      alias($._line_let, $.let),
+      alias($._line_set, $.set),
+      alias($._line_show, $.show),
+      alias($._line_import, $.import),
+      alias($._line_include, $.include),
+      alias($._line_return, $.return),
     ),
 
     /*
@@ -633,12 +620,11 @@ module.exports = grammar({
     _atomic_context: $ => seq('context', $._same_line,
       field('body', choice($._line_postfixable, $._hash_value, $._hash_statement))),
     _hash_value: $ => choice(
-      alias($._atomic_context, $.contextual),
-      alias($._line_conditional, $.conditional),
-      alias($._line_while_loop, $.while_loop),
-      alias($._line_for_loop, $.for_loop),
-      $.loop_break,
-      $.loop_continue,
+      alias($._atomic_context, $.context),
+      alias($._line_branch, $.branch),
+      alias($._line_while, $.while),
+      alias($._line_for, $.for),
+      $.flow,
     ),
 
 
@@ -662,22 +648,22 @@ module.exports = grammar({
      */
     _value: ($, code) => choice(
       code._finished_value,
-      code.unary,
-      code.binary,
+      code._unary,
+      code._binary,
       code.closure,
-      code.contextual,
-      code.conditional,
-      code.while_loop,
-      code.for_loop,
+      code.context,
+      code.branch,
+      code.while,
+      code.for,
     ),
 
     _statement_expr: ($, code) => choice(
-      code.let_binding,
-      code.set_rule,
-      code.show_rule,
-      code.module_import,
-      code.module_include,
-      code.func_return,
+      code.let,
+      code.set,
+      code.show,
+      code.import,
+      code.include,
+      code.return,
       // `destructuring` is deliberately absent: typst only ever produces it as the
       // left side of a destructuring assignment or as a `let` pattern, never as a
       // standalone expression. Listing it here made every `(a: 1)` ambiguous with a
@@ -685,9 +671,9 @@ module.exports = grammar({
       code.destruct_assignment,
     ),
 
-    code_block: $ => seq('{', optional($.code), '}'),
+    block: $ => seq('{', optional($._block_code), '}'),
 
-    // Typst wraps the contents of `{ ... }` in a `Code` node, distinct from the block.
+    // Keep expressions directly under block for indentation in the major mode.
     /*
      * Typst requires a `;` or a line break *between* code expressions — `{ 1 2 }` is
      * "expected semicolon or line break", not two expressions. Leaving the separator
@@ -699,7 +685,7 @@ module.exports = grammar({
      * a `.` or an `else`, since those two continue the previous expression across a
      * newline (`a\n.b()` is one method call).
      */
-    code: $ => repeat1(seq($._block_expr, choice(';', $._code_sep))),
+    _block_code: $ => repeat1(seq($._block_expr, choice(';', alias($._code_sep, 'sep')))),
 
     /*
      * A content block starts a fresh markup context, so its first character counts as the
@@ -708,9 +694,13 @@ module.exports = grammar({
      * exactly where a block begins, so the scanner is offered a separate set of marker
      * tokens that are only valid in that one position and ignore the column entirely.
      */
-    content_block: $ => seq('[', optional(alias($._block_markup, $.markup)), ']'),
+    content: $ => seq('[', optional($._block_markup), ']'),
 
-    _block_markup: $ => seq(choice($._block_first, $._plain_markup_expr), repeat($._markup_expr)),
+    _block_markup: $ => seq(choice($._first_section, $._comment_section, $._first_item, $._document_expr),
+      repeat(choice($._section, $._document_expr, $._comment_section))),
+    _document_expr: $ => choice($._document_leaf, seq($._after_line_comments,
+      choice($._first_item, $._document_leaf))),
+    _document_leaf: $ => markupExpr($, { label: true, heading: false }),
 
     // In restricted markup, only a possible marker causes a comment replay.
     // A digit or hyphen can still be ordinary text or shorthand after lookahead.
@@ -723,7 +713,7 @@ module.exports = grammar({
     _text_with_scheme: $ => seq($._text_before_scheme, token.immediate(/https?/)),
 
     // Keep any leading comment outside the extent of the first body expression.
-    _item_markup: $ => seq(optional($._after_line_comments), alias($._item_body, $.markup)),
+    _item_markup: $ => seq(optional($._after_line_comments), $._item_body),
     _item_plain: $ => markupExpr($, { label: true, bracket: $._item_bracket }),
     _item_body: $ => seq(choice($._block_first, $._item_plain),
       repeat(choice($._item_plain, seq($._after_line_comments, choice($._block_first, $._item_plain))))),
@@ -740,21 +730,15 @@ module.exports = grammar({
      * one — aliasing a bare `seq` yields an empty node with the children hoisted beside
      * it, which is what happened first time round.
      */
-    _block_first: $ => choice(
-      alias($._block_heading, $.heading),
-      alias($._block_list_item, $.list_item),
-      alias($._block_enum_item, $.enum_item),
-      alias($._block_term_item, $.term_item),
-    ),
-
-    _block_heading: $ => seq(
-      alias($._heading_marker_start, $.heading_marker),
-      optional(alias($._markup_unlabelled, $.markup)),
-      $._heading_end,
+    _block_first: $ => choice($._first_heading, $._first_item),
+    _first_item: $ => choice(
+      alias($._block_list_item, $.item),
+      alias($._block_enum_item, $.item),
+      alias($._block_term_item, $.term),
     ),
 
     _block_list_item: $ => seq(
-      alias($._list_marker_start, $.list_marker), optional($._item_markup), $._line_end,
+      alias($._list_marker_start, '-'), optional($._item_markup), $._line_end,
     ),
 
     _block_enum_item: $ => seq(
@@ -762,8 +746,8 @@ module.exports = grammar({
     ),
 
     _block_term_item: $ => seq(
-      alias($._term_marker_start, $.term_marker),
-      field("term", optional(alias($._term_markup, $.markup))),
+      alias($._term_marker_start, '/'),
+      field("term", optional($._term_markup)),
       ":",
       field("description", optional($._item_markup)),
       $._line_end,
@@ -771,18 +755,17 @@ module.exports = grammar({
 
     // A content block only counts as an argument when it is *immediately* adjacent to
     // what precedes it: `f[x]` is a call, `f [x]` is an identifier followed by a
-    // separate content block. Aliased so both spellings surface as `content_block`.
+    // separate content block. Aliased so both spellings surface as `content`.
     _content_block_immediate: $ => seq(
       $._args_bracket, token.immediate('['),
-      // The same fresh-context markup as `content_block`: `#f[= B]` is a heading too.
-      optional(alias($._block_markup, $.markup)),
+      // The same fresh-context markup as `content`: `#f[= B]` is a heading too.
+      optional($._block_markup),
       ']',
     ),
 
     // Typst wraps the contents of a content block in a `Markup` node, separate from the
     // brackets. It emits one even when empty (a zero-width node); tree-sitter does not
     // produce zero-width named nodes, and the span comparison ignores them.
-    markup: $ => repeat1($._markup_expr),
 
     // A run of adjacent content-block arguments, written with explicit right recursion
     // rather than `repeat1`. tree-sitter compiles `repeat` into a separate generated
@@ -790,7 +773,7 @@ module.exports = grammar({
     // happily reduce after the first block and read `f[a][b]` as two nested calls.
     // Typst produces one call with both blocks in a single argument list.
     _content_blocks: $ => prec.right(seq(
-      alias($._content_block_immediate, $.content_block),
+      alias($._content_block_immediate, $.content),
       optional($._content_blocks),
     )),
 
@@ -800,23 +783,28 @@ module.exports = grammar({
       $.none,
       $.auto,
       $.bool,
-      // All three are lexed and validated by the scanner, which mirrors `Lexer::number`.
-      // Three tokens rather than one keeps the node names in step with typst's `Int` /
-      // `Float` / `Numeric` kinds.
-      alias($._number_int, $.int),
-      alias($._number_float, $.float),
-      alias($._number_numeric, $.numeric),
-      $.str,
+      // Keep lexical validation of all three numeric forms and expose the mode's number node.
+      alias($._number_int, $.number),
+      alias($._number_float, $.number),
+      alias($._quantity, $.number),
+      $.string,
     ),
 
     none: _ => 'none',
     auto: _ => 'auto',
     bool: _ => choice('true', 'false'),
 
+    // The grid commands distinguish a column count from a length by its unit child.
+    _quantity: $ => seq($._number_numeric, $.unit),
+    unit: _ => token.immediate(/[a-z]+|%/),
+
     // No interpolation; `\` escapes the next character.
     // `[\s\S]` rather than `.` after the backslash: a string may be escaped across a line
     // break, and tree-sitter's `.` does not match one.
-    str: _ => token(seq('"', repeat(choice(/[^"\\]/, /\\[\s\S]/)), '"')),
+    // The mode follows a local path by asking for the parent of the token at
+    // point. Lex the whole literal atomically so comment-looking text stays inside.
+    string: $ => alias($._string_literal, 'string_literal'),
+    _string_literal: _ => token(seq('"', repeat(choice(/[^"\\]/, /\\[\s\S]/)), '"')),
 
     // XID_Start plus `_` to begin; XID_Continue plus `_` and `-` to continue. The
     // trailing hyphen rule is why `my-var` is one identifier and `a - b` is subtraction.
@@ -824,53 +812,23 @@ module.exports = grammar({
 
     // ---- operators --------------------------------------------------------
 
-    unary: ($, code) => choice(
-      prec.left(PREC.unary, seq(field('operator', choice('+', '-')), code.next(field('operand', code._value)))),
-      // Right-associative, unlike `+`/`-`. Typst parses `not`'s operand at its *own*
-      // precedence rather than one above it, so a comparison at the same level is taken
-      // into the operand: `not a == b` is `not (a == b)`, while `and` — which binds
-      // looser — still leaves `(not a) and b`.
-      prec.right(PREC.not, seq(field('operator', 'not'), code.next(field('operand', code._value)))),
-    ),
+    _unary: ($, code) => choice(code.sign, code.not),
+    sign: ($, code) => prec.left(PREC.unary, seq(choice('+', '-'), code.next(code._value))),
+    not: ($, code) => prec.right(PREC.not, seq('not', code.next(code._value))),
 
-    binary: ($, code) => {
-      const left = [
-        [PREC.mul, choice('*', '/')],
-        [PREC.add, choice('+', '-')],
-        // `not in` is one token, not two. As `seq('not', 'in')` a bare `not` beginning a
-        // fresh expression looks like the start of this operator, so
-        //   1
-        //   not b
-        // commits to the binary reading and then fails. One token cannot be entered
-        // without the `in` actually being there.
-        [PREC.cmp, choice('==', '!=', '<', '<=', '>', '>=', 'in',
-                          alias($._not_in, 'not in'))],
-        [PREC.and, 'and'],
-        [PREC.or, 'or'],
-      ];
-      const right = [
-        [PREC.assign, choice('=', '+=', '-=', '*=', '/=')],
-      ];
-      return choice(
-        ...left.map(([p, op]) => prec.left(p, seq(
-          field('lhs', code._value), field('operator', op), code.next(field('rhs', choice(
-            code._value,
-            code.let_binding,
-            code.set_rule,
-            code.show_rule,
-            code.module_import,
-            code.module_include,
-            $.loop_break,
-            $.loop_continue,
-            code.func_return,
-            code.destruct_assignment,
-          ))),
-        ))),
-        ...right.map(([p, op]) => prec.right(p, seq(
-          field('lhs', code._value), field('operator', op), code.next(field('rhs', code._value)),
-        ))),
-      );
-    },
+    _binary: ($, code) => choice(code.mul, code.div, code.add, code.sub, code.cmp,
+      code.in, code.and, code.or, code.assign),
+    mul: ($, code) => binary(code, PREC.mul, '*'),
+    div: ($, code) => binary(code, PREC.mul, '/'),
+    add: ($, code) => binary(code, PREC.add, '+'),
+    sub: ($, code) => binary(code, PREC.add, '-'),
+    cmp: ($, code) => binary(code, PREC.cmp, choice('==', '!=', '<', '<=', '>', '>=')),
+    in: ($, code) => binary(code, PREC.cmp, choice('in', seq(alias($._not_in, 'not'), 'in'))),
+    and: ($, code) => binary(code, PREC.and, 'and'),
+    or: ($, code) => binary(code, PREC.or, 'or'),
+    assign: ($, code) => prec.right(PREC.assign, seq(field('pattern', code._value),
+      alias(choice('=', '+=', '-=', '*=', '/='), 'assign'), code.next(field('value', code._value)))),
+
 
     // ---- access and calls -------------------------------------------------
 
@@ -882,76 +840,75 @@ module.exports = grammar({
     _postfixable: ($, code) => choice(
       $._literal,
       $.ident,
-      $.code_block,
-      $.content_block,
-      $.parenthesized,
-      $.array,
-      $.dict,
-      code.field_access,
-      code.func_call,
+      $.block,
+      $.content,
+      alias($.parenthesized, $.group),
+      alias($.array, $.group),
+      alias($.dict, $.group),
+      code.field,
+      code.call,
       // Content literals are ordinary values in code mode: `query(<intro>)`,
       // `t(auto, `auto`)` and `f($x$)` are all valid.
       $.label,
-      $.raw,
-      $.equation,
+      $._raw,
+      $.math,
       // A branch or loop is a value too, so `if a { b } else { c }.filter(f)` field-
       // accesses the whole conditional rather than just its else block — typst nests
       // `FieldAccess(Conditional, ...)`. Real code does this to a comprehension often
       // enough that six corpus files depend on it.
-      code.conditional,
-      code.while_loop,
-      code.for_loop,
-      $.loop_break,
-      $.loop_continue,
+      code.branch,
+      code.while,
+      code.for,
+      $.flow,
     ),
 
     _finished_value: ($, code) => seq(code._postfixable, optional($._detached_args)),
 
-    field_access: ($, code) => prec.left(PREC_ACCESS, seq(
+    field: ($, code) => prec.left(PREC_ACCESS, seq(
       field('target', code._finished_value),
       code.continuation('.'),
       field('field', reserved('field', $.ident)),
     )),
 
     // Call openers require adjacency even across named comment and newline extras.
-    func_call: ($, code) => prec.left(PREC_CALL, seq(
+    call: ($, code) => prec.left(PREC_CALL, seq(
       field('item', code._postfixable),
-      field('args', $.args),
+      field('args', $.group),
     )),
 
     // Consecutive content blocks all belong to one `args`: `f[a][b]` is a single call
     // with two content arguments, not nested calls. `prec.left` makes the repeat greedy.
-    args: $ => prec.right(PREC_ARGS, choice(
+    group: $ => prec.right(PREC_ARGS, choice(
       seq(
         $._args_paren, token.immediate('('),
-        optional(seq(sepBy1(',', choice($.named, $.spread, $._expr)), optional(','))),
+        optional(seq(sepBy1(',', choice($.tagged, $.spread, $._expr)), optional(','))),
         ')',
         optional($._content_blocks),
       ),
       $._content_blocks,
     )),
 
-    named: $ => seq(field('name', $.ident), ':', field('value', $._expr)),
+    tagged: $ => seq(field('field', $.ident), ':', field('value', $._expr)),
     // A dictionary key may be any expression that computes to one — a string, something
     // parenthesized, or a call such as `(a.keys().first(): "")`. A bare identifier is
     // deliberately absent: `k: v` is a `named` argument, which typst keeps distinct.
     keyed: $ => seq(
       field('key', choice(
         $._literal,
-        $.parenthesized,
-        $.func_call,
-        $.field_access,
-        $.array,
-        $.dict,
-        $.binary,
-        $.contextual,
+        alias($.parenthesized, $.group),
+        $.call,
+        $.field,
+        alias($.array, $.group),
+        alias($.dict, $.group),
+        $._binary,
+        $.context,
       )),
       ':',
       field('value', $._expr),
     ),
     spread: $ => seq('..', $._expr),
     _sink: $ => seq('..', optional($.ident)),
-    _reassignment_sink: $ => seq('..', optional(choice($.ident, $.field_access, $.func_call))),
+    _reassignment_sink: $ => seq('..', optional(choice($.ident, $.field, $.call))),
 
     // ---- parenthesized forms ---------------------------------------------
     //
@@ -986,8 +943,8 @@ module.exports = grammar({
       '(',
       choice(
         seq(':', optional(dictItems($))),
-        seq(repeat(seq($.spread, ',')), choice($.named, $.keyed),
-          repeat(seq(',', choice($.named, $.keyed, $.spread))), optional(',')),
+        seq(repeat(seq($.spread, ',')), choice($.tagged, $.keyed),
+          repeat(seq(',', choice($.tagged, $.keyed, $.spread))), optional(',')),
       ),
       ')',
     ),
@@ -1003,10 +960,10 @@ module.exports = grammar({
     )),
 
     // `_ => value` is a closure that ignores its argument.
-    _bare_param: $ => choice($.ident, $.underscore),
+    _bare_param: $ => choice($.ident, $.wildcard),
 
     params: $ => seq(
-      '(', optional(itemsWithSink(choice($.named, $._pattern), alias($._sink, $.spread))), ')',
+      '(', optional(itemsWithSink(choice($.tagged, $._pattern), alias($._sink, $.spread))), ')',
     ),
 
     // ---- patterns ---------------------------------------------------------
@@ -1016,18 +973,18 @@ module.exports = grammar({
     // `Destructuring` for groups that actually destructure.
     _pattern: $ => choice($.ident, $._non_ident_pattern),
     _non_ident_pattern: $ => choice(
-      $.underscore, $.destructuring,
-      alias($._empty_destructuring, $.destructuring),
+      $.wildcard, alias($.destructuring, $.group),
+      alias($._empty_destructuring, $.group),
       // Its own rule rather than `parenthesized`, whose contents are an expression:
       // `for ((_)) in o {}` nests a pattern, and `_` is not an expression anywhere.
-      alias($._parenthesized_pattern, $.parenthesized),
+      alias($._parenthesized_pattern, $.group),
     ),
 
     _parenthesized_pattern: $ => seq('(', $._pattern, ')'),
 
     _empty_destructuring: _ => seq('(', ')'),
 
-    underscore: _ => '_',
+    wildcard: _ => '_',
 
     /*
      * A parenthesized group is a destructuring only if something inside says so: a comma,
@@ -1035,22 +992,22 @@ module.exports = grammar({
      * reads `let (a) = b` and `for (a) in b` as `Parenthesized`, and only `(a,)` with the
      * trailing comma as a one-element `Destructuring`.
      */
-    destructuring: $ => patternGroup($._pattern, alias($._destructuring_named, $.named),
+    destructuring: $ => patternGroup($._pattern, alias($._destructuring_named, $.tagged),
       alias($._sink, $.spread)),
 
-    _assign_destructuring: $ => patternGroup($._assign_pattern, alias($._assign_named, $.named),
+    _assign_destructuring: $ => patternGroup($._assign_pattern, alias($._assign_named, $.tagged),
       alias($._reassignment_sink, $.spread)),
-    _assign_pattern: $ => choice($._pattern, $.field_access, $.func_call,
-      alias($._assign_destructuring, $.destructuring),
-      alias($._assign_parens, $.parenthesized)),
+    _assign_pattern: $ => choice($._pattern, $.field, $.call,
+      alias($._assign_destructuring, $.group),
+      alias($._assign_parens, $.group)),
     _assign_parens: $ => seq('(', $._assign_pattern, ')'),
-    _assign_named: $ => seq(field('name', $.ident), ':', field('pattern', $._assign_pattern)),
+    _assign_named: $ => seq(field('field', $.ident), ':', field('pattern', $._assign_pattern)),
 
     // The value of a named entry in a destructuring pattern is itself a PATTERN, not an
     // expression: `let (drawables: _) = f()` discards that field, and `_` is not an
     // expression anywhere else.
     _destructuring_named: $ => seq(
-      field('name', $.ident),
+      field('field', $.ident),
       ':',
       field('pattern', $._pattern),
     ),
@@ -1059,9 +1016,9 @@ module.exports = grammar({
     // whose pattern is the placeholder.
     destruct_assignment: ($, code) => prec.dynamic(3, prec.right(PREC.assign, seq(
       field('pattern', choice(
-        alias($._assign_destructuring, $.destructuring),
-        alias($._empty_destructuring, $.destructuring),
-        $.underscore,
+        alias($._assign_destructuring, $.group),
+        alias($._empty_destructuring, $.group),
+        $.wildcard,
       )),
       '=',
       code.next(field('value', code._expr)),
@@ -1069,43 +1026,40 @@ module.exports = grammar({
 
     // ---- bindings and rules ----------------------------------------------
 
-    let_binding: ($, code) => prec.right(seq(
+    let: ($, code) => prec.right(seq(
       code.keyword('let'),
       choice(
-        // `let f(x) = ...` declares a function, and typst models that as a *closure*
-        // named `f` sitting inside the binding — `LetBinding(Let, Closure(Ident, Params,
-        // Eq, body))` — rather than as fields of the binding itself.
-        alias(code._let_closure, $.closure),
+        // Imenu finds a function by looking for this call in the pattern field.
+        seq(field('pattern', alias($._function_signature, $.call)), '=', code.next(field('value', code._expr))),
         seq(field('pattern', $.ident), code.initializer(seq('=', code.next(field('value', code._expr))))),
         seq(field('pattern', $._non_ident_pattern), '=', code.next(field('value', code._expr))),
       ),
     )),
 
-    _let_closure: ($, code) => seq(
-      $._let_name_ahead, field('name', $.ident),
-      field('params', $.params),
-      '=', code.next(field('body', code._expr)),
+    _function_signature: $ => seq(
+      $._let_name_ahead, field('item', $.ident), alias($.params, $.group),
     ),
 
     // The target of `set` is a dotted path, never a general expression: typst's
     // `set_rule` accepts `Ident ('.' Ident)*` and then parses the argument list itself.
     // Allowing a full expression here would let `text(size: 10pt)` be swallowed whole as
     // a `func_call`, leaving the set rule with no arguments.
-    set_rule: ($, code) => prec.right(seq(
+    set: ($, code) => prec.right(seq(
       'set',
-      field('target', choice($.ident, code.field_access)),
-      field('args', $.args),
+      alias(code._set_target, $.call),
       optional(seq('if', code.next(field('condition', code._expr)))),
     )),
 
-    show_rule: ($, code) => prec.right(seq(
+    _set_target: ($, code) => seq(field('item', choice($.ident, code.field)), field('args', $.group)),
+
+    show: ($, code) => prec.right(seq(
       'show',
       optional(field('selector', code._expr)),
       ':',
       code.next(field('transform', code._expr)),
     )),
 
-    contextual: ($, code) => prec.right(seq('context', code.next(field('body', code._expr)))),
+    context: ($, code) => prec.right(seq('context', code.next(field('body', code._expr)))),
 
     // ---- control flow -----------------------------------------------------
 
@@ -1116,38 +1070,37 @@ module.exports = grammar({
      * the else branch would swallow `{2} + b` as a binary, leaving the outer `+` inside
      * the conditional instead of applying to the whole product.
      */
-    _block: $ => choice($.code_block, $.content_block),
+    _block: $ => choice($.block, $.content),
 
-    conditional: ($, code) => prec.right(seq(
+    branch: ($, code) => prec.right(seq(
       'if', code.next(field('condition', code._expr)),
       code.block(field('then', $._block)),
-      optional(seq(code.continuation('else'), field('else', choice($._block, code.conditional)))),
+      optional(seq(code.continuation('else'), field('else', choice($._block, code.branch)))),
     )),
 
-    while_loop: ($, code) => prec.right(seq(
+    while: ($, code) => prec.right(seq(
       'while', code.next(field('condition', code._expr)), code.block(field('body', $._block)),
     )),
 
-    for_loop: ($, code) => prec.right(seq(
+    for: ($, code) => prec.right(seq(
       code.keyword('for'), field('pattern', $._pattern), 'in',
       code.next(field('iterable', code._expr)), code.block(field('body', $._block)),
     )),
 
-    loop_break: _ => 'break',
-    loop_continue: _ => 'continue',
-    func_return: ($, code) => prec.right(seq(
+    flow: _ => choice('break', 'continue'),
+    return: ($, code) => prec.right(seq(
       'return',
       choice(field('value', code._expr), $._bare_return),
     )),
 
     // ---- modules ----------------------------------------------------------
 
-    module_import: ($, code) => prec.right(seq(
+    import: ($, code) => prec.right(seq(
       'import',
       code.next(field('source', code._expr)),
-      optional(seq('as', field('alias', $.ident))),
+      optional(alias($._module_alias, $.as)),
       optional(seq(':', optional(field('items', choice(
-          '*',
+          alias('*', $.wildcard),
           $.import_items,
           // Parenthesized lists let an import span several lines. The parentheses are
           // siblings of `import_items` rather than wrapping it, matching typst.
@@ -1155,35 +1108,66 @@ module.exports = grammar({
         ))))),
     )),
 
-    // The trailing comma belongs *inside* the item list: typst ends `ImportItems` after
-    // it and leaves only the closing paren outside.
+    _module_alias: $ => seq('as', $.ident),
+
+    // The trailing comma belongs inside the item list.
+
     import_items: $ => seq(
-      sepBy1(',', choice($.import_item_path, $.renamed_import_item)),
+      sepBy1(',', choice($.import_item_path, $.as)),
       optional(','),
     ),
 
     import_item_path: $ => sepBy1('.', $.ident),
 
-    renamed_import_item: $ => seq(
+    as: $ => seq(
       field('path', $.import_item_path),
       'as',
       field('new_name', $.ident),
     ),
 
-    module_include: ($, code) => prec.right(seq('include', code.next(field('source', code._expr)))),
+    include: ($, code) => prec.right(seq('include', code.next(field('source', code._expr)))),
 
     // -----------------------------------------------------------------------
     // trivia
     // -----------------------------------------------------------------------
 
-    line_comment: _ => token(seq('//', /[^\r\n]*/)),
-
     // Typst's block comments nest — `/* /* */ */` is a single comment, and the first
     // `*/` does not end it. Nesting is not a regular language, so the scanner counts
     // the depth. See `Lexer::block_comment`.
-    block_comment: $ => seq('/*', $._block_comment_body),
+    comment: $ => choice(token(seq('//', /[^\r\n]*/)), seq('/*', $._block_comment_body)),
   }),
 });
+
+// Give Emacs a range for a heading and all its subsections. The context-start
+// tokens also recognize a heading immediately inside a content block.
+function headingRules() {
+  const rules = {};
+  for (const first of [false, true]) {
+    const prefix = first ? '_first_' : '_';
+    rules[prefix + 'heading'] = $ => choice(...HEADING_LEVELS.map(n => alias($[prefix + 'heading' + n], $.heading)));
+    rules[prefix + 'section'] = $ => choice(...HEADING_LEVELS.map(n => alias($[prefix + 'section' + n], $.section)));
+    for (const n of HEADING_LEVELS) {
+      rules[prefix + 'heading' + n] = $ => seq(
+        alias($[(first ? '_start_head' : '_head') + n], '='.repeat(n)),
+        optional($._markup_unlabelled), $._heading_end);
+      rules[prefix + 'section' + n] = $ => prec.right(seq(alias($[prefix + 'heading' + n], $.heading),
+        optional(alias($['_section_body' + n], $.content))));
+    }
+  }
+  const commentSection = ($, n) => seq($['_before_heading' + n], alias($['_first_section' + n], $.section));
+  rules._comment_section = $ => choice(...HEADING_LEVELS.map(n => commentSection($, n)));
+  for (const n of HEADING_LEVELS) {
+    rules['_section_body' + n] = $ => prec.right(repeat1(choice($._section_newline, $._document_expr,
+      ...HEADING_LEVELS.filter(m => m > n).map(m => choice(alias($['_section' + m], $.section),
+        commentSection($, m))))));
+  }
+  return rules;
+}
+
+function binary(code, precedence, operator) {
+  return prec.left(precedence, seq(field('lhs', code._value),
+    field('operator', operator), code.next(field('rhs', choice(code._value, code._statement_expr)))));
+}
 
 // Embedded code and code blocks stop at a newline. Parentheses and argument
 // lists allow newlines throughout. A code block also continues before a field
@@ -1243,27 +1227,27 @@ function scopedBracket($, bracket, more, stop) {
  * heading's body stops at a `Label`, for instance. Generating the choice lets us say the
  * same thing once instead of maintaining two nearly identical lists.
  */
-function markupExpr($, { label, strong = true, emph = true, colon = true, bracket = $._bracket_text }) {
+function markupExpr($, { label, heading = true, strong = true, emph = true, colon = true, bracket = $._bracket_text }) {
   return choice(
     $._markup_text,
     $.escape,
     $.linebreak,
     $.shorthand,
-    $.smart_quote,
+    $.quote,
     // Dropped from a delimiter's own body — see `strong` and `emph`.
     ...(strong ? [$.strong] : []),
     ...(emph ? [$.emph] : []),
-    $.raw,
-    $.link,
+    $._raw,
+    $.url,
     ...(label ? [$.label] : []),
     $.ref,
-    $.heading,
-    $.list_item,
-    $.enum_item,
+    ...(heading ? [$._heading] : []),
+    alias($._list_item, $.item),
+    alias($._enum_item, $.item),
     ...(!label || !strong || !emph ? [$._commented_marker] : []),
-    $.term_item,
-    $.equation,
-    $._hash_expr,
+    $.term,
+    $.math,
+    $.code,
     bracket,
     // A bare colon is plain text; `term_item` claims it as a separator where one fits.
     ...(colon ? [alias(':', $.text)] : []),
@@ -1274,8 +1258,8 @@ function mathImplicitCall($, group) {
   // math_expr_prec allows explicit arguments only after an identifier or field.
   return prec.left(PREC_MATH.func, seq(
     choice(
-      seq(choice(mathLetter($), $.str, $.math_primes, $.escape), $._math_adjacent),
-      seq(choice($.math_ident, $.math_field_access), $._math_adjacent_brace),
+      seq(choice(mathLetter($), $.string, $.math_primes, $.escape), $._math_adjacent),
+      seq(choice(alias($._math_ident, $.ident), alias($._math_field, $.field)), $._math_adjacent_brace),
     ),
     group,
   ));
@@ -1290,7 +1274,7 @@ function mathRoot(operand) {
 
 function mathFrac($, denominator) {
   return prec.left(PREC_MATH.frac, seq(
-    field('numerator', choice(alias($._math_group, $.math), $._math_expr)),
+    field('numerator', choice(alias($._math_group, $.formula), $._math_expr)),
     '/',
     field('denominator', denominator),
   ));
@@ -1319,28 +1303,28 @@ function mathScript(operator, operand) {
 function mathExpr($, { operators, inArgs = false }) {
   return choice(
     mathText($),
-    seq(choice($.math_ident, $.math_field_access), optional($._math_symbol_end)),
+    seq(choice(alias($._math_ident, $.ident), alias($._math_field, $.field)), optional($._math_symbol_end)),
     $.math_shorthand,
-    $.math_align_point,
+    $.align,
     $.math_primes,
     $.math_delimited,
-    alias($.math_implicit_call, $.math),
-    alias($.math_factorial, $.math),
+    alias($.math_implicit_call, $.formula),
+    $.fac,
     $.math_root,
-    $.math_call,
-    $.str,
+    alias($._math_call, $.call),
+    $.string,
     $.escape,
     $.linebreak,
-    $._hash_expr,
+    $.code,
     ...(operators ? [
-      $.math_attach,
-      $.math_frac,
+      $.attach,
+      $.fraction,
     ] : []),
     // A loose closer is a symbol, as in lr(}, ..). Where a group or argument
     // list can close, its literal token (or higher-priority Unicode/shorthand
     // token) wins over this fallback. This keeps the first closer with its opener.
-    alias(token(choice(/[\]}]/, UNICODE_MATH_CLOSE)), $.math_text),
-    ...(inArgs ? [] : [alias(token(prec(-1, /\)/)), $.math_text)]),
+    alias(token(choice(/[\]}]/, UNICODE_MATH_CLOSE)), $.symbol),
+    ...(inArgs ? [] : [alias(token(prec(-1, /\)/)), $.symbol)]),
     alias('|]', $.math_shorthand),
     // Typst lexes these as punctuation or as the start of a shorthand, then falls
     // through to math text when no shorthand matched. `=`, `+`, `<`, `>` and `|` are
@@ -1348,8 +1332,8 @@ function mathExpr($, { operators, inArgs = false }) {
     // shorthands, and longest-match already prefers those.
     // `|` sits here rather than among the delimiters: it never groups, so it is only ever
     // a symbol. The `math_text` character class excludes it, hence the explicit entry.
-    alias(choice('.', '!', '=', '+', '<', '>', ':', '|'), $.math_text),
-    ...(inArgs ? [] : [alias(choice(',', ';'), $.math_text)]),
+    alias(choice('.', '!', '=', '+', '<', '>', ':', '|'), $.symbol),
+    ...(inArgs ? [] : [alias(choice(',', ';'), $.symbol)]),
   );
 }
 
@@ -1361,7 +1345,7 @@ function mathExpr($, { operators, inArgs = false }) {
  * carry, when the ambiguity is already declared against `dict` itself.
  */
 function dictItems($) {
-  return seq(sepBy1(',', choice($.named, $.keyed, $.spread)), optional(','));
+  return seq(sepBy1(',', choice($.tagged, $.keyed, $.spread)), optional(','));
 }
 
 /**
@@ -1372,12 +1356,12 @@ function dictItems($) {
  * letter when its left operand is math text.
  */
 function mathLetter($) {
-  return choice(alias($._math_letter, $.math_text), alias($._math_alpha_cluster, $.math_text));
+  return choice(alias($._math_letter, $.letter), alias($._math_alpha_cluster, $.letter));
 }
 
 function mathText($) {
   return choice(mathLetter($),
-    alias($._math_other_cluster, $.math_text), alias($._math_other, $.math_text));
+    alias($._math_other_cluster, $.symbol), alias($._math_other, $.symbol));
 }
 
 // A comma, a keyed pattern, or a sink distinguishes a destructuring from

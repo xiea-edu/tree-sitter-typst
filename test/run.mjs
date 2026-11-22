@@ -233,7 +233,7 @@ function tierDiff() {
     console.log(`  ${g.name.padEnd(14)} ${String(matching).padStart(5)}/${String(compared).padEnd(5)} ${pct(matching, compared)}`);
   }
 
-  console.log(`\n  ${filesMatching}/${filesCompared} files structurally identical  ${color.bold(pct(filesMatching, filesCompared))}`);
+  console.log(`\n  ${filesMatching}/${filesCompared} files agree on mapped Emacs structure  ${color.bold(pct(filesMatching, filesCompared))}`);
 
   if (mismatches.length) {
     // Which kinds go wrong matters far more than which files do: one bad rule shows up
@@ -488,7 +488,7 @@ function checkRepeatedMathCalls() {
     const incremental = tsParseSexp(file, ['--edits', open, '--edits', close], timeout);
     fs.writeFileSync(file, prefix + '$' + body + '$)');
     const fresh = tsParseSexp(file, [], timeout);
-    if (/\((ERROR|MISSING)/.test(fresh) || (fresh.match(/\(math_call\b/g) ?? []).length !== count ||
+    if (/\((ERROR|MISSING)/.test(fresh) || (fresh.match(/\(call\b/g) ?? []).length !== count ||
         normalizeTree(incremental) !== normalizeTree(fresh)) {
       fail(`closing the equation must produce the same ${count} calls as a fresh parse`);
       return;
@@ -560,74 +560,6 @@ function tierCoverage() {
 }
 
 // ---------------------------------------------------------------------------
-// Queries
-// ---------------------------------------------------------------------------
-//
-// A query that names a node the grammar no longer produces fails to compile, and in an
-// editor that means highlighting silently stops working for the whole file. Renaming a
-// node is exactly the kind of change that breaks them, so compiling every query against
-// the current grammar belongs in the suite rather than in a reviewer's memory.
-
-function tierQueries() {
-  head('Queries');
-  const dir = path.join(ROOT, 'queries');
-  if (!fs.existsSync(dir)) {
-    console.log(color.dim('  no queries yet'));
-    return;
-  }
-
-  const sample = path.join(ROOT, '.tmp', 'query-sample.typ');
-  fs.writeFileSync(sample, SAMPLE_DOC, 'utf8');
-
-  let ok = 0;
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.scm')).sort();
-  for (const f of files) {
-    try {
-      execFileSync(TS_BIN, ['query', path.join(dir, f), sample], {
-        cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'ignore', 'pipe'],
-      });
-      ok++;
-    } catch (e) {
-      fail(`queries/${f} does not compile`);
-      console.log(color.dim(`    ${(e.stderr ?? '').trim().split('\n').slice(-2).join(' ')}`));
-    }
-  }
-  fs.rmSync(sample, { force: true });
-  if (ok === files.length) pass(`${ok} query files compile against the grammar`);
-}
-
-/** A document touching every construct the queries mention. */
-const SAMPLE_DOC = `= Heading <lbl>
-== Sub
-
-Some *bold*, _emph_, \`raw\`, a ~ shorthand and a \\ linebreak.
-See @ref and https://typst.app.
-
-- list
-+ enum
-1. numbered
-/ term: description
-
-$ sum_(i=0)^n x_i / 2 $
-
-\`\`\`rust
-fn main() {}
-\`\`\`
-
-#let f(a, b: 2) = a + b
-#let (x, _) = (1, 2)
-#set text(size: 10pt)
-#show heading: it => it.body
-#import "m.typ": a, b as c
-#context counter(page).get()
-#{
-  for i in range(3) { if i > 1 { break } else { continue } }
-  while false { }
-  return none
-}
-`;
-
-// ---------------------------------------------------------------------------
 // Golden corpus tests (tree-sitter test)
 // ---------------------------------------------------------------------------
 
@@ -668,10 +600,10 @@ switch (cmd) {
   case 'fuzz': generate(); tierFuzz(); break;
   case 'incremental': generate(); tierIncremental(); break;
   case 'coverage': tierCoverage(); break;
-  case 'queries': generate(); tierQueries(); break;
+  case 'emacs': generate(); await import('./emacs.mjs'); break;
   case 'all':
     generate();
-    tierQueries();
+    await import('./emacs.mjs');
     tierGolden();
     execFileSync(process.execPath, ['--test', 'test/regressions.mjs'], { cwd: ROOT, stdio: 'inherit' });
     tierValid();

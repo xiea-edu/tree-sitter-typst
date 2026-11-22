@@ -8,9 +8,9 @@ Text $x$ more.
 
 (source_file
   (text)
-  (equation
-    (math
-      (math_text)))
+  (math
+    (formula
+      (letter)))
   (text))
 
 ================================================================================
@@ -22,17 +22,17 @@ $x$ $sum$ $s u m$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math_text)))
-  (equation
-    (math
-      (math_ident)))
-  (equation
-    (math
-      (math_text)
-      (math_text)
-      (math_text))))
+  (math
+    (formula
+      (letter)))
+  (math
+    (formula
+      (ident)))
+  (math
+    (formula
+      (letter)
+      (letter)
+      (letter))))
 
 ================================================================================
 superscript
@@ -43,11 +43,11 @@ $x^2$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math_attach
-        (math_text)
-        (math_text)))))
+  (math
+    (formula
+      (attach
+        (letter)
+        (symbol)))))
 
 ================================================================================
 subscript and superscript form one attachment
@@ -58,12 +58,12 @@ $x_i^2$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math_attach
-        (math_text)
-        (math_text)
-        (math_text)))))
+  (math
+    (formula
+      (attach
+        (letter)
+        (letter)
+        (symbol)))))
 
 ================================================================================
 fraction
@@ -74,11 +74,11 @@ $a/b$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math_frac
-        (math_text)
-        (math_text)))))
+  (math
+    (formula
+      (fraction
+        (letter)
+        (letter)))))
 
 ================================================================================
 attachment binds tighter than a fraction
@@ -89,13 +89,13 @@ $a/b^2$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math_frac
-        (math_text)
-        (math_attach
-          (math_text)
-          (math_text))))))
+  (math
+    (formula
+      (fraction
+        (letter)
+        (attach
+          (letter)
+          (symbol))))))
 
 ================================================================================
 call needs an adjacent parenthesis
@@ -106,12 +106,12 @@ $sqrt(2)$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math_call
-        (math_ident)
-        (math_args
-          (math_text))))))
+  (math
+    (formula
+      (call
+        (ident)
+        (group
+          (symbol))))))
 
 ================================================================================
 delimited group
@@ -122,15 +122,15 @@ $(a + b)$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
+  (math
+    (formula
       (math_delimited
-        (math_text)
-        (math
-          (math_text)
-          (math_text)
-          (math_text))
-        (math_text)))))
+        (symbol)
+        (formula
+          (letter)
+          (symbol)
+          (letter))
+        (symbol)))))
 
 ================================================================================
 sum with limits
@@ -141,19 +141,19 @@ $ sum_(i=0)^n x_i $
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math_attach
-        (math_ident)
-        (math
-          (math
-            (math_text)
-            (math_text)
-            (math_text)))
-        (math_text))
-      (math_attach
-        (math_text)
-        (math_text)))))
+  (math
+    (formula
+      (attach
+        (ident)
+        (formula
+          (formula
+            (letter)
+            (symbol)
+            (symbol)))
+        (letter))
+      (attach
+        (letter)
+        (letter)))))
 
 ================================================================================
 primes
@@ -164,10 +164,10 @@ $f'$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math_attach
-        (math_text)
+  (math
+    (formula
+      (attach
+        (letter)
         (math_primes)))))
 
 ================================================================================
@@ -179,26 +179,26 @@ $a <= b$ $c != d$ $e -> f$ $g <==> h$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math_text)
+  (math
+    (formula
+      (letter)
       (math_shorthand)
-      (math_text)))
-  (equation
-    (math
-      (math_text)
+      (letter)))
+  (math
+    (formula
+      (letter)
       (math_shorthand)
-      (math_text)))
-  (equation
-    (math
-      (math_text)
+      (letter)))
+  (math
+    (formula
+      (letter)
       (math_shorthand)
-      (math_text)))
-  (equation
-    (math
-      (math_text)
+      (letter)))
+  (math
+    (formula
+      (letter)
       (math_shorthand)
-      (math_text))))
+      (letter))))
 
 ================================================================================
 alignment point
@@ -210,17 +210,17 @@ $ a &= b \
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math_text)
-      (math_align_point)
-      (math_text)
-      (math_text)
+  (math
+    (formula
+      (letter)
+      (align)
+      (symbol)
+      (letter)
       (linebreak)
-      (math_text)
-      (math_align_point)
-      (math_text)
-      (math_text))))
+      (letter)
+      (align)
+      (symbol)
+      (letter))))
 
 ================================================================================
 field access on a math identifier
@@ -231,11 +231,11 @@ $arrow.r$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math_field_access
-        (math_ident)
-        (math_ident)))))
+  (math
+    (formula
+      (field
+        (ident)
+        (ident)))))
 
 ================================================================================
 embedded code in math
@@ -246,11 +246,12 @@ $#calc.pi$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (field_access
-        (ident)
-        (ident)))))
+  (math
+    (formula
+      (code
+        (field
+          (ident)
+          (ident))))))
 
 ================================================================================
 text in math
@@ -261,10 +262,10 @@ $"hello" x$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (str)
-      (math_text))))
+  (math
+    (formula
+      (string)
+      (letter))))
 
 ================================================================================
 root
@@ -275,10 +276,10 @@ $√x$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
+  (math
+    (formula
       (math_root
-        (math_text)))))
+        (letter)))))
 
 ================================================================================
 multiline calls keep nested named math arguments separate
@@ -291,37 +292,37 @@ $ frac(
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math_call
-        (math_ident)
-        (math_args
-          (math_call
-            (math_ident)
-            (math_args
-              (math_text)
-              (named
+  (math
+    (formula
+      (call
+        (ident)
+        (group
+          (call
+            (ident)
+            (group
+              (letter)
+              (tagged
                 (ident)
-                (math_call
-                  (math_ident)
-                  (math_args
-                    (math_text)
-                    (named
+                (call
+                  (ident)
+                  (group
+                    (symbol)
+                    (tagged
                       (ident)
-                      (math_text)))))))
-          (math_call
-            (math_ident)
-            (math_args
-              (math_text)
-              (named
+                      (symbol)))))))
+          (call
+            (ident)
+            (group
+              (letter)
+              (tagged
                 (ident)
-                (math_call
-                  (math_ident)
-                  (math_args
-                    (math_text)
-                    (named
+                (call
+                  (ident)
+                  (group
+                    (symbol)
+                    (tagged
                       (ident)
-                      (math_text))))))))))))
+                      (symbol))))))))))))
 
 ================================================================================
 only top-level argument punctuation separates and closes a call
@@ -332,30 +333,30 @@ $rgb((a,b); name: x, ..rest), rgb (y)$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math_call
-        (math_ident)
-        (math_args
+  (math
+    (formula
+      (call
+        (ident)
+        (group
           (math_delimited
-            (math_text)
-            (math
-              (math_text)
-              (math_text)
-              (math_text))
-            (math_text))
-          (named
+            (symbol)
+            (formula
+              (letter)
+              (symbol)
+              (letter))
+            (symbol))
+          (tagged
             (ident)
-            (math_text))
+            (letter))
           (spread
-            (math_ident))))
-      (math_text)
-      (math_ident)
+            (ident))))
+      (symbol)
+      (ident)
       (math_delimited
-        (math_text)
-        (math
-          (math_text))
-        (math_text)))))
+        (symbol)
+        (formula
+          (letter))
+        (symbol)))))
 
 ================================================================================
 an unmatched group is the entire superscript
@@ -366,15 +367,15 @@ $2^[4 * 2$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math_attach
-        (math_text)
-        (math
-          (math_text)
-          (math_text)
+  (math
+    (formula
+      (attach
+        (symbol)
+        (formula
+          (symbol)
+          (symbol)
           (math_shorthand)
-          (math_text))))))
+          (symbol))))))
 
 ================================================================================
 unmatched openers nest through the end of the equation
@@ -385,17 +386,17 @@ $a < b [ c { d$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math_text)
-      (math_text)
-      (math_text)
-      (math
-        (math_text)
-        (math_text)
-        (math
-          (math_text)
-          (math_text))))))
+  (math
+    (formula
+      (letter)
+      (symbol)
+      (letter)
+      (formula
+        (symbol)
+        (letter)
+        (formula
+          (symbol)
+          (letter))))))
 
 ================================================================================
 the first closer belongs to the innermost group, regardless of shape
@@ -406,21 +407,29 @@ $[ (x ] y$ $[ (x ] y } ]$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math
-        (math_text)
-        (math_delimited (math_text) (math (math_text)) (math_text))
-        (math_text))))
-  (equation
-    (math
+  (math
+    (formula
+      (formula
+        (symbol)
+        (math_delimited
+          (symbol)
+          (formula
+            (letter))
+          (symbol))
+        (letter))))
+  (math
+    (formula
       (math_delimited
-        (math_text)
-        (math
-          (math_delimited (math_text) (math (math_text)) (math_text))
-          (math_text))
-        (math_text))
-      (math_text))))
+        (symbol)
+        (formula
+          (math_delimited
+            (symbol)
+            (formula
+              (letter))
+            (symbol))
+          (letter))
+        (symbol))
+      (symbol))))
 
 ================================================================================
 postfix operators stay inside an unmatched implicit call argument
@@ -431,16 +440,21 @@ $a⟦x!$ $[|v|]$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math
-        (math_text)
-        (math
-          (math_text)
-          (math (math_text) (math_text))))))
-  (equation
-    (math
-      (math_delimited (math_shorthand) (math (math_text)) (math_shorthand)))))
+  (math
+    (formula
+      (formula
+        (letter)
+        (formula
+          (symbol)
+          (fac
+            (letter))))))
+  (math
+    (formula
+      (math_delimited
+        (math_shorthand)
+        (formula
+          (letter))
+        (math_shorthand)))))
 
 ================================================================================
 a call inside a matched group closes before the following comma
@@ -451,20 +465,20 @@ $(x, cal(A), y)$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
+  (math
+    (formula
       (math_delimited
-        (math_text)
-        (math
-          (math_text)
-          (math_text)
-          (math_call
-            (math_ident)
-            (math_args
-              (math_text)))
-          (math_text)
-          (math_text))
-        (math_text)))))
+        (symbol)
+        (formula
+          (letter)
+          (symbol)
+          (call
+            (ident)
+            (group
+              (letter)))
+          (symbol)
+          (letter))
+        (symbol)))))
 
 ================================================================================
 an unmatched group can finish a chain of primed scripts
@@ -475,12 +489,14 @@ $a^b'^c_[x$
 --------------------------------------------------------------------------------
 
 (source_file
-  (equation
-    (math
-      (math_attach
-        (math_text)
-        (math_attach
-          (math_text)
+  (math
+    (formula
+      (attach
+        (letter)
+        (attach
+          (letter)
           (math_primes)
-          (math_text)
-          (math (math_text) (math_text)))))))
+          (letter)
+          (formula
+            (symbol)
+            (letter)))))))
