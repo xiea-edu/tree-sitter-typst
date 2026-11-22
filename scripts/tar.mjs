@@ -3,7 +3,7 @@
  *
  * We extract `.typ` files out of gzipped tarballs (the Typst source tree and Typst
  * Universe packages). Node ships gzip via `zlib` but has no tar support, and shelling
- * out to `tar` is not portable enough for Windows CI. Tar is a simple enough format
+ * out to `tar` is not portable across Windows installations. Tar is a simple enough format
  * that reading it here beats taking a dependency.
  *
  * Handles the ustar `prefix` field plus GNU long names and pax extended headers, all

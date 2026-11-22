@@ -144,7 +144,7 @@ function tierValid() {
    * `typst/typst@v0.15.1 tests/suite` is a fixed, version-pinned set, so its score is
    * the same on every machine. The Universe corpus is whatever the registry held on the
    * day it was fetched and however many packages were asked for, so its score drifts —
-   * CI fetching 200 packages and a laptop fetching 600 do not produce the same number.
+   * Two runs that fetch 200 and 600 packages measure different samples.
    * Gating on it would make the floor meaningless.
    */
   const suite = perGroup.get('typst-suite');
@@ -416,7 +416,7 @@ function tierIncremental() {
     // A hang is reported as its own failure rather than being allowed to block the run.
     // The input is recorded because the seed alone will not reproduce it: the file is
     // chosen by index into the corpus, so a corpus of a different size picks different
-    // files — which is why an hour-long CI hang did not reproduce locally.
+    // files — so the seed alone cannot identify the affected input.
     let incremental, fresh;
     try {
       incremental = tsParseSexp(base, ['--edits', `${offset} 0 ${insert}`]);

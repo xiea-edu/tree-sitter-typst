@@ -6,7 +6,7 @@
     "tests/suite` is a fixed, version-pinned set of 221 files, so its score is",
     "reproducible on any machine. The Universe package corpus is whatever the registry",
     "holds on the day it was fetched and how many packages were asked for, so its score",
-    "drifts — CI fetching 200 packages and a laptop fetching 600 do not produce the same",
+    "drifts — runs fetching 200 and 600 packages do not produce the same",
     "number. It is reported, but not gated.",
     "",
     "Validity is now pinned at 1.0 in both directions: every file typst accepts we accept,",

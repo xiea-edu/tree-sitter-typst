@@ -200,9 +200,8 @@ export class ParseTimeout extends Error {
  * Ceiling for one single-file parse. Generous — the slowest file in the corpus parses in
  * well under a second — so this only fires on a genuine hang, never on a slow machine.
  *
- * This exists because CI hung for over an hour in the incremental tier with no output:
- * `execFileSync` has no default timeout, so a CLI that never returns blocks the suite
- * until the runner's own limit. The batch paths are deliberately not covered, since they
+ * `execFileSync` has no default timeout. A hung single-file parse would block the
+ * rest of the suite. The batch paths are deliberately not covered, since they
  * stream the whole corpus through one process and legitimately run for minutes.
  */
 export const PARSE_TIMEOUT_MS = 60_000;
