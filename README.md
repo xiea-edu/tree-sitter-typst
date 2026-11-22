@@ -48,23 +48,24 @@ Against the reference parser, on the full 3,831-file corpus:
 | | |
 | --- | --- |
 | Validity agreement | **100%** — 0 false rejects, 0 false accepts |
-| Span agreement | 98.39% of files structurally identical (3,733 / 3,794) |
+| Span agreement | 98.87% of files structurally identical (3,751 / 3,794) |
 | `SyntaxKind` coverage | 130 / 130 kinds the corpus produces |
-| Golden tests | 68, all passing |
+| Golden tests | 73, all passing |
 | Fuzz / incremental | clean |
 
-Span agreement is 98.81% on the 3,519 package files, 100% on the pinned set, and
-89.67% on Typst's own test suite.
+Span agreement is 99.15% on the 3,519 package files, 100% on the pinned set, and
+92.93% on the 184 valid files in Typst's own test suite.
+
+An unmatched math opener wraps the rest of its equation in a nested `math` node.
+In `$[ (x ] y$`, the `]` closes the inner `(` to form a `math_delimited` node.
+The outer `[` and the final `y` share the unmatched group. ASCII `<` and `>`
+are ordinary math symbols.
 
 ### Known gaps
 
-**Delimiter grouping.** The remaining span disagreements are almost entirely math-mode
-delimiter grouping. Typst opens a nested `Math` scope at any opening delimiter and closes
-it at the end of the equation if the closer never arrives; `math_delimited` here requires
-a matched pair, so an unmatched `<` or `[` produces a flat run where the reference nests.
-This is why the adversarial suite scores lower than real documents. It does not affect
-which tokens receive which capture, so highlighting, folding and indentation are
-unaffected.
+The remaining 43 files with span differences include markup text, lists, and math
+attachments. For example, the reference wraps `a'!` in a `Math` node covering
+the primed expression and its factorial.
 
 ### Repeated calls in equations
 

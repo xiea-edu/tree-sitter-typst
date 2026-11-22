@@ -372,7 +372,7 @@ $rgb((a,b); name: x, ..rest), rgb (y)$
         (math_text)))))
 
 ================================================================================
-an unmatched opener may be a script value but not an attachment base
+an unmatched group is the entire superscript
 ================================================================================
 
 $2^[4 * 2$
@@ -384,7 +384,114 @@ $2^[4 * 2$
     (math
       (math_attach
         (math_text)
-        (math_text))
+        (math
+          (math_text)
+          (math_text)
+          (math_shorthand)
+          (math_text))))))
+
+================================================================================
+unmatched openers nest through the end of the equation
+================================================================================
+
+$a < b [ c { d$
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (equation
+    (math
       (math_text)
-      (math_shorthand)
+      (math_text)
+      (math_text)
+      (math
+        (math_text)
+        (math_text)
+        (math
+          (math_text)
+          (math_text))))))
+
+================================================================================
+the first closer belongs to the innermost group, regardless of shape
+================================================================================
+
+$[ (x ] y$ $[ (x ] y } ]$
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (equation
+    (math
+      (math
+        (math_text)
+        (math_delimited (math_text) (math (math_text)) (math_text))
+        (math_text))))
+  (equation
+    (math
+      (math_delimited
+        (math_text)
+        (math
+          (math_delimited (math_text) (math (math_text)) (math_text))
+          (math_text))
+        (math_text))
       (math_text))))
+
+================================================================================
+postfix operators stay inside an unmatched implicit call argument
+================================================================================
+
+$a⟦x!$ $[|v|]$
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (equation
+    (math
+      (math
+        (math_text)
+        (math
+          (math_text)
+          (math (math_text) (math_text))))))
+  (equation
+    (math
+      (math_delimited (math_shorthand) (math (math_text)) (math_shorthand)))))
+
+================================================================================
+a call inside a matched group closes before the following comma
+================================================================================
+
+$(x, cal(A), y)$
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (equation
+    (math
+      (math_delimited
+        (math_text)
+        (math
+          (math_text)
+          (math_text)
+          (math_call (math_ident) (math_args (math (math_text))))
+          (math_text)
+          (math_text))
+        (math_text)))))
+
+================================================================================
+an unmatched group can finish a chain of primed scripts
+================================================================================
+
+$a^b'^c_[x$
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (equation
+    (math
+      (math_attach
+        (math_text)
+        (math_attach
+          (math_text)
+          (math_primes)
+          (math_text)
+          (math (math_text) (math_text)))))))

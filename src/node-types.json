@@ -3663,6 +3663,10 @@
           "named": true
         },
         {
+          "type": "math_shorthand",
+          "named": true
+        },
+        {
           "type": "math_text",
           "named": true
         }
@@ -4202,6 +4206,10 @@
           },
           {
             "type": "math_align_point",
+            "named": true
+          },
+          {
+            "type": "math_attach",
             "named": true
           },
           {
